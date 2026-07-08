@@ -1,0 +1,286 @@
+//Cliente (Siempre el recomendado)
+generator client {
+  provider = "prisma-client-js"
+}
+
+//Configuracion de conexión a la BD (Tomado de las .env)
+datasource db {
+  provider = "postgresql"
+}
+
+//ENUMS
+
+//Lista de roles
+enum Role {
+  OWNER
+  PARTNER
+  SALES_LEADER
+  SALES_REP
+}
+
+//Estrategia de asignación de leads
+enum LeadAssignmentStrategy {
+  MANUAL
+  ROUND_ROBIN
+  LOAD_BALANCED
+}
+
+//Estados posibles de una cotización
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+}
+
+//Modelo Tenant (Modelo principal e impresindible para el aislamiento de datos por empresa)
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  settings  Json?    // Configuración general en JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  leads              Lead[]
+  contacts           Contact[]
+  companyContacts    CompanyContact[]
+  formulas           Formula[]
+  quotes             Quote[]
+  leadStatusConfigs  LeadStatusConfig[]
+  tenantSettings     TenantSettings?
+  auditLogs          AuditLog[]
+  products           Product[]
+
+}
+
+//Modelo Usuario (Entidades que interactuan con el sistema)
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(SALES_REP)
+  isActive     Boolean  @default(true)
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedLeads       Lead[]               @relation("AssignedTo")
+  createdFormulas     Formula[]
+  createdQuotes       Quote[]
+  leadStatusChanges   LeadStatusHistory[]
+  auditLogs           AuditLog[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+//Oportunidad, entidad principal de las funcionalidades CRM
+model Lead {
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName      String?
+  contactName      String?
+  email            String?
+  phone            String?
+  statusId         String?
+  status           LeadStatusConfig? @relation(fields: [statusId], references: [id])
+  source           String?
+  assignedToId     String?
+  assignedTo       User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  estimatedValue   Decimal?
+  expectedCloseDate DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  statusHistory LeadStatusHistory[]
+  quotes        Quote[]
+
+  @@index([tenantId])
+  @@index([assignedToId])
+}
+
+
+//Modelo para la gestión de estados de leads (Permite personalizar los estados de leads)
+model LeadStatusConfig {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?   // Hex color para UI
+  order     Int
+  isDefault Boolean  @default(false) // Estado inicial para nuevos leads
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads          Lead[]               // Leads con este estado
+  oldStatusHist  LeadStatusHistory[]  @relation("OldStatus")
+  newStatusHist  LeadStatusHistory[]  @relation("NewStatus")
+
+  @@unique([tenantId, order])
+  @@index([tenantId])
+}
+
+
+//Modelo para el historial de cambios de estado de leads (Auditorias)
+model LeadStatusHistory {
+  id          String    @id @default(cuid())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  oldStatusId String?
+  oldStatus   LeadStatusConfig? @relation("OldStatus", fields: [oldStatusId], references: [id])
+  newStatusId String
+  newStatus   LeadStatusConfig  @relation("NewStatus", fields: [newStatusId], references: [id])
+  changedById String
+  changedBy   User      @relation(fields: [changedById], references: [id])
+  note        String?
+  changedAt   DateTime  @default(now())
+
+  @@index([leadId])
+}
+
+//Contactos del tipo persona (Personas de ventas de otras empresas o etc)
+model Contact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  companyId String?
+  company   CompanyContact? @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes Quote[]
+
+  @@index([tenantId])
+}
+
+//Contacto del tipo empresa (Mas extenso y complejo pero necesario para facturación)
+model CompanyContact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  industry  String?
+  contacts  Contact[]
+  taxNumber String?
+  phone     String?
+  email     String?
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+//Modelo para la gestión de fórmulas matemáticas 
+model Formula {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  expression  String
+  variables   Json     // [{"name":"basePrice","type":"number","label":"Precio base"}, ...]
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+  @@index([tenantId])
+}
+
+//Cotización de productos
+model Quote {
+  id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId      String?
+  lead        Lead?       @relation(fields: [leadId], references: [id])
+  contactId   String?
+  contact     Contact?    @relation(fields: [contactId], references: [id])
+  status      QuoteStatus @default(DRAFT)
+  total       Decimal     @default(0)
+  discount    Decimal?
+  notes       String?
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items QuoteItem[]
+
+  @@index([tenantId])
+}
+
+//Modelo de producto/servicio (lo que vende cada empresa)
+model Product {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  basePrice   Decimal? // Precio base si no se usa fórmula
+  formulaId   String?  // Fórmula opcional para calcular precio
+  formula     Formula? @relation(fields: [formulaId], references: [id])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quoteItems QuoteItem[]
+
+  @@index([tenantId])
+}
+
+//Items de las cotizaciones
+model QuoteItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  description String   // Descripción visible (tomada del producto o personalizada)
+  quantity    Int
+  variables   Json?    // Variables ingresadas si el producto usa fórmula: {"ancho": 200, "alto": 150}
+  unitPrice   Decimal? // Precio unitario calculado o manual
+  total       Decimal  // Precio total (calculado o manual)
+}
+
+
+//Configuración del tenant
+model TenantSettings {
+  id                    String                @id @default(cuid())
+  tenantId              String                @unique
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadAssignmentStrategy LeadAssignmentStrategy @default(MANUAL)
+}
+
+//Modelo de auditoría
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+}

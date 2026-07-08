@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:15
+    container_name: saas_db
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: saas_backend
+    ports:
+      - "4000:4000"
+    environment:
+      # Definimos todas las variables que necesita el backend
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-default-secret}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-7d}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        pnpm prisma generate &&
+        pnpm prisma migrate deploy &&
+        pnpm dev
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
