@@ -1,0 +1,6 @@
+export enum Role {
+  OWNER = 'OWNER',
+  PARTNER = 'PARTNER',
+  SALES_LEADER = 'SALES_LEADER',
+  SALES_REP = 'SALES_REP',
+}

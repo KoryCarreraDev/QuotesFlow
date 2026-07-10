@@ -3,8 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import { authRouter } from './presentation/routes/authRoutes.js';
+import { ScopedContainer } from './cross-cutting/container.js';
 
 const app: Express = express();
+const publicContainer = new ScopedContainer();
 
 // Seguridad
 app.use(helmet());
@@ -29,5 +32,7 @@ app.use(limiter);
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.use('/api/auth', authRouter(publicContainer));
 
 export default app;
