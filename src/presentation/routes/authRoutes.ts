@@ -12,9 +12,15 @@ const registerSchema = z.object({
     ownerLastName: z.string().min(1),
 });
 
+const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+});
+
 export function authRouter(container: ScopedContainer): Router {
     const router = Router();
-    const controller = new AuthController(container.getRegisterCompanyUseCase());
+    const controller = new AuthController(container.getRegisterCompanyUseCase(), container.getLoginUseCase());
     router.post('/register', validateBody(registerSchema), controller.register);
+    router.post('/login', validateBody(loginSchema), controller.login);
     return router;
 }
