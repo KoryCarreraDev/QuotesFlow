@@ -6,7 +6,7 @@ export function createAuthValidateCookie(tokenService: IAuthTokenService) {
         try {
             const token = req.cookies?.accessToken;
 
-            if (!token) return res.status(401).json({ error: 'Not authorized' });
+            if (!token) return res.status(401).json({ error: 'Not Token' });
             const payload = tokenService.verifyToken(token);
 
             req.user = {
