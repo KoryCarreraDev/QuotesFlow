@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ScopedContainer } from "../../../cross-cutting/container.js";
+import { TenantContext } from "@/cross-cutting/tenantContext.js";
 
 export function createTenantMiddleware() {
     return (req: Request, res: Response, next: NextFunction) => {
@@ -9,11 +10,11 @@ export function createTenantMiddleware() {
 
             if (!tenantId) throw new Error('Not Tenant');
 
-            const container = new ScopedContainer(tenantId);
-
-            req.container = container as ScopedContainer;
-
-            next();
+            TenantContext.run(tenantId, () => {
+                const container = new ScopedContainer(tenantId);
+                req.container = container;
+                next();
+            });
         } catch (error) {
             next(error);
         }

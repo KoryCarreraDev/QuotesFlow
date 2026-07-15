@@ -8,6 +8,9 @@ import { BcryptHashService } from "../infrastructure/services/BcryptHashService.
 import { RegisterCompanyAndOwnerUseCase } from "../application/use-case/auth/RegisterCompanyAndOwnerUseCase.js";
 import { LoginUseCase } from "@/application/use-case/auth/LoginUseCase.js";
 import { JwTokenService } from "../infrastructure/services/JwtTokenService.js";
+import { LeadMapper } from "@/application/mappers/LeadMapper.js";
+import { GetLeadsUseCase } from "@/application/use-case/leads/getLeadsUseCase.js";
+import { PrismaLeadRepository } from "@/infrastructure/persistence/repositories/PrismaLeadRepository.js";
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -19,7 +22,6 @@ export class ScopedContainer {
         this.prisma = PrismaService.getInstance().client;
         if (tenantId) {
             this.tenantContext = new TenantContext();
-            TenantContext.run(tenantId, () => { });
         } else {
             this.tenantContext = {
                 getTenantId: () => { throw new Error('Tenant context not available in this scope'); }
@@ -41,5 +43,11 @@ export class ScopedContainer {
             this.hashService,
             this.authTokenService,
         )
+    }
+
+    getGetLeadsUseCase(): GetLeadsUseCase{
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        const leadMapper = new LeadMapper();
+        return new GetLeadsUseCase(leadRepo, leadMapper);
     }
 }

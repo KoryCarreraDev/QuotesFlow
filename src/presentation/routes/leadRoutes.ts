@@ -8,7 +8,11 @@ export function leadRouter(jwtService: IAuthTokenService): Router {
     const router = Router();
     const authMiddleware = createAuthValidateCookie(jwtService);
     const tenantMiddleware = createTenantMiddleware();
-    const leadCtrl = new leadController();
-    router.get('/getAll', authMiddleware, tenantMiddleware, leadCtrl.getAll);
+
+    router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
+        const useCase = req.container!.getGetLeadsUseCase();
+        const controller = new leadController(useCase);
+        controller.getAll(req, res, next);
+    });
     return router;
 }
