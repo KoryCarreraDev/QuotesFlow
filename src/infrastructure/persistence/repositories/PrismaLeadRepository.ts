@@ -30,5 +30,26 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
             },
         });
         return record.map(Lead.fromPrisma);
-    }
+    };
+
+    async create(lead: Lead): Promise<void> {
+        const record = await this.prisma.lead.create({
+            data: {
+                id: lead.id,
+                companyName: lead.companyName,
+                contactName: lead.contactName,
+                email: lead.email,
+                phone: lead.phone,
+                statusId: lead.statusId,
+                source: lead.source,
+                assignedToId: lead.assignedToId,
+                estimatedValue: lead.estimatedValue,
+                expectedCloseDate: lead.expectedCloseDate,
+                notes: lead.notes,
+                tenantId: lead.tenantId,
+                createdAt: lead.createdAt,
+                updatedAt: lead.updatedAt,
+            }
+        });
+    };
 }

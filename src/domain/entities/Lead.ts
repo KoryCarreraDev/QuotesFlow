@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 export class Lead {
-    constructor (
+    constructor(
         public readonly id: string,
         public readonly tenantId: string,
         public readonly companyName?: string,
@@ -16,7 +16,7 @@ export class Lead {
         public readonly notes?: string,
         public readonly createdAt?: Date,
         public readonly updatedAt?: Date,
-    ) {}
+    ) { }
 
     static fromPrisma(prismaLead: {
         id: string;
@@ -49,6 +49,39 @@ export class Lead {
             prismaLead.notes ?? undefined,
             prismaLead.createdAt ?? undefined,
             prismaLead.updatedAt ?? undefined,
+        );
+    }
+
+    static create(props: {
+        tenantId: string;
+        companyName?: string;
+        contactName?: string;
+        email?: string;
+        phone?: string;
+        statusId?: string;
+        source?: string;
+        assignedToId?: string;
+        estimatedValue?: number;
+        expectedCloseDate?: Date;
+        notes?: string;
+    }): Lead {
+        const id = crypto.randomUUID();
+        const now = new Date();
+        return new Lead(
+            id,
+            props.tenantId,
+            props.companyName,
+            props.contactName,
+            props.email,
+            props.phone,
+            props.statusId,
+            props.source,
+            props.assignedToId,
+            props.estimatedValue,
+            props.expectedCloseDate,
+            props.notes,
+            now,
+            now   
         );
     }
 }

@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
+import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCase.js';
 
 export class leadController {
 
     constructor (
-        private readonly getLeadsUseCase: GetLeadsUseCase
+        private readonly getLeadsUseCase: GetLeadsUseCase,
+        private readonly createLeadUseCase: CreateLeadUseCase
     ) {}
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -18,5 +20,16 @@ export class leadController {
             next (error);
         }
     };
+
+    create = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const userId = req.user?.userId;
+            const role = req.user?.role;
+            const lead = await this.createLeadUseCase.execute(req.body, userId!, role as Role);
+            res.status(201).json(lead);
+        } catch (error) {
+            next (error);
+        }
+    }
 }
 
