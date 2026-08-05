@@ -52,4 +52,39 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
             }
         });
     };
+
+    async findById(id: string): Promise<Lead | null> {
+        const record = await this.prisma.lead.findUnique({
+            where: {
+                id: id,
+                tenantId: this.tenantId,
+            },
+            include: {
+                assignedTo: true,
+                status: true,
+            },
+        });
+
+        return record ? Lead.fromPrisma(record) : null;
+    }
+
+    async update(leadId: string, data: Lead): Promise<void> {
+        await this.prisma.lead.update({
+            where: {
+                id: leadId,
+                tenantId: this.tenantId,
+            },
+            data: {
+                companyName: data.companyName,
+                contactName: data.contactName,
+                email: data.email,
+                phone: data.phone,
+                source: data.source,
+                assignedToId: data.assignedToId,
+                estimatedValue: data.estimatedValue,
+                expectedCloseDate: data.expectedCloseDate,
+                notes: data.notes,
+            },
+        });
+    }
 }
