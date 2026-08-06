@@ -10,14 +10,19 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 
 **Funcionalidades principales planeadas:**
 - Registro de empresas y usuarios (autenticación)
-- Gestión de leads/oportunidades de venta
+- Autenticación mediante JWT almacenado en Cookies HTTP-Only
+- Gestión de leads/oportunidades de venta (con restricciones por rol: `SALES_REP`, `SALES_LEADER`, `PARTNER`, `OWNER`)
 - Contactos (personas y empresas)
 - Productos con precios fijos o calculados por fórmulas matemáticas
 - Cotizaciones con ítems y generación de PDF
 - Auditoría de acciones
 - Mensajería (preparado, aún no implementado)
 
-**Estado actual:** Fase temprana. Solo está implementado el flujo de **registro de empresa + usuario owner**. Las carpetas de leads, messaging, pricing existen pero están vacías.
+**Estado actual:** Fase de desarrollo activo.
+- ✅ Autenticación completa: Registro de empresa + usuario owner (`POST /api/auth/register`) y Login (`POST /api/auth/login`) con emisión de cookie JWT.
+- ✅ Middleware Multi-Tenant: Extracción de credenciales desde cookie (`createAuthValidateCookie`) e inyección de contexto de tenant via `AsyncLocalStorage` (`createTenantMiddleware`).
+- ✅ Módulo de Leads: Dominio (`Lead`), DTOs, Mappers (`LeadMapper`), Puertos, Casos de Uso (`GetLeadsUseCase`, `CreateLeadUseCase`, `UpdateLeadUseCase`), Repositorio Prisma (`PrismaLeadRepository`), Controller y Rutas (`/api/lead/*`).
+- ⏳ Próximos módulos: Contactos, Productos/Fórmulas de precio, Cotizaciones.
 
 ---
 
@@ -27,23 +32,25 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 |---|---|---|
 | **TypeScript** | JavaScript con tipos. Te dice si usas mal un dato antes de ejecutar. | Todo el código fuente |
 | **Node.js 20** | El motor que permite correr JavaScript/TypeScript fuera del navegador. | Entorno de ejecución del servidor |
-| **Express 5** | Un framework web. Piensa en él como el "recepcionista" que recibe peticiones HTTP y las dirige al código correcto. | Rutas, middlewares, servidor HTTP |
-| **Prisma 7** | Un ORM (traductor entre código TypeScript y SQL). Escribes código TS y Prisma lo convierte en consultas SQL. | Acceso a base de datos, migraciones, esquema |
-| **PostgreSQL 15** | Base de datos relacional. Almacena toda la información de forma permanente. | Almacenamiento persistente |
-| **Zod** | Validador de datos. Verifica que lo que envía el usuario tiene la forma correcta (email válido, campo no vacío, etc.) | Validación de request bodies |
-| **bcryptjs** | Librería de hashing. Convierte contraseñas en textos irreversibles para guardarlas de forma segura. | Hash de contraseñas |
-| **jsonwebtoken** | Genera y verifica tokens JWT. Son como "pases de acceso" que el usuario recibe al autenticarse. | Autenticación (preparado, no implementado aún) |
-| **helmet** | Añade headers HTTP de seguridad automáticamente. | Seguridad HTTP |
-| **cors** | Controla qué dominios pueden hacer peticiones al backend. | Seguridad cross-origin |
-| **express-rate-limit** | Limita cuántas peticiones puede hacer un cliente en un tiempo dado (100 cada 15 min). | Protección contra abuso |
-| **winston** | Logger profesional. Registra eventos con niveles (info, warn, error). | Logging (preparado) |
-| **mathjs** | Motor de evaluación de expresiones matemáticas. | Cálculo de fórmulas de precios de productos |
-| **pdf-lib** | Genera archivos PDF desde código. | Generación de cotizaciones en PDF |
-| **nodemailer** | Envía correos electrónicos. | Envío de cotizaciones por email (preparado) |
-| **multer** | Maneja subida de archivos (logos, adjuntos). | Upload de archivos (preparado) |
-| **node-cron** | Programa tareas en intervalos (cada hora, cada día, etc.). | Tareas programadas (preparado) |
-| **Docker** | Empaqueta la app y la BD en contenedores aislados y reproducibles. | Desarrollo local y despliegue |
-| **pnpm** | Gestor de paquetes (como npm pero más rápido y eficiente en espacio). | Instalación de dependencias |
+| **Express 5** | Un framework web. Recepciona peticiones HTTP y las dirige al código correcto. | Rutas, middlewares, servidor HTTP |
+| **Prisma 7** | Un ORM (traductor entre código TypeScript y SQL). | Acceso a base de datos, migraciones, esquema (`schema.prisma`) |
+| **PostgreSQL 15** | Base de datos relacional. | Almacenamiento persistente |
+| **Zod** | Validador de datos. | Validación de request bodies en la capa de presentación |
+| **bcryptjs** | Librería de hashing. | Hash y verificación de contraseñas de usuarios |
+| **jsonwebtoken** | Genera y verifica tokens JWT. | Autenticación y sesión de usuario (`JwtTokenService`) |
+| **cookie-parser** | Middleware de Express. | Lectura y parseo de cookies de peticiones HTTP (`accessToken`) |
+| **compression** | Middleware de Express. | Compresión Gzip/Brotli de respuestas HTTP |
+| **helmet** | Seguridad HTTP. | Cabeceras de seguridad automáticas |
+| **cors** | Control de acceso cross-origin. | Permitir peticiones desde frontend autorizado |
+| **express-rate-limit** | Limitador de tasa de peticiones. | Protección contra ataques de fuerza bruta / abuso |
+| **winston** | Logger estructurado. | Registro de logs de la aplicación |
+| **mathjs** | Evaluador de expresiones matemáticas. | Cálculo de precios dinámicos mediante fórmulas |
+| **pdf-lib** | Generador de PDF. | Creación de documentos PDF de cotizaciones |
+| **nodemailer** | Cliente de email. | Envío de cotizaciones y notificaciones por correo |
+| **multer** | Gestor de uploads. | Carga de archivos adjuntos / logos |
+| **node-cron** | Tareas programadas. | Ejecución de tareas en segundo plano |
+| **Docker & Docker Compose** | Contenedores. | Entorno de desarrollo aislado (App + Postgres) |
+| **pnpm** | Gestor de paquetes. | Instalación rápida y eficiente de dependencias |
 
 ---
 
@@ -53,29 +60,29 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 
 El código está organizado en **capas con responsabilidades separadas**. La regla de oro es:
 
-> **Las capas internas NUNCA conocen a las externas.** El dominio no sabe que existe Express, Prisma, ni ninguna librería. Solo sabe de sus propias reglas de negocio.
+> **Las capas internas NUNCA conocen a las externas.** El dominio no sabe que existe Express, Prisma, ni ninguna librería. Solo conoce sus propias reglas de negocio.
 
 Esto permite:
-- Cambiar la base de datos sin tocar la lógica de negocio
-- Cambiar el framework web sin tocar nada más
-- Testear la lógica de negocio sin necesitar una base de datos real
+- Cambiar la base de datos o el ORM sin tocar la lógica de negocio.
+- Cambiar el framework web (Express -> Fastify, etc.) sin impactar el dominio ni los casos de uso.
+- Testear la lógica de negocio mediante mocks de repositorios y servicios.
 
 ### 3.2. Las Capas (de adentro hacia afuera)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PRESENTATION (routes/)           ← Define URLs y conecta todo     │
+│  PRESENTATION (routes/, schemas/)  ← Define URLs y validación Zod   │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  INFRASTRUCTURE                ← Implementaciones reales     │  │
+│  │  INFRASTRUCTURE (web/, persistence/, services/)              │  │
 │  │  ┌─────────────────────────────────────────────────────────┐  │  │
-│  │  │  APPLICATION                ← Casos de uso + contratos  │  │  │
+│  │  │  APPLICATION (use-case/, dtos/, ports/, mappers/)        │  │  │
 │  │  │  ┌───────────────────────────────────────────────────┐  │  │  │
-│  │  │  │  DOMAIN                  ← Reglas de negocio puras │  │  │  │
+│  │  │  │  DOMAIN (entities/, enums/, value-objects/)      │  │  │  │
 │  │  │  └───────────────────────────────────────────────────┘  │  │  │
 │  │  └─────────────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────────┘  │
-│  CROSS-CUTTING                    ← Utilidades transversales       │
-│  CONFIG                           ← Variables de entorno y BD      │
+│  CROSS-CUTTING (container.ts, tenantContext.ts)  ← Ensamblaje / DI │
+│  CONFIG (env.ts, database.ts)                   ← Configuración BD  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,150 +92,118 @@ Esto permite:
 
 ```
 src/
-├── server.ts                  # Punto de entrada. Arranca Express en el puerto configurado.
-├── app.ts                     # Configura Express: middlewares, seguridad y rutas.
+├── server.ts                  # Punto de entrada. Arranca el servidor Express en el puerto configurado.
+├── app.ts                     # Configura middlewares globales (helmet, cors, compression, cookieParser, rateLimit) y rutas.
 │
 ├── config/                    # ⚙️ CONFIGURACIÓN
-│   ├── env.ts                 # Lee variables de entorno (.env) y las exporta tipadas.
-│   └── database.ts            # Crea la conexión a PostgreSQL vía Prisma + pg Pool.
+│   ├── env.ts                 # Variables de entorno tipadas (.env).
+│   └── database.ts            # Conexión PostgreSQL vía Prisma + pg Pool (@prisma/adapter-pg).
 │
-├── domain/                    # 🧠 DOMINIO — Reglas de negocio puras (NO depende de nada externo)
-│   ├── entities/              # Objetos principales del negocio
-│   │   ├── User.ts            # Entidad Usuario (id, email, passwordHash, role, tenantId...)
-│   │   └── Tenant.ts          # Entidad Empresa/Tenant (id, name, logoUrl, settings)
-│   ├── enums/                 # Valores fijos del negocio
+├── domain/                    # 🧠 DOMINIO — Reglas de negocio puras
+│   ├── entities/              # Entidades del negocio con métodos de fábrica (create, update, fromPrisma)
+│   │   ├── User.ts            # Entidad Usuario
+│   │   ├── Tenant.ts          # Entidad Empresa / Tenant
+│   │   └── Lead.ts            # Entidad Oportunidad / Lead
+│   ├── enums/                 # Enums del negocio
 │   │   └── Role.ts            # Roles: OWNER, PARTNER, SALES_LEADER, SALES_REP
-│   └── value-objects/         # (Vacío) Para objetos inmutables como Email, Money, etc.
+│   └── value-objects/         # Objetos de valor inmutables (ej. Email, Money)
 │
-├── application/               # 📋 APLICACIÓN — Orquesta el negocio, define contratos
-│   ├── dtos/                  # Data Transfer Objects (la "forma" de los datos que entran/salen)
-│   │   └── RegisterCompanyDTO.ts  # Datos para registrar empresa: companyName, ownerEmail, password...
-│   ├── ports/                 # CONTRATOS (interfaces) — "qué necesito, pero no cómo se hace"
-│   │   ├── repositories/      # Contratos de acceso a datos
-│   │   │   ├── IUserRepository.ts     # create(), findByEmail(), findById()
-│   │   │   └── ITenantRepository.ts   # create(), findById()
-│   │   ├── services/          # Contratos de servicios técnicos
-│   │   │   ├── IHashService.ts        # hash(), compare() — para contraseñas
-│   │   │   └── ITenantContext.ts      # getTenantId() — saber qué empresa está activa
-│   │   └── messaging/         # (Vacío) Contratos de mensajería futura
-│   └── use-case/              # CASOS DE USO — La lógica de cada operación del negocio
+├── application/               # 📋 APLICACIÓN — Casos de uso, DTOs, Mappers y Puertos
+│   ├── dtos/                  # Data Transfer Objects
+│   │   ├── RegisterCompanyDTO.ts
+│   │   ├── LoginDTO.ts
+│   │   ├── CreateLeadDTO.ts
+│   │   ├── UpdateLeadDTO.ts
+│   │   └── LeadDTO.ts
+│   ├── mappers/               # Transformadores de dominio a DTOs de respuesta
+│   │   └── LeadMapper.ts      # Convierte entidad Lead en LeadDTO
+│   ├── ports/                 # Interfaces (Contratos)
+│   │   ├── repositories/      # IUserRepository, ITenantRepository, ILeadRepository
+│   │   ├── services/          # IHashService, IAuthTokenService, ITenantContext
+│   │   └── mappers/           # ILeadMapper
+│   └── use-case/              # Lógica orquestadora de negocio
 │       ├── auth/
-│       │   └── RegisterCompanyAndOwnerUseCase.ts  # Registra empresa + usuario owner
-│       ├── leads/             # (Vacío) Futuros CU de leads
-│       ├── messaging/         # (Vacío) Futuros CU de mensajería
-│       └── pricing/           # (Vacío) Futuros CU de cotizaciones/fórmulas
+│       │   ├── RegisterCompanyAndOwnerUseCase.ts
+│       │   └── LoginUseCase.ts
+│       └── leads/
+│           ├── createLeadUseCase.ts
+│           ├── getLeadsUseCase.ts
+│           └── updateLeadUseCase.ts
 │
 ├── infrastructure/            # 🔧 INFRAESTRUCTURA — Implementaciones concretas
-│   ├── persistence/           # Todo lo relacionado con la base de datos
+│   ├── persistence/           # Base de datos y repositorios
 │   │   ├── prisma/
-│   │   │   └── PrismaService.ts           # Singleton que gestiona la instancia de PrismaClient
-│   │   ├── repositories/                  # Implementaciones reales de los contratos (ports)
-│   │   │   ├── BasePrismaRepository.ts    # Clase base: filtra automáticamente por tenantId
-│   │   │   ├── PrismaUserRepository.ts    # Implementa IUserRepository con Prisma
-│   │   │   └── PrismaTenantRepository.ts  # Implementa ITenantRepository con Prisma
-│   │   └── mappers/           # (Vacío) Para convertir entre modelos de Prisma y entidades de dominio
-│   ├── services/              # Implementaciones de servicios técnicos
-│   │   └── BcryptHashService.ts   # Implementa IHashService usando bcryptjs
-│   ├── web/                   # Capa HTTP de infraestructura
-│   │   ├── controllers/
-│   │   │   └── AuthControllers.ts     # Recibe HTTP request → llama al use case → devuelve HTTP response
-│   │   └── middleware/
-│   │       └── validateBody.ts        # Middleware genérico: valida req.body con un schema Zod
-│   └── messaging/             # (Vacío) Futura infraestructura de email/WhatsApp
+│   │   │   └── PrismaService.ts           # Singleton de PrismaClient
+│   │   └── repositories/
+│   │       ├── BasePrismaRepository.ts    # Inyección de filtro per-tenant (tenantWhere)
+│   │       ├── PrismaUserRepository.ts
+│   │       ├── PrismaTenantRepository.ts
+│   │       └── PrismaLeadRepository.ts
+│   ├── services/              # Servicios de infraestructura
+│   │   ├── BcryptHashService.ts           # Implementa IHashService con bcryptjs
+│   │   └── JwtTokenService.ts              # Implementa IAuthTokenService con jsonwebtoken
+│   └── web/                   # Controladores HTTP y Middlewares Express
+│       ├── controllers/
+│       │   ├── AuthControllers.ts
+│       │   └── leadControllers.ts
+│       └── middleware/
+│           ├── validateBody.ts            # Middleware genérico de validación Zod
+│           ├── createAuthValidateCookie.ts# Extracción y verificación de JWT desde cookie HTTP
+│           └── createTenantMiddleware.ts  # Inyección de TenantContext y ScopedContainer per-request
 │
-├── presentation/              # 🌐 PRESENTACIÓN — Define las rutas HTTP (URLs)
-│   └── routes/
-│       └── authRoutes.ts      # POST /api/auth/register — conecta schema Zod + controller
+├── presentation/              # 🌐 PRESENTACIÓN — Rutas y Schemas Zod
+│   ├── routes/
+│   │   ├── authRoutes.ts      # POST /api/auth/register, POST /api/auth/login
+│   │   └── leadRoutes.ts      # GET /api/lead/getAll, POST /api/lead/create
+│   └── schemas/
+│       ├── authSchema.ts      # registerSchema, loginSchema
+│       └── leadSchema.ts      # createLeadSchema
 │
-└── cross-cutting/             # 🔀 CROSS-CUTTING — Utilidades que cruzan todas las capas
-    ├── container.ts           # Contenedor de Inyección de Dependencias (DI manual)
-    └── tenantContext.ts       # Almacena el tenantId activo por request usando AsyncLocalStorage
+├── cross-cutting/             # 🔀 CROSS-CUTTING — Inyección de Dependencias y Contexto Async
+│   ├── container.ts           # ScopedContainer (DI manual por request / scope)
+│   └── tenantContext.ts       # AsyncLocalStorage para propagar el tenantId activo por petición
+│
+└── types/                     # 📝 DECLARACIONES DE TIPOS
+    └── express.d.ts           # Extensión de Express.Request con req.container y req.user
 
 prisma/
-└── schema.prisma              # Esquema de la base de datos (todas las tablas y relaciones)
+└── schema.prisma              # Esquema completo de PostgreSQL con Prisma (Tenant, User, Lead, Contact, Product, Quote, etc.)
 ```
 
 ---
 
 ## 5. Conceptos Clave Explicados
 
-### 5.1. Multi-Tenancy (Aislamiento por empresa)
+### 5.1. Multi-Tenancy (Aislamiento por empresa con AsyncLocalStorage)
 
-Cada empresa que se registra es un **Tenant**. Todos los tenants comparten la **misma base de datos y las mismas tablas**, pero cada registro tiene un campo `tenantId` que indica a qué empresa pertenece.
+Cada empresa registrada es un **Tenant**. Todos los tenants comparten la misma base de datos y tablas, pero cada registro contiene la columna `tenantId`.
 
-```
-┌──────────────────── Tabla users ────────────────────┐
-│ id │ email          │ tenantId  │ role      │ ...   │
-│ 1  │ ana@acme.com   │ tenant_A  │ OWNER     │       │  ← Empresa Acme
-│ 2  │ bob@acme.com   │ tenant_A  │ SALES_REP │       │  ← Empresa Acme
-│ 3  │ carlos@xyz.com │ tenant_B  │ OWNER     │       │  ← Empresa XYZ
-└─────────────────────────────────────────────────────┘
-```
-
-**¿Cómo se filtra?** El `BasePrismaRepository` tiene métodos helper (`tenantWhere()`, `withTenant()`, `validateTenant()`) que inyectan automáticamente el filtro `WHERE tenantId = X` en cada consulta. Así un usuario de Acme **nunca** puede ver datos de XYZ.
-
-**¿Cómo se sabe qué tenant está activo?** Usando `AsyncLocalStorage` (API nativa de Node.js). Al principio de cada petición HTTP se establece el `tenantId` en un almacenamiento por request. Los repositorios lo leen a través de la interfaz `ITenantContext`.
-
-### 5.2. Inyección de Dependencias (DI) Manual
-
-En vez de importar directamente `PrismaUserRepository` en los casos de uso, el código usa **interfaces** (contratos). Un caso de uso pide "dame algo que sepa crear usuarios" (`IUserRepository`), y el `ScopedContainer` le entrega la implementación concreta (`PrismaUserRepository`).
+**¿Cómo funciona la propagación del Tenant en cada Request HTTP?**
+1. **Autenticación:** `createAuthValidateCookie` lee el JWT de la cookie `accessToken`, valida la firma y extrae `userId`, `tenantId` y `role`, inyectándolos en `req.user`.
+2. **Contexto:** `createTenantMiddleware` lee `req.user.tenantId` e invoca `TenantContext.run(tenantId, ...)` usando `AsyncLocalStorage` de Node.js.
+3. **Contenedor Scoped:** En el mismo middleware se crea un `req.container = new ScopedContainer(tenantId)`.
+4. **Filtro Automático en Repositorios:** Los repositorios que heredan de `BasePrismaRepository` usan el método `tenantWhere()`, el cual consulta a `ITenantContext` para inyectar automáticamente `WHERE tenantId = X` en las consultas de Prisma.
 
 ```
-Caso de uso dice:  "Necesito un IUserRepository"
-Container dice:    "Aquí tienes un PrismaUserRepository"
+Request HTTP ──> [createAuthValidateCookie] ──> Extrae req.user (tenantId)
+                     │
+                     └──> [createTenantMiddleware]
+                              │
+                              ├──> TenantContext.run(tenantId, ...) [AsyncLocalStorage]
+                              └──> req.container = new ScopedContainer(tenantId)
 ```
 
-**¿Por qué?** Porque mañana puedes cambiar a MongoDB y solo cambias lo que el Container entrega, sin tocar los casos de uso.
+### 5.2. Inyección de Dependencias (DI) per-Request
 
-El `ScopedContainer` se crea por tipo de contexto:
-- **Sin tenantId**: Para operaciones públicas (registro, login)
-- **Con tenantId**: Para operaciones dentro de una empresa autenticada
+El sistema utiliza `ScopedContainer` (`src/cross-cutting/container.ts`) para ensamblar las dependencias:
+- **Scope Público (sin tenantId):** Utilizado para endpoints públicos como registro y login.
+- **Scope Autenticado (con tenantId):** Instanciado en cada request por `createTenantMiddleware`, garantizando que los Casos de Uso y Repositorios operen dentro del contexto del tenant activo.
 
-### 5.3. Ports & Adapters (Puertos y Adaptadores)
+### 5.3. Restricciones de Visibilidad por Rol (CRM Leads)
 
-- **Port (Puerto):** Una interfaz en `application/ports/`. Es el "contrato" que dice QUÉ se necesita pero no CÓMO.
-  - Ejemplo: `IHashService` → "necesito poder hashear y comparar passwords"
-- **Adapter (Adaptador):** Una clase en `infrastructure/` que IMPLEMENTA ese contrato.
-  - Ejemplo: `BcryptHashService` → "yo lo hago usando la librería bcryptjs"
-
-### 5.4. Entidades de Dominio vs Modelos de Prisma
-
-Son cosas **diferentes** aunque se parecen:
-
-| Concepto | Ubicación | Propósito |
-|---|---|---|
-| **Entidad de Dominio** | `domain/entities/User.ts` | Clase TS pura con reglas de negocio. No sabe que Prisma existe. Tiene un `static create()` que genera IDs. |
-| **Modelo de Prisma** | `prisma/schema.prisma` (modelo `User`) | Define la estructura de la tabla en la BD. Prisma genera tipos automáticos desde aquí. |
-| **Mapper** | `infrastructure/persistence/mappers/` (vacío por ahora) | Convierte entre uno y otro. Actualmente la conversión se hace inline en los repositorios (`toDomain()`). |
-
-### 5.5. Flujo de Datos de una Petición
-
-Ejemplo: `POST /api/auth/register`
-
-```
-1. CLIENTE envía JSON → { companyName, ownerEmail, password, ownerFirstName, ownerLastName }
-       │
-2. EXPRESS recibe en app.ts → pasa por helmet, cors, json parser, rate limit
-       │
-3. ROUTER (presentation/routes/authRoutes.ts)
-   → validateBody(registerSchema)           ← Zod valida el body
-   → controller.register                    ← Pasa al controller
-       │
-4. CONTROLLER (infrastructure/web/controllers/AuthControllers.ts)
-   → Llama a registerUseCase.execute(req.body)
-       │
-5. USE CASE (application/use-case/auth/RegisterCompanyAndOwnerUseCase.ts)
-   → Verifica que el email no exista         ← via IUserRepository
-   → Crea la entidad Tenant                 ← Tenant.create()
-   → Hashea el password                     ← via IHashService
-   → Crea la entidad User (como OWNER)      ← User.create()
-   → Persiste Tenant y User                 ← via ITenantRepository e IUserRepository
-   → Retorna { tenantId, ownerId }
-       │
-6. CONTROLLER recibe el resultado → res.status(201).json(result)
-       │
-7. CLIENTE recibe → { tenantId: "abc123", ownerId: "def456" }
-```
+En el caso de uso de Leads (`GetLeadsUseCase` y `CreateLeadUseCase`), se aplican reglas de negocio según el rol del usuario:
+- **`SALES_REP` (Vendedor):** Solo puede ver y gestionar los leads que le hayan sido asignados (`assignedToId === userId`).
+- **`OWNER`, `PARTNER`, `SALES_LEADER`:** Tienen acceso global a todos los leads pertenecientes a su `tenantId`.
 
 ---
 
@@ -238,187 +213,73 @@ Ejemplo: `POST /api/auth/register`
 
 ```
 Tenant (Empresa)
- ├── User[]                    ← Usuarios de la empresa
- ├── Lead[]                    ← Oportunidades de venta
+ ├── User[]                    ← Usuarios de la empresa (OWNER, PARTNER, SALES_LEADER, SALES_REP)
+ ├── Lead[]                    ← Oportunidades de venta (CRM)
  │    ├── LeadStatusHistory[]  ← Historial de cambios de estado
  │    └── Quote[]              ← Cotizaciones vinculadas
  ├── Contact[]                 ← Contactos persona
  ├── CompanyContact[]          ← Contactos empresa
- │    └── Contact[]            ← Personas de esa empresa
+ │    └── Contact[]            ← Personas pertenecientes a esa empresa
  ├── Product[]                 ← Productos/servicios
- │    └── Formula?             ← Fórmula de precio opcional
+ │    └── Formula?             ← Fórmula matemática opcional
  ├── Quote[]                   ← Cotizaciones
- │    └── QuoteItem[]          ← Ítems de la cotización
- ├── Formula[]                 ← Fórmulas matemáticas
+ │    └── QuoteItem[]          ← Ítems de cotización
+ ├── Formula[]                 ← Fórmulas de cálculo de precio
  ├── LeadStatusConfig[]        ← Estados de leads personalizables
- ├── TenantSettings            ← Configuración (estrategia de asignación)
+ ├── TenantSettings            ← Configuración (estrategia de asignación de leads)
  └── AuditLog[]                ← Registro de auditoría
 ```
 
-### 6.2. Enums en BD
+---
 
-| Enum | Valores | Uso |
-|---|---|---|
-| `Role` | OWNER, PARTNER, SALES_LEADER, SALES_REP | Rol del usuario dentro de la empresa |
-| `LeadAssignmentStrategy` | MANUAL, ROUND_ROBIN, LOAD_BALANCED | Cómo se asignan leads a vendedores |
-| `QuoteStatus` | DRAFT, SENT, ACCEPTED, REJECTED | Estado de una cotización |
+## 7. Endpoints API Implementados
 
-### 6.3. Tablas principales
-
-| Tabla | Descripción | Campos clave |
-|---|---|---|
-| `Tenant` | Empresa registrada | name, logoUrl, settings (JSON) |
-| `User` | Usuario del sistema | email (unique), passwordHash, role, tenantId |
-| `Lead` | Oportunidad de venta | companyName, contactName, statusId, assignedToId, estimatedValue |
-| `LeadStatusConfig` | Estados de leads personalizables por tenant | name, color (hex), order, isDefault |
-| `Contact` | Persona de contacto | firstName, lastName, email, phone, companyId |
-| `CompanyContact` | Empresa de contacto | name, industry, taxNumber, address... |
-| `Product` | Producto/servicio a vender | name, basePrice, formulaId |
-| `Formula` | Fórmula matemática para precios dinámicos | expression, variables (JSON array) |
-| `Quote` | Cotización | status, total, discount, leadId, contactId |
-| `QuoteItem` | Línea de una cotización | productId, quantity, variables (JSON), unitPrice, total |
-| `TenantSettings` | Configuración del tenant | leadAssignmentStrategy |
-| `AuditLog` | Registro de acciones | action, entity, entityId, metadata (JSON) |
+| Método | Ruta | Autenticación | Descripción | Body / Params esperados |
+|---|---|---|---|---|
+| `GET` | `/health` | No | Health check de la API | — |
+| `POST` | `/api/auth/register` | No | Registrar nueva empresa y usuario OWNER | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
+| `POST` | `/api/auth/login` | No | Autenticar usuario y setear cookie `accessToken` | `{ email, password }` |
+| `GET` | `/api/lead/getAll` | Cookie JWT | Obtener lista de leads del tenant (filtrado por rol) | — |
+| `POST` | `/api/lead/create` | Cookie JWT | Crear nuevo lead en el tenant activo | `{ companyName?, contactName?, email?, phone?, statusId?, source?, assignedToId?, estimatedValue?, expectedCloseDate?, notes? }` |
 
 ---
 
-## 7. Cómo Ejecutar el Proyecto
+## 8. Guía para Agregar una Nueva Funcionalidad
 
-### Requisitos previos
-- Docker y Docker Compose instalados
-- (Opcional) Node.js 20+ y pnpm para desarrollo sin Docker
+Pasos para implementar una nueva entidad/caso de uso en la arquitectura Clean:
 
-### Con Docker (recomendado)
-```bash
-# 1. Copiar variables de entorno
-cp .env.example .env
-
-# 2. Levantar todo (PostgreSQL + Backend)
-docker-compose up --build
-
-# La API estará en http://localhost:4000
-# La BD PostgreSQL estará en localhost:5433
-```
-
-### Sin Docker (desarrollo local)
-```bash
-# 1. Copiar variables de entorno y configurar DATABASE_URL apuntando a tu PostgreSQL
-cp .env.example .env
-
-# 2. Instalar dependencias
-pnpm install
-
-# 3. Generar cliente Prisma
-pnpm prisma:generate
-
-# 4. Ejecutar migraciones
-pnpm prisma:migrate
-
-# 5. Iniciar en modo desarrollo (hot reload)
-pnpm dev
-```
-
-### Comandos útiles
-| Comando | Qué hace |
-|---|---|
-| `pnpm dev` | Arranca con nodemon + tsx (hot reload) |
-| `pnpm build` | Compila TypeScript a JavaScript (dist/) |
-| `pnpm start` | Ejecuta la versión compilada |
-| `pnpm prisma:generate` | Regenera el cliente Prisma desde el schema |
-| `pnpm prisma:migrate` | Crea/aplica migraciones de BD |
-| `pnpm prisma:studio` | Abre GUI web para explorar la BD |
+1. **Dominio (`src/domain/entities/`):** Definir la entidad con constructor y métodos estáticos (`create`, `fromPrisma`).
+2. **Puertos (`src/application/ports/`):** Definir la interfaz del repositorio (`IRepository`) y mappers si aplica.
+3. **DTOs & Mappers (`src/application/dtos/` y `src/application/mappers/`):** Crear los objetos de transferencia de datos y mappers.
+4. **Caso de Uso (`src/application/use-case/`):** Implementar la lógica de negocio orquestando los puertos inyectados.
+5. **Repositorio (`src/infrastructure/persistence/repositories/`):** Extender de `BasePrismaRepository` e implementar el puerto de repositorio.
+6. **Contenedor DI (`src/cross-cutting/container.ts`):** Añadir el método en `ScopedContainer` para resolver el caso de uso con sus dependencias.
+7. **Controller (`src/infrastructure/web/controllers/`):** Manejar la recepción de `req` y emisión de `res`.
+8. **Ruta & Schema (`src/presentation/`):** Crear el schema Zod en `schemas/`, definir las rutas en `routes/` aplicando `authMiddleware` y `tenantMiddleware`.
+9. **Registrar en `app.ts`:** Conectar el router a la aplicación principal.
 
 ---
 
-## 8. Variables de Entorno
-
-| Variable | Descripción | Ejemplo |
-|---|---|---|
-| `DATABASE_URL` | Connection string de PostgreSQL | `postgresql://user:pass@localhost:5432/saas?schema=public` |
-| `JWT_SECRET` | Clave secreta para firmar tokens JWT | `una-clave-secreta-muy-larga` |
-| `JWT_EXPIRATION` | Duración del token JWT | `7d` |
-| `PORT` | Puerto del servidor Express | `4000` |
-| `NODE_ENV` | Entorno de ejecución | `development` / `production` |
-
----
-
-## 9. Endpoints API Implementados
-
-| Método | Ruta | Descripción | Body esperado |
-|---|---|---|---|
-| `GET` | `/health` | Health check | — |
-| `POST` | `/api/auth/register` | Registrar empresa + usuario owner | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
-
----
-
-## 10. Guía para Agregar una Nueva Funcionalidad
-
-Supongamos que quieres agregar "Crear un Lead". Estos son los pasos **en orden**:
-
-### Paso 1 — Dominio
-Crear la entidad `src/domain/entities/Lead.ts` con su `static create()`.
-
-### Paso 2 — Puerto (contrato)
-Crear `src/application/ports/repositories/ILeadRepository.ts` con los métodos necesarios (create, findById, etc.).
-
-### Paso 3 — DTO
-Crear `src/application/dtos/CreateLeadDTO.ts` con la forma de los datos de entrada.
-
-### Paso 4 — Caso de uso
-Crear `src/application/use-case/leads/CreateLeadUseCase.ts`. Recibe interfaces en el constructor, nunca implementaciones.
-
-### Paso 5 — Repositorio
-Crear `src/infrastructure/persistence/repositories/PrismaLeadRepository.ts`. Extiende `BasePrismaRepository` e implementa `ILeadRepository`.
-
-### Paso 6 — Controller
-Crear `src/infrastructure/web/controllers/LeadController.ts`. Recibe el use case y maneja req/res.
-
-### Paso 7 — Container
-Agregar un método en `src/cross-cutting/container.ts` para construir el use case con sus dependencias.
-
-### Paso 8 — Ruta
-Crear `src/presentation/routes/leadRoutes.ts` con el schema Zod de validación y conectar controller.
-
-### Paso 9 — Registrar en app.ts
-Agregar `app.use('/api/leads', leadRouter(container))` en `src/app.ts`.
-
----
-
-## 11. Reglas de Dependencia (Qué puede importar qué)
+## 9. Reglas de Dependencia (Qué puede importar qué)
 
 ```
 ✅ domain/         → NADA externo (solo Node.js nativo como crypto)
 ✅ application/    → domain/
 ✅ infrastructure/ → domain/, application/
 ✅ presentation/   → infrastructure/, application/, cross-cutting/
-✅ cross-cutting/  → application/, infrastructure/ (ensambla todo)
-✅ config/         → Librerías externas (dotenv, prisma, pg)
+✅ cross-cutting/  → application/, infrastructure/
+✅ config/         → dotenv, prisma, pg
 
-❌ domain/         → NO puede importar application/, infrastructure/, ni librerías externas
-❌ application/    → NO puede importar infrastructure/ ni librerías externas
-❌ Nadie           → NO debe importar directamente de cross-cutting/ excepto presentation/ y app.ts
+❌ domain/         → NO puede importar application/, infrastructure/, ni Express/Prisma
+❌ application/    → NO puede importar infrastructure/ ni Express/Prisma
 ```
 
 ---
 
-## 12. Patrones de Diseño en Uso
+## 10. Decisiones Técnicas Relevantes
 
-| Patrón | Dónde | Qué hace |
-|---|---|---|
-| **Singleton** | `PrismaService` | Garantiza una sola instancia de PrismaClient en toda la app |
-| **Repository** | `PrismaUserRepository`, `PrismaTenantRepository` | Encapsula el acceso a datos detrás de una interfaz |
-| **Factory Method** | `User.create()`, `Tenant.create()` | Crea entidades con ID auto-generado sin exponer el constructor completo |
-| **Dependency Injection** | `ScopedContainer` | Construye objetos inyectando sus dependencias por constructor |
-| **Ports & Adapters** | `IHashService` → `BcryptHashService` | Separa contrato de implementación |
-| **Middleware** | `validateBody()` | Intercepta peticiones para validar datos antes de llegar al controller |
-| **Scoped Container** | `ScopedContainer` | Crea un conjunto de dependencias con contexto (con/sin tenant) |
-
----
-
-## 13. Decisiones Técnicas Relevantes
-
-- **Prisma con driver adapter (`@prisma/adapter-pg`):** Se usa un pool de pg nativo en vez del driver por defecto de Prisma, lo que da más control sobre conexiones.
-- **IDs tipo CUID:** Generados por Prisma (`@default(cuid())`), pero las entidades de dominio usan `crypto.randomUUID()` (UUIDv4). Esto podría necesitar alinearse en el futuro.
-- **ESM (ES Modules):** El proyecto usa `"type": "module"` y todas las importaciones llevan extensión `.js` (requerido por NodeNext).
-- **Sin framework de DI:** La inyección de dependencias es manual (sin librerías como tsyringe o inversify). El `ScopedContainer` hace ese trabajo explícitamente.
-- **Validación en capa de presentación:** Los schemas Zod se definen en las rutas (`presentation/routes/`), no en los DTOs. Así la validación HTTP queda separada de la lógica de negocio.
+- **Autenticación vía Cookies HTTP-Only (`accessToken`):** Mayor seguridad contra ataques XSS en comparación con LocalStorage.
+- **Inyección de Tenant con AsyncLocalStorage (`TenantContext`):** Evita pasar explícitamente el `tenantId` en cada capa de la aplicación.
+- **Driver Adapter Prisma (`@prisma/adapter-pg`):** Uso de pool nativo `pg` para mejor rendimiento y gestión de conexiones PostgreSQL.
+- **Inyección de Dependencias per-Request:** `createTenantMiddleware` adjunta `req.container` en cada petición HTTP autenticada.
+- **Tipado estricto en Express:** Extensión de `Express.Request` mediante `src/types/express.d.ts`.
