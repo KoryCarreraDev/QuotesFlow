@@ -5,7 +5,15 @@ import { IAuthTokenService } from "../../application/ports/services/IAuthTokenSe
 import { leadController } from '../../infrastructure/web/controllers/leadControllers.js';
 import { createLeadSchema } from '../schemas/leadSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
-import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCase.js';
+import { updateLeadSchema } from '../schemas/leadSchema.js';
+import { Request } from 'express';
+
+function getLeadController(req: Request): leadController {
+    const getUseCase = req.container!.getGetLeadsUseCase();
+    const createUseCase = req.container!.getCreateLeadUseCase();
+    const updateUseCase = req.container!.getUpdateLeadUseCase();
+    return new leadController(getUseCase, createUseCase, updateUseCase);
+}
 
 export function leadRouter(jwtService: IAuthTokenService): Router {
     const router = Router();
@@ -13,17 +21,16 @@ export function leadRouter(jwtService: IAuthTokenService): Router {
     const tenantMiddleware = createTenantMiddleware();
 
     router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
-        const getUseCase = req.container!.getGetLeadsUseCase();
-        const createUseCase = req.container!.getCreateLeadUseCase();
-        const controller = new leadController(getUseCase, createUseCase);
-        controller.getAll(req, res, next);
+        getLeadController(req).getAll(req, res, next)
     });
 
     router.post('/create', authMiddleware, tenantMiddleware, validateBody(createLeadSchema), (req, res, next) => {
-        const getUseCase = req.container!.getGetLeadsUseCase();
-        const createUseCase = req.container!.getCreateLeadUseCase();
-        const controller = new leadController(getUseCase, createUseCase);
-        controller.create(req, res, next);
+        getLeadController(req).create(req, res, next)
     });
+
+    router.patch('/update/:id', authMiddleware, tenantMiddleware, validateBody(updateLeadSchema), (req, res, next) => {
+        getLeadController(req).update(req, res, next)
+    })
+
     return router;
 }
