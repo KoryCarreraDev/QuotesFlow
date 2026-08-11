@@ -12,6 +12,7 @@ import { LeadMapper } from "@/application/mappers/LeadMapper.js";
 import { GetLeadsUseCase } from "@/application/use-case/leads/getLeadsUseCase.js";
 import { PrismaLeadRepository } from "@/infrastructure/persistence/repositories/PrismaLeadRepository.js";
 import { CreateLeadUseCase } from "@/application/use-case/leads/createLeadUseCase.js";
+import { UpdateLeadUseCase } from "@/application/use-case/leads/updateLeadUseCase.js";
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -55,5 +56,10 @@ export class ScopedContainer {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
         return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
+    }
+    getUpdateLeadUseCase(): UpdateLeadUseCase {
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        const leadMapper = new LeadMapper();
+        return new UpdateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
     }
 }
