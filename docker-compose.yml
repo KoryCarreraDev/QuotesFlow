@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     ports:
-      - "5433:5432"
+      - "3363:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -43,7 +43,7 @@ services:
     build: .
     container_name: saas_studio
     ports:
-      - "5555:5555"
+      - "3364:5555"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
     command: >

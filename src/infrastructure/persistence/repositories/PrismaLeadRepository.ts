@@ -1,6 +1,8 @@
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import { ILeadRepository } from '../../../application/ports/repositories/ILeadRepository.js';
 import { Lead } from '../../../domain/entities/Lead.js';
+import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
+import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 
 export class PrismaLeadRepository extends BasePrismaRepository implements ILeadRepository {
 
@@ -87,4 +89,32 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
             },
         });
     }
+    
+    async findFiltered (
+        criteria: FilterCriteriaDTO,
+        config: IFilterFieldConfig
+    ): Promise<Lead[]> {
+        const where = this.buildFilterWhere(criteria, config);
+        const { skip, take } = this.buildPagination(criteria);
+
+        const records = await this.prisma.lead.findMany({
+            where,
+            skip,
+            take,
+            include: {
+                assignedTo: true,
+                status: true,
+            },
+        });
+
+        return records.map(Lead.fromPrisma);
+    };
+
+    async countFiltered(
+        criteria: FilterCriteriaDTO,
+        config: IFilterFieldConfig
+    ): Promise<number> {
+        const where = this.buildFilterWhere(criteria, config);
+        return this.prisma.lead.count({ where });
+    };
 }
