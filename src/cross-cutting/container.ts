@@ -11,6 +11,11 @@ import { JwTokenService } from "../infrastructure/services/JwtTokenService.js";
 import { LeadMapper } from "@/application/mappers/LeadMapper.js";
 import { GetLeadsUseCase } from "@/application/use-case/leads/getLeadsUseCase.js";
 import { PrismaLeadRepository } from "@/infrastructure/persistence/repositories/PrismaLeadRepository.js";
+import { CreateLeadUseCase } from "@/application/use-case/leads/createLeadUseCase.js";
+import { UpdateLeadUseCase } from "@/application/use-case/leads/updateLeadUseCase.js";
+import { GenericListFilteredUseCase } from "@/application/use-case/filter/GenericListFilteredUseCase.js";
+import { leadFilterConfig } from "@/infrastructure/persistence/filters/leadFilterConfig.js";
+import { ListFilteredLeadsUseCase } from '@/application/use-case/leads/listFilteredLeadsUseCase.js';
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -49,5 +54,20 @@ export class ScopedContainer {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
         return new GetLeadsUseCase(leadRepo, leadMapper);
+    }
+    getCreateLeadUseCase(): CreateLeadUseCase{
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        const leadMapper = new LeadMapper();
+        return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
+    }
+    getUpdateLeadUseCase(): UpdateLeadUseCase {
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        const leadMapper = new LeadMapper();
+        return new UpdateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
+    }
+    getListFilteredLeadsUseCase(): ListFilteredLeadsUseCase {
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        const leadMapper = new LeadMapper();
+        return new GenericListFilteredUseCase(leadRepo, leadMapper, leadFilterConfig);
     }
 }

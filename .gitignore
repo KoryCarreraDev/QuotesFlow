@@ -4,3 +4,4 @@ dist/
 *.log
 prisma/migrations/*/migration_lock.toml
 coverage/
+.aider*

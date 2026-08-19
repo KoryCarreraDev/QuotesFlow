@@ -1,4 +1,4 @@
-# CONTEXT.md — QuotesFlow (SaaS Comerciales)
+﻿# CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > **¿Qué es este archivo?** Una guía completa para que cualquier persona (o IA) entienda el proyecto sin tener que leer cada archivo. Si eres nuevo en el equipo o una IA procesando este repositorio, empieza aquí.
 
@@ -10,14 +10,20 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 
 **Funcionalidades principales planeadas:**
 - Registro de empresas y usuarios (autenticación)
-- Gestión de leads/oportunidades de venta
+- Autenticación mediante JWT almacenado en Cookies HTTP-Only
+- Gestión de leads/oportunidades de venta (con restricciones por rol: `SALES_REP`, `SALES_LEADER`, `PARTNER`, `OWNER`)
 - Contactos (personas y empresas)
 - Productos con precios fijos o calculados por fórmulas matemáticas
 - Cotizaciones con ítems y generación de PDF
 - Auditoría de acciones
 - Mensajería (preparado, aún no implementado)
 
-**Estado actual:** Fase temprana. Solo está implementado el flujo de **registro de empresa + usuario owner**. Las carpetas de leads, messaging, pricing existen pero están vacías.
+**Estado actual:** Fase de desarrollo activo.
+- ✅ Autenticación completa: Registro de empresa + usuario owner (`POST /api/auth/register`) y Login (`POST /api/auth/login`) con emisión de cookie JWT.
+- ✅ Middleware Multi-Tenant: Extracción de credenciales desde cookie (`createAuthValidateCookie`) e inyección de contexto de tenant via `AsyncLocalStorage` (`createTenantMiddleware`).
+- ✅ Módulo de Leads: Dominio (`Lead`), DTOs, Mappers (`LeadMapper`), Puertos, Casos de Uso (`GetLeadsUseCase`, `CreateLeadUseCase`, `UpdateLeadUseCase`, `ListFilteredLeadsUseCase`), Repositorio Prisma (`PrismaLeadRepository`), Controller y Rutas (`/api/lead/*`).
+- ✅ Motor de Filtrado Genérico: `GenericListFilteredUseCase`, `IFilterableRepository`, `IFilterFieldConfig`, `FilterCriteriaDTO`, `PaginatedResultDTO`. Leads ya integrado como primera entidad.
+- ⏳ Próximos módulos: Contactos, Productos/Fórmulas de precio, Cotizaciones.
 
 ---
 
@@ -27,23 +33,25 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 |---|---|---|
 | **TypeScript** | JavaScript con tipos. Te dice si usas mal un dato antes de ejecutar. | Todo el código fuente |
 | **Node.js 20** | El motor que permite correr JavaScript/TypeScript fuera del navegador. | Entorno de ejecución del servidor |
-| **Express 5** | Un framework web. Piensa en él como el "recepcionista" que recibe peticiones HTTP y las dirige al código correcto. | Rutas, middlewares, servidor HTTP |
-| **Prisma 7** | Un ORM (traductor entre código TypeScript y SQL). Escribes código TS y Prisma lo convierte en consultas SQL. | Acceso a base de datos, migraciones, esquema |
-| **PostgreSQL 15** | Base de datos relacional. Almacena toda la información de forma permanente. | Almacenamiento persistente |
-| **Zod** | Validador de datos. Verifica que lo que envía el usuario tiene la forma correcta (email válido, campo no vacío, etc.) | Validación de request bodies |
-| **bcryptjs** | Librería de hashing. Convierte contraseñas en textos irreversibles para guardarlas de forma segura. | Hash de contraseñas |
-| **jsonwebtoken** | Genera y verifica tokens JWT. Son como "pases de acceso" que el usuario recibe al autenticarse. | Autenticación (preparado, no implementado aún) |
-| **helmet** | Añade headers HTTP de seguridad automáticamente. | Seguridad HTTP |
-| **cors** | Controla qué dominios pueden hacer peticiones al backend. | Seguridad cross-origin |
-| **express-rate-limit** | Limita cuántas peticiones puede hacer un cliente en un tiempo dado (100 cada 15 min). | Protección contra abuso |
-| **winston** | Logger profesional. Registra eventos con niveles (info, warn, error). | Logging (preparado) |
-| **mathjs** | Motor de evaluación de expresiones matemáticas. | Cálculo de fórmulas de precios de productos |
-| **pdf-lib** | Genera archivos PDF desde código. | Generación de cotizaciones en PDF |
-| **nodemailer** | Envía correos electrónicos. | Envío de cotizaciones por email (preparado) |
-| **multer** | Maneja subida de archivos (logos, adjuntos). | Upload de archivos (preparado) |
-| **node-cron** | Programa tareas en intervalos (cada hora, cada día, etc.). | Tareas programadas (preparado) |
-| **Docker** | Empaqueta la app y la BD en contenedores aislados y reproducibles. | Desarrollo local y despliegue |
-| **pnpm** | Gestor de paquetes (como npm pero más rápido y eficiente en espacio). | Instalación de dependencias |
+| **Express 5** | Un framework web. Recepciona peticiones HTTP y las dirige al código correcto. | Rutas, middlewares, servidor HTTP |
+| **Prisma 7** | Un ORM (traductor entre código TypeScript y SQL). | Acceso a base de datos, migraciones, esquema (`schema.prisma`) |
+| **PostgreSQL 15** | Base de datos relacional. | Almacenamiento persistente |
+| **Zod** | Validador de datos. | Validación de request bodies en la capa de presentación |
+| **bcryptjs** | Librería de hashing. | Hash y verificación de contraseñas de usuarios |
+| **jsonwebtoken** | Genera y verifica tokens JWT. | Autenticación y sesión de usuario (`JwtTokenService`) |
+| **cookie-parser** | Middleware de Express. | Lectura y parseo de cookies de peticiones HTTP (`accessToken`) |
+| **compression** | Middleware de Express. | Compresión Gzip/Brotli de respuestas HTTP |
+| **helmet** | Seguridad HTTP. | Cabeceras de seguridad automáticas |
+| **cors** | Control de acceso cross-origin. | Permitir peticiones desde frontend autorizado |
+| **express-rate-limit** | Limitador de tasa de peticiones. | Protección contra ataques de fuerza bruta / abuso |
+| **winston** | Logger estructurado. | Registro de logs de la aplicación |
+| **mathjs** | Evaluador de expresiones matemáticas. | Cálculo de precios dinámicos mediante fórmulas |
+| **pdf-lib** | Generador de PDF. | Creación de documentos PDF de cotizaciones |
+| **nodemailer** | Cliente de email. | Envío de cotizaciones y notificaciones por correo |
+| **multer** | Gestor de uploads. | Carga de archivos adjuntos / logos |
+| **node-cron** | Tareas programadas. | Ejecución de tareas en segundo plano |
+| **Docker & Docker Compose** | Contenedores. | Entorno de desarrollo aislado (App + Postgres) |
+| **pnpm** | Gestor de paquetes. | Instalación rápida y eficiente de dependencias |
 
 ---
 
@@ -53,30 +61,30 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 
 El código está organizado en **capas con responsabilidades separadas**. La regla de oro es:
 
-> **Las capas internas NUNCA conocen a las externas.** El dominio no sabe que existe Express, Prisma, ni ninguna librería. Solo sabe de sus propias reglas de negocio.
+> **Las capas internas NUNCA conocen a las externas.** El dominio no sabe que existe Express, Prisma, ni ninguna librería. Solo conoce sus propias reglas de negocio.
 
 Esto permite:
-- Cambiar la base de datos sin tocar la lógica de negocio
-- Cambiar el framework web sin tocar nada más
-- Testear la lógica de negocio sin necesitar una base de datos real
+- Cambiar la base de datos o el ORM sin tocar la lógica de negocio.
+- Cambiar el framework web (Express -> Fastify, etc.) sin impactar el dominio ni los casos de uso.
+- Testear la lógica de negocio mediante mocks de repositorios y servicios.
 
 ### 3.2. Las Capas (de adentro hacia afuera)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  PRESENTATION (routes/)           ← Define URLs y conecta todo     │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  INFRASTRUCTURE                ← Implementaciones reales     │  │
-│  │  ┌─────────────────────────────────────────────────────────┐  │  │
-│  │  │  APPLICATION                ← Casos de uso + contratos  │  │  │
-│  │  │  ┌───────────────────────────────────────────────────┐  │  │  │
-│  │  │  │  DOMAIN                  ← Reglas de negocio puras │  │  │  │
-│  │  │  └───────────────────────────────────────────────────┘  │  │  │
-│  │  └─────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  CROSS-CUTTING                    ← Utilidades transversales       │
-│  CONFIG                           ← Variables de entorno y BD      │
-└─────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------+
+|  PRESENTATION (routes/, schemas/)  <- Define URLs y validación Zod  |
+|  +--------------------------------------------------------------- + |
+|  |  INFRASTRUCTURE (web/, persistence/, services/)               | |
+|  |  +----------------------------------------------------------+  | |
+|  |  |  APPLICATION (use-case/, dtos/, ports/, mappers/)        |  | |
+|  |  |  +----------------------------------------------------+  |  | |
+|  |  |  |  DOMAIN (entities/, enums/, value-objects/)        |  |  | |
+|  |  |  +----------------------------------------------------+  |  | |
+|  |  +----------------------------------------------------------+  | |
+|  +----------------------------------------------------------------+ |
+|  CROSS-CUTTING (container.ts, tenantContext.ts)  <- DI / Ensamblaje |
+|  CONFIG (env.ts, database.ts)                   <- Configuración BD |
++---------------------------------------------------------------------+
 ```
 
 ---
@@ -85,340 +93,509 @@ Esto permite:
 
 ```
 src/
-├── server.ts                  # Punto de entrada. Arranca Express en el puerto configurado.
-├── app.ts                     # Configura Express: middlewares, seguridad y rutas.
-│
-├── config/                    # ⚙️ CONFIGURACIÓN
-│   ├── env.ts                 # Lee variables de entorno (.env) y las exporta tipadas.
-│   └── database.ts            # Crea la conexión a PostgreSQL vía Prisma + pg Pool.
-│
-├── domain/                    # 🧠 DOMINIO — Reglas de negocio puras (NO depende de nada externo)
-│   ├── entities/              # Objetos principales del negocio
-│   │   ├── User.ts            # Entidad Usuario (id, email, passwordHash, role, tenantId...)
-│   │   └── Tenant.ts          # Entidad Empresa/Tenant (id, name, logoUrl, settings)
-│   ├── enums/                 # Valores fijos del negocio
-│   │   └── Role.ts            # Roles: OWNER, PARTNER, SALES_LEADER, SALES_REP
-│   └── value-objects/         # (Vacío) Para objetos inmutables como Email, Money, etc.
-│
-├── application/               # 📋 APLICACIÓN — Orquesta el negocio, define contratos
-│   ├── dtos/                  # Data Transfer Objects (la "forma" de los datos que entran/salen)
-│   │   └── RegisterCompanyDTO.ts  # Datos para registrar empresa: companyName, ownerEmail, password...
-│   ├── ports/                 # CONTRATOS (interfaces) — "qué necesito, pero no cómo se hace"
-│   │   ├── repositories/      # Contratos de acceso a datos
-│   │   │   ├── IUserRepository.ts     # create(), findByEmail(), findById()
-│   │   │   └── ITenantRepository.ts   # create(), findById()
-│   │   ├── services/          # Contratos de servicios técnicos
-│   │   │   ├── IHashService.ts        # hash(), compare() — para contraseñas
-│   │   │   └── ITenantContext.ts      # getTenantId() — saber qué empresa está activa
-│   │   └── messaging/         # (Vacío) Contratos de mensajería futura
-│   └── use-case/              # CASOS DE USO — La lógica de cada operación del negocio
-│       ├── auth/
-│       │   └── RegisterCompanyAndOwnerUseCase.ts  # Registra empresa + usuario owner
-│       ├── leads/             # (Vacío) Futuros CU de leads
-│       ├── messaging/         # (Vacío) Futuros CU de mensajería
-│       └── pricing/           # (Vacío) Futuros CU de cotizaciones/fórmulas
-│
-├── infrastructure/            # 🔧 INFRAESTRUCTURA — Implementaciones concretas
-│   ├── persistence/           # Todo lo relacionado con la base de datos
-│   │   ├── prisma/
-│   │   │   └── PrismaService.ts           # Singleton que gestiona la instancia de PrismaClient
-│   │   ├── repositories/                  # Implementaciones reales de los contratos (ports)
-│   │   │   ├── BasePrismaRepository.ts    # Clase base: filtra automáticamente por tenantId
-│   │   │   ├── PrismaUserRepository.ts    # Implementa IUserRepository con Prisma
-│   │   │   └── PrismaTenantRepository.ts  # Implementa ITenantRepository con Prisma
-│   │   └── mappers/           # (Vacío) Para convertir entre modelos de Prisma y entidades de dominio
-│   ├── services/              # Implementaciones de servicios técnicos
-│   │   └── BcryptHashService.ts   # Implementa IHashService usando bcryptjs
-│   ├── web/                   # Capa HTTP de infraestructura
-│   │   ├── controllers/
-│   │   │   └── AuthControllers.ts     # Recibe HTTP request → llama al use case → devuelve HTTP response
-│   │   └── middleware/
-│   │       └── validateBody.ts        # Middleware genérico: valida req.body con un schema Zod
-│   └── messaging/             # (Vacío) Futura infraestructura de email/WhatsApp
-│
-├── presentation/              # 🌐 PRESENTACIÓN — Define las rutas HTTP (URLs)
-│   └── routes/
-│       └── authRoutes.ts      # POST /api/auth/register — conecta schema Zod + controller
-│
-└── cross-cutting/             # 🔀 CROSS-CUTTING — Utilidades que cruzan todas las capas
-    ├── container.ts           # Contenedor de Inyección de Dependencias (DI manual)
-    └── tenantContext.ts       # Almacena el tenantId activo por request usando AsyncLocalStorage
++-- server.ts                  # Punto de entrada. Arranca el servidor Express.
++-- app.ts                     # Middlewares globales (helmet, cors, compression, cookieParser, rateLimit) y rutas.
+|
++-- config/
+|   +-- env.ts                 # Variables de entorno tipadas (.env).
+|   +-- database.ts            # Conexion PostgreSQL via Prisma + pg Pool.
+|
++-- domain/                    # DOMINIO - Reglas de negocio puras
+|   +-- entities/
+|   |   +-- User.ts
+|   |   +-- Tenant.ts
+|   |   +-- Lead.ts
+|   +-- enums/
+|   |   +-- Role.ts            # OWNER, PARTNER, SALES_LEADER, SALES_REP
+|   +-- value-objects/
+|
++-- application/               # APLICACION - Casos de uso, DTOs, Puertos
+|   +-- dtos/
+|   |   +-- RegisterCompanyDTO.ts
+|   |   +-- LoginDTO.ts
+|   |   +-- CreateLeadDTO.ts
+|   |   +-- UpdateLeadDTO.ts
+|   |   +-- LeadDTO.ts
+|   |   +-- FilterCriteriaDTO.ts   # DTO generico: { filters?, search?, page?, limit? }
+|   |   +-- PaginatedResultDTO.ts  # DTO generico de salida: { data, total, page, limit }
+|   +-- mappers/
+|   |   +-- LeadMapper.ts          # Entidad Lead -> LeadDTO. Implementa IMapper<Lead, LeadDTO>
+|   +-- ports/
+|   |   +-- repositories/
+|   |   |   +-- IFilterableRepository.ts  # Contrato: findFiltered() + countFiltered()
+|   |   |   +-- ILeadRepository.ts        # Extiende IFilterableRepository<Lead>
+|   |   |   +-- ITenantRepository.ts
+|   |   |   +-- IUserRepository.ts
+|   |   +-- services/
+|   |   |   +-- IFilterFieldConfig.ts     # Contrato del mapa de campos filtrables
+|   |   |   +-- IHashService.ts
+|   |   |   +-- IAuthTokenService.ts
+|   |   |   +-- ITenantContext.ts
+|   |   +-- mappers/
+|   |       +-- IMapper.ts                # Contrato generico: toDTO(entity): DTO
+|   |       +-- ILeadMapper.ts
+|   +-- use-case/
+|       +-- auth/
+|       |   +-- RegisterCompanyAndOwnerUseCase.ts
+|       |   +-- LoginUseCase.ts
+|       +-- filter/
+|       |   +-- GenericListFilteredUseCase.ts  # Motor generico. Reutilizable para cualquier entidad.
+|       +-- leads/
+|           +-- createLeadUseCase.ts
+|           +-- getLeadsUseCase.ts
+|           +-- updateLeadUseCase.ts
+|           +-- listFilteredLeadsUseCase.ts    # Type alias: GenericListFilteredUseCase<Lead, LeadDTO>
+|
++-- infrastructure/            # INFRAESTRUCTURA - Implementaciones concretas
+|   +-- persistence/
+|   |   +-- filters/
+|   |   |   +-- leadFilterConfig.ts   # Campos filtrables de Lead (operadores, searchable)
+|   |   +-- prisma/
+|   |   |   +-- PrismaService.ts      # Singleton de PrismaClient
+|   |   +-- repositories/
+|   |       +-- BasePrismaRepository.ts    # tenantWhere(), buildFilterWhere(), buildPagination()
+|   |       +-- PrismaUserRepository.ts
+|   |       +-- PrismaTenantRepository.ts
+|   |       +-- PrismaLeadRepository.ts    # ILeadRepository + findFiltered() + countFiltered()
+|   +-- services/
+|   |   +-- BcryptHashService.ts
+|   |   +-- JwtTokenService.ts
+|   +-- web/
+|       +-- controllers/
+|       |   +-- AuthControllers.ts
+|       |   +-- leadControllers.ts         # getFiltered() con logica de rol SALES_REP
+|       +-- middleware/
+|           +-- validateBody.ts
+|           +-- createAuthValidateCookie.ts
+|           +-- createTenantMiddleware.ts
+|
++-- presentation/
+|   +-- routes/
+|   |   +-- authRoutes.ts
+|   |   +-- leadRoutes.ts      # getAll, create, update/:id, filtered
+|   +-- schemas/
+|       +-- authSchema.ts
+|       +-- leadSchema.ts      # createLeadSchema, updateLeadSchema
+|
++-- cross-cutting/
+|   +-- container.ts           # ScopedContainer (DI manual por request)
+|   +-- tenantContext.ts       # AsyncLocalStorage para el tenantId activo
+|
++-- types/
+    +-- express.d.ts           # Extiende Express.Request con req.container y req.user
 
 prisma/
-└── schema.prisma              # Esquema de la base de datos (todas las tablas y relaciones)
++-- schema.prisma              # Esquema PostgreSQL: Tenant, User, Lead, Contact, Product, Quote, etc.
 ```
 
 ---
 
 ## 5. Conceptos Clave Explicados
 
-### 5.1. Multi-Tenancy (Aislamiento por empresa)
+### 5.1. Multi-Tenancy (Aislamiento por empresa con AsyncLocalStorage)
 
-Cada empresa que se registra es un **Tenant**. Todos los tenants comparten la **misma base de datos y las mismas tablas**, pero cada registro tiene un campo `tenantId` que indica a qué empresa pertenece.
+Cada empresa registrada es un **Tenant**. Todos los tenants comparten la misma base de datos y tablas, pero cada registro contiene la columna `tenantId`.
 
-```
-┌──────────────────── Tabla users ────────────────────┐
-│ id │ email          │ tenantId  │ role      │ ...   │
-│ 1  │ ana@acme.com   │ tenant_A  │ OWNER     │       │  ← Empresa Acme
-│ 2  │ bob@acme.com   │ tenant_A  │ SALES_REP │       │  ← Empresa Acme
-│ 3  │ carlos@xyz.com │ tenant_B  │ OWNER     │       │  ← Empresa XYZ
-└─────────────────────────────────────────────────────┘
-```
-
-**¿Cómo se filtra?** El `BasePrismaRepository` tiene métodos helper (`tenantWhere()`, `withTenant()`, `validateTenant()`) que inyectan automáticamente el filtro `WHERE tenantId = X` en cada consulta. Así un usuario de Acme **nunca** puede ver datos de XYZ.
-
-**¿Cómo se sabe qué tenant está activo?** Usando `AsyncLocalStorage` (API nativa de Node.js). Al principio de cada petición HTTP se establece el `tenantId` en un almacenamiento por request. Los repositorios lo leen a través de la interfaz `ITenantContext`.
-
-### 5.2. Inyección de Dependencias (DI) Manual
-
-En vez de importar directamente `PrismaUserRepository` en los casos de uso, el código usa **interfaces** (contratos). Un caso de uso pide "dame algo que sepa crear usuarios" (`IUserRepository`), y el `ScopedContainer` le entrega la implementación concreta (`PrismaUserRepository`).
+**Flujo del Tenant en cada Request HTTP:**
+1. `createAuthValidateCookie` lee el JWT de la cookie `accessToken`, valida la firma y extrae `userId`, `tenantId` y `role` en `req.user`.
+2. `createTenantMiddleware` invoca `TenantContext.run(tenantId, ...)` usando `AsyncLocalStorage` de Node.js.
+3. Se crea `req.container = new ScopedContainer(tenantId)`.
+4. Los repositorios que heredan de `BasePrismaRepository` inyectan automáticamente `WHERE tenantId = X` en todas las consultas.
 
 ```
-Caso de uso dice:  "Necesito un IUserRepository"
-Container dice:    "Aquí tienes un PrismaUserRepository"
+Request HTTP --> [createAuthValidateCookie] --> req.user (tenantId)
+                     |
+                     +--> [createTenantMiddleware]
+                               |
+                               +--> TenantContext.run(tenantId, ...) [AsyncLocalStorage]
+                               +--> req.container = new ScopedContainer(tenantId)
 ```
 
-**¿Por qué?** Porque mañana puedes cambiar a MongoDB y solo cambias lo que el Container entrega, sin tocar los casos de uso.
+### 5.2. Inyección de Dependencias (DI) per-Request
 
-El `ScopedContainer` se crea por tipo de contexto:
-- **Sin tenantId**: Para operaciones públicas (registro, login)
-- **Con tenantId**: Para operaciones dentro de una empresa autenticada
+`ScopedContainer` (`src/cross-cutting/container.ts`) ensambla las dependencias:
+- **Scope Público (sin tenantId):** Para endpoints de registro y login.
+- **Scope Autenticado (con tenantId):** Instanciado por `createTenantMiddleware` en cada request autenticado.
 
-### 5.3. Ports & Adapters (Puertos y Adaptadores)
+### 5.3. Restricciones de Visibilidad por Rol (CRM Leads)
 
-- **Port (Puerto):** Una interfaz en `application/ports/`. Es el "contrato" que dice QUÉ se necesita pero no CÓMO.
-  - Ejemplo: `IHashService` → "necesito poder hashear y comparar passwords"
-- **Adapter (Adaptador):** Una clase en `infrastructure/` que IMPLEMENTA ese contrato.
-  - Ejemplo: `BcryptHashService` → "yo lo hago usando la librería bcryptjs"
-
-### 5.4. Entidades de Dominio vs Modelos de Prisma
-
-Son cosas **diferentes** aunque se parecen:
-
-| Concepto | Ubicación | Propósito |
-|---|---|---|
-| **Entidad de Dominio** | `domain/entities/User.ts` | Clase TS pura con reglas de negocio. No sabe que Prisma existe. Tiene un `static create()` que genera IDs. |
-| **Modelo de Prisma** | `prisma/schema.prisma` (modelo `User`) | Define la estructura de la tabla en la BD. Prisma genera tipos automáticos desde aquí. |
-| **Mapper** | `infrastructure/persistence/mappers/` (vacío por ahora) | Convierte entre uno y otro. Actualmente la conversión se hace inline en los repositorios (`toDomain()`). |
-
-### 5.5. Flujo de Datos de una Petición
-
-Ejemplo: `POST /api/auth/register`
-
-```
-1. CLIENTE envía JSON → { companyName, ownerEmail, password, ownerFirstName, ownerLastName }
-       │
-2. EXPRESS recibe en app.ts → pasa por helmet, cors, json parser, rate limit
-       │
-3. ROUTER (presentation/routes/authRoutes.ts)
-   → validateBody(registerSchema)           ← Zod valida el body
-   → controller.register                    ← Pasa al controller
-       │
-4. CONTROLLER (infrastructure/web/controllers/AuthControllers.ts)
-   → Llama a registerUseCase.execute(req.body)
-       │
-5. USE CASE (application/use-case/auth/RegisterCompanyAndOwnerUseCase.ts)
-   → Verifica que el email no exista         ← via IUserRepository
-   → Crea la entidad Tenant                 ← Tenant.create()
-   → Hashea el password                     ← via IHashService
-   → Crea la entidad User (como OWNER)      ← User.create()
-   → Persiste Tenant y User                 ← via ITenantRepository e IUserRepository
-   → Retorna { tenantId, ownerId }
-       │
-6. CONTROLLER recibe el resultado → res.status(201).json(result)
-       │
-7. CLIENTE recibe → { tenantId: "abc123", ownerId: "def456" }
-```
+- **`SALES_REP`:** Solo ve leads asignados a él (`assignedToId === userId`). En `getFiltered`, el controller elimina cualquier filtro de `assignedToId` del cliente y fuerza el propio `userId`.
+- **`OWNER`, `PARTNER`, `SALES_LEADER`:** Acceso global a todos los leads del tenant.
 
 ---
 
 ## 6. Modelo de Datos (Base de Datos)
 
-### 6.1. Diagrama de Relaciones
-
 ```
 Tenant (Empresa)
- ├── User[]                    ← Usuarios de la empresa
- ├── Lead[]                    ← Oportunidades de venta
- │    ├── LeadStatusHistory[]  ← Historial de cambios de estado
- │    └── Quote[]              ← Cotizaciones vinculadas
- ├── Contact[]                 ← Contactos persona
- ├── CompanyContact[]          ← Contactos empresa
- │    └── Contact[]            ← Personas de esa empresa
- ├── Product[]                 ← Productos/servicios
- │    └── Formula?             ← Fórmula de precio opcional
- ├── Quote[]                   ← Cotizaciones
- │    └── QuoteItem[]          ← Ítems de la cotización
- ├── Formula[]                 ← Fórmulas matemáticas
- ├── LeadStatusConfig[]        ← Estados de leads personalizables
- ├── TenantSettings            ← Configuración (estrategia de asignación)
- └── AuditLog[]                ← Registro de auditoría
+ +-- User[]                    <- OWNER, PARTNER, SALES_LEADER, SALES_REP
+ +-- Lead[]                    <- Oportunidades de venta
+ |    +-- LeadStatusHistory[]
+ |    +-- Quote[]
+ +-- Contact[]
+ +-- CompanyContact[]
+ |    +-- Contact[]
+ +-- Product[]
+ |    +-- Formula?
+ +-- Quote[]
+ |    +-- QuoteItem[]
+ +-- Formula[]
+ +-- LeadStatusConfig[]
+ +-- TenantSettings
+ +-- AuditLog[]
 ```
-
-### 6.2. Enums en BD
-
-| Enum | Valores | Uso |
-|---|---|---|
-| `Role` | OWNER, PARTNER, SALES_LEADER, SALES_REP | Rol del usuario dentro de la empresa |
-| `LeadAssignmentStrategy` | MANUAL, ROUND_ROBIN, LOAD_BALANCED | Cómo se asignan leads a vendedores |
-| `QuoteStatus` | DRAFT, SENT, ACCEPTED, REJECTED | Estado de una cotización |
-
-### 6.3. Tablas principales
-
-| Tabla | Descripción | Campos clave |
-|---|---|---|
-| `Tenant` | Empresa registrada | name, logoUrl, settings (JSON) |
-| `User` | Usuario del sistema | email (unique), passwordHash, role, tenantId |
-| `Lead` | Oportunidad de venta | companyName, contactName, statusId, assignedToId, estimatedValue |
-| `LeadStatusConfig` | Estados de leads personalizables por tenant | name, color (hex), order, isDefault |
-| `Contact` | Persona de contacto | firstName, lastName, email, phone, companyId |
-| `CompanyContact` | Empresa de contacto | name, industry, taxNumber, address... |
-| `Product` | Producto/servicio a vender | name, basePrice, formulaId |
-| `Formula` | Fórmula matemática para precios dinámicos | expression, variables (JSON array) |
-| `Quote` | Cotización | status, total, discount, leadId, contactId |
-| `QuoteItem` | Línea de una cotización | productId, quantity, variables (JSON), unitPrice, total |
-| `TenantSettings` | Configuración del tenant | leadAssignmentStrategy |
-| `AuditLog` | Registro de acciones | action, entity, entityId, metadata (JSON) |
 
 ---
 
-## 7. Cómo Ejecutar el Proyecto
+## 7. Endpoints API Implementados
 
-### Requisitos previos
-- Docker y Docker Compose instalados
-- (Opcional) Node.js 20+ y pnpm para desarrollo sin Docker
+| Método | Ruta | Auth | Descripción | Body / Query |
+|---|---|---|---|---|
+| `GET` | `/health` | No | Health check | — |
+| `POST` | `/api/auth/register` | No | Registrar empresa y usuario OWNER | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
+| `POST` | `/api/auth/login` | No | Login y emisión de cookie JWT | `{ email, password }` |
+| `GET` | `/api/lead/getAll` | Cookie JWT | Lista simple de leads (filtrada por rol) | — |
+| `POST` | `/api/lead/create` | Cookie JWT | Crear lead | `{ contactName, companyName?, email?, phone?, statusId?, ... }` |
+| `PATCH` | `/api/lead/update/:id` | Cookie JWT | Actualizar lead | `{ companyName?, contactName?, email?, ... }` |
+| `GET` | `/api/lead/filtered` | Cookie JWT | Listado paginado y filtrado (motor genérico) | `?search=&filters=[...]&page=1&limit=20` |
 
-### Con Docker (recomendado)
-```bash
-# 1. Copiar variables de entorno
-cp .env.example .env
+---
 
-# 2. Levantar todo (PostgreSQL + Backend)
-docker-compose up --build
+## 8. Guía para Agregar una Nueva Funcionalidad
 
-# La API estará en http://localhost:4000
-# La BD PostgreSQL estará en localhost:5433
+1. **Dominio** (`src/domain/entities/`): Entidad con métodos estáticos `create`, `fromPrisma`.
+2. **Puertos** (`src/application/ports/`): Interfaz del repositorio y mappers.
+3. **DTOs & Mappers** (`src/application/dtos/`, `src/application/mappers/`): Objetos de transferencia y transformación.
+4. **Caso de Uso** (`src/application/use-case/`): Lógica de negocio orquestando puertos.
+5. **Repositorio** (`src/infrastructure/persistence/repositories/`): Extender `BasePrismaRepository` e implementar el puerto.
+6. **Contenedor DI** (`src/cross-cutting/container.ts`): Método en `ScopedContainer` para resolver el caso de uso.
+7. **Controller** (`src/infrastructure/web/controllers/`): Manejar `req` y emitir `res`.
+8. **Ruta & Schema** (`src/presentation/`): Schema Zod + rutas con `authMiddleware` y `tenantMiddleware`.
+9. **Registrar en `app.ts`**: Conectar el router.
+
+---
+
+## 9. Reglas de Dependencia (Qué puede importar qué)
+
+```
+OK  domain/         --> NADA externo (solo Node.js nativo)
+OK  application/    --> domain/
+OK  infrastructure/ --> domain/, application/
+OK  presentation/   --> infrastructure/, application/, cross-cutting/
+OK  cross-cutting/  --> application/, infrastructure/
+OK  config/         --> dotenv, prisma, pg
+
+NO  domain/         --> NO importa application/, infrastructure/, Express, Prisma
+NO  application/    --> NO importa infrastructure/ ni Express/Prisma
 ```
 
-### Sin Docker (desarrollo local)
-```bash
-# 1. Copiar variables de entorno y configurar DATABASE_URL apuntando a tu PostgreSQL
-cp .env.example .env
+---
 
-# 2. Instalar dependencias
-pnpm install
+## 10. Decisiones Técnicas Relevantes
 
-# 3. Generar cliente Prisma
-pnpm prisma:generate
+- **Autenticación vía Cookies HTTP-Only (`accessToken`):** Más seguro que LocalStorage contra XSS.
+- **AsyncLocalStorage para Tenant:** Evita pasar `tenantId` manualmente por todas las capas.
+- **Driver Adapter Prisma (`@prisma/adapter-pg`):** Pool nativo `pg` para mejor gestión de conexiones.
+- **DI per-Request:** `createTenantMiddleware` adjunta `req.container` en cada petición autenticada.
+- **Tipado estricto en Express:** `src/types/express.d.ts` extiende `Express.Request`.
+- **Motor de Filtrado Genérico:** `GenericListFilteredUseCase<Entity, DTO>` reutilizable. Solo requiere un repositorio filtrable, un mapper y un filterConfig. Ver sección 11.
 
-# 4. Ejecutar migraciones
-pnpm prisma:migrate
+---
 
-# 5. Iniciar en modo desarrollo (hot reload)
-pnpm dev
+## 11. Motor de Filtrado Genérico
+
+### 11.1. ¿Qué es y para qué sirve?
+
+El motor de filtrado genérico permite a cualquier entidad ofrecer un endpoint con:
+- **Filtros por campo** (`statusId equals uuid`, `estimatedValue gte 5000`)
+- **Búsqueda global** (texto en múltiples campos)
+- **Paginación** (`page`, `limit`)
+
+Se implementa una sola vez y se conecta a entidades nuevas en ~5 pasos. **Lead es la referencia canónica**.
+
+### 11.2. Piezas del Motor (ya existen, no recrear)
+
+| Archivo | Capa | Rol |
+|---|---|---|
+| `src/application/dtos/FilterCriteriaDTO.ts` | Application | Entrada: `{ filters?, search?, page?, limit? }` |
+| `src/application/dtos/PaginatedResultDTO.ts` | Application | Salida: `{ data, total, page, limit }` |
+| `src/application/ports/repositories/IFilterableRepository.ts` | Application | Contrato: `findFiltered()` + `countFiltered()` |
+| `src/application/ports/services/IFilterFieldConfig.ts` | Application | Contrato: mapa de campos permitidos con operadores |
+| `src/application/ports/mappers/IMapper.ts` | Application | Contrato: `toDTO(entity): DTO` |
+| `src/application/use-case/filter/GenericListFilteredUseCase.ts` | Application | Motor central genérico |
+| `src/infrastructure/persistence/repositories/BasePrismaRepository.ts` | Infrastructure | `buildFilterWhere()`, `buildPagination()`, `tenantWhere()` |
+
+### 11.3. Flujo interno de una petición filtrada
+
+```
+GET /api/[entidad]/filtered?search=foo&filters=[...]&page=1&limit=20
+         |
+         v
+[Controller]
+  - parsea query params
+  - construye FilterCriteriaDTO
+  - aplica restricciones de rol si aplica
+         |
+         v
+[GenericListFilteredUseCase.execute(criteria)]
+         |
+         +---> repository.findFiltered(criteria, filterConfig)
+         |              |
+         |              +--> buildFilterWhere()
+         |                     - Siempre incluye { tenantId }
+         |                     - Aplica cada filtro validado contra filterConfig
+         |                     - Si hay search: OR sobre campos con searchable:true
+         |
+         +---> repository.countFiltered(criteria, filterConfig)
+         |
+         +--> Retorna PaginatedResult<DTO> { data, total, page, limit }
 ```
 
-### Comandos útiles
-| Comando | Qué hace |
+**Operadores soportados:** `contains` (texto, case-insensitive), `equals`, `in` (array), `gt`, `gte`, `lt`, `lte`.
+
+### 11.4. Guía paso a paso: conectar una nueva entidad
+
+> Reemplaza `[Entidad]` con el nombre real (ej: `Contact`) y `[entidad]` con minúsculas.
+
+---
+
+#### PASO 1 — Puerto del repositorio debe extender IFilterableRepository
+
+**Archivo:** `src/application/ports/repositories/I[Entidad]Repository.ts`
+
+```typescript
+import { IFilterableRepository } from "./IFilterableRepository.js";
+import { [Entidad] } from "../../../domain/entities/[Entidad].js";
+
+export interface I[Entidad]Repository extends IFilterableRepository<[Entidad]> {
+    findByTenant(): Promise<[Entidad][]>;
+    create(entity: [Entidad]): Promise<void>;
+    findById(id: string): Promise<[Entidad] | null>;
+    // ...otros metodos propios
+}
+```
+
+**Archivo:** `src/infrastructure/persistence/repositories/Prisma[Entidad]Repository.ts`
+
+Agregar los dos métodos que exige `IFilterableRepository`. Gracias a `BasePrismaRepository`, el codigo es casi identico para todas las entidades:
+
+```typescript
+async findFiltered(
+    criteria: FilterCriteriaDTO,
+    config: IFilterFieldConfig
+): Promise<[Entidad][]> {
+    const where = this.buildFilterWhere(criteria, config);  // heredado
+    const { skip, take } = this.buildPagination(criteria);  // heredado
+
+    const records = await this.prisma.[entidad].findMany({
+        where,
+        skip,
+        take,
+        include: { /* relaciones necesarias */ },
+    });
+
+    return records.map([Entidad].fromPrisma);
+}
+
+async countFiltered(
+    criteria: FilterCriteriaDTO,
+    config: IFilterFieldConfig
+): Promise<number> {
+    const where = this.buildFilterWhere(criteria, config);
+    return this.prisma.[entidad].count({ where });
+}
+```
+
+**Referencia real:** `src/infrastructure/persistence/repositories/PrismaLeadRepository.ts` (metodos `findFiltered` y `countFiltered`, lineas 93-119)
+
+---
+
+#### PASO 2 — Crear el FilterConfig de la entidad
+
+**Archivo a crear:** `src/infrastructure/persistence/filters/[entidad]FilterConfig.ts`
+
+Define que campos son filtrables y que operadores acepta cada uno. Los campos no declarados son rechazados automaticamente por el motor.
+
+```typescript
+import { IFilterFieldConfig } from "@/application/ports/services/IFilterFieldConfig.js";
+
+export const [entidad]FilterConfig: IFilterFieldConfig = {
+    // Campos de texto -> 'contains' (parcial) o 'equals' (exacto)
+    name: {
+        allowedOperators: ["contains", "equals"],
+        searchable: true,   // true = se incluye en busqueda global (?search=texto)
+    },
+    email: {
+        allowedOperators: ["contains", "equals"],
+        searchable: true,
+    },
+    // Campos de ID/relacion -> 'equals' (uno) o 'in' (varios)
+    statusId: {
+        allowedOperators: ["equals", "in"],
+        searchable: false,
+    },
+    // Campos numericos o fechas -> comparadores
+    createdAt: {
+        allowedOperators: ["equals", "gt", "gte", "lt", "lte"],
+        searchable: false,
+    },
+    // Agrega todos los campos filtrables del modelo Prisma
+};
+```
+
+**Referencia real:** `src/infrastructure/persistence/filters/leadFilterConfig.ts`
+
+**Reglas importantes:**
+- `searchable: true` = ese campo aparece en el OR cuando el cliente manda `?search=texto`.
+- Operadores no listados en `allowedOperators` lanzan error 400 automaticamente.
+- Campos no declarados en el config lanzan error 400 automaticamente.
+
+---
+
+#### PASO 3 — Crear el type alias del caso de uso
+
+**Archivo a crear:** `src/application/use-case/[entidades]/listFiltered[Entidades]UseCase.ts`
+
+No se escribe logica nueva. Solo un type alias que especializa el generico con los tipos de la entidad:
+
+```typescript
+import { GenericListFilteredUseCase } from "../filter/GenericListFilteredUseCase.js";
+import { [Entidad] } from "@/domain/entities/[Entidad].js";
+import { [Entidad]DTO } from "@/application/dtos/[Entidad]DTO.js";
+
+export type ListFiltered[Entidades]UseCase = GenericListFilteredUseCase<[Entidad], [Entidad]DTO>;
+```
+
+**Referencia real:** `src/application/use-case/leads/listFilteredLeadsUseCase.ts`
+
+---
+
+#### PASO 4 — Registrar en el contenedor de DI
+
+**Archivo:** `src/cross-cutting/container.ts`
+
+Agregar el metodo en `ScopedContainer`:
+
+```typescript
+import { GenericListFilteredUseCase } from "@/application/use-case/filter/GenericListFilteredUseCase.js";
+import { [entidad]FilterConfig } from "@/infrastructure/persistence/filters/[entidad]FilterConfig.js";
+import { ListFiltered[Entidades]UseCase } from "@/application/use-case/[entidades]/listFiltered[Entidades]UseCase.js";
+
+// Dentro de la clase ScopedContainer:
+getListFiltered[Entidades]UseCase(): ListFiltered[Entidades]UseCase {
+    const repo = new Prisma[Entidad]Repository(this.prisma, this.tenantContext);
+    const mapper = new [Entidad]Mapper();
+    return new GenericListFilteredUseCase(repo, mapper, [entidad]FilterConfig);
+}
+```
+
+**Referencia real:** `src/cross-cutting/container.ts` metodo `getListFilteredLeadsUseCase` (lineas 68-72)
+
+---
+
+#### PASO 5 — Controller y Ruta
+
+**En el controller** (`src/infrastructure/web/controllers/[entidad]Controllers.ts`):
+
+```typescript
+import { ListFiltered[Entidades]UseCase } from "@/application/use-case/[entidades]/listFiltered[Entidades]UseCase.js";
+import { FilterCriteriaDTO } from "@/application/dtos/FilterCriteriaDTO.js";
+
+export class [entidad]Controller {
+    constructor(
+        // ...otros casos de uso...
+        private readonly listFiltered[Entidades]UseCase: ListFiltered[Entidades]UseCase,
+    ) {}
+
+    getFiltered = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { search, page, limit } = req.query;
+            const filtersRaw = req.query.filters as string | undefined;
+
+            let filters: Array<{ field: string; operator: string; value: unknown }> = [];
+            if (filtersRaw) {
+                try {
+                    const parsed = JSON.parse(filtersRaw);
+                    filters = Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return res.status(400).json({ error: 'Invalid filters format' });
+                }
+            }
+
+            const criteria: FilterCriteriaDTO = {
+                filters,
+                search: search as string | undefined,
+                page: page ? Number(page) : undefined,
+                limit: limit ? Number(limit) : undefined,
+            };
+
+            // Aplicar restricciones de rol si la entidad lo requiere
+            // Ver leadControllers.ts getFiltered() como referencia para SALES_REP
+
+            const result = await this.listFiltered[Entidades]UseCase.execute(criteria);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    };
+}
+```
+
+**En las rutas** (`src/presentation/routes/[entidad]Routes.ts`):
+
+```typescript
+// En la funcion que instancia el controller:
+const listFilteredUseCase = req.container!.getListFiltered[Entidades]UseCase();
+return new [entidad]Controller(/* otros casos de uso */, listFilteredUseCase);
+
+// Registrar la ruta:
+router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
+    get[Entidad]Controller(req).getFiltered(req, res, next);
+});
+```
+
+**Referencia real:** `src/infrastructure/web/controllers/leadControllers.ts` y `src/presentation/routes/leadRoutes.ts`
+
+---
+
+### 11.5. Checklist de archivos por entidad nueva
+
+| Accion | Archivo |
 |---|---|
-| `pnpm dev` | Arranca con nodemon + tsx (hot reload) |
-| `pnpm build` | Compila TypeScript a JavaScript (dist/) |
-| `pnpm start` | Ejecuta la versión compilada |
-| `pnpm prisma:generate` | Regenera el cliente Prisma desde el schema |
-| `pnpm prisma:migrate` | Crea/aplica migraciones de BD |
-| `pnpm prisma:studio` | Abre GUI web para explorar la BD |
+| Modificar | `src/application/ports/repositories/I[Entidad]Repository.ts` — extender `IFilterableRepository` |
+| Modificar | `src/infrastructure/persistence/repositories/Prisma[Entidad]Repository.ts` — `findFiltered()` y `countFiltered()` |
+| Crear | `src/infrastructure/persistence/filters/[entidad]FilterConfig.ts` |
+| Crear | `src/application/use-case/[entidades]/listFiltered[Entidades]UseCase.ts` |
+| Modificar | `src/cross-cutting/container.ts` — `getListFiltered[Entidades]UseCase()` |
+| Modificar | `src/infrastructure/web/controllers/[entidad]Controllers.ts` — inyectar use case + `getFiltered()` |
+| Modificar | `src/presentation/routes/[entidad]Routes.ts` — resolver use case + ruta `GET /filtered` |
 
----
-
-## 8. Variables de Entorno
-
-| Variable | Descripción | Ejemplo |
-|---|---|---|
-| `DATABASE_URL` | Connection string de PostgreSQL | `postgresql://user:pass@localhost:5432/saas?schema=public` |
-| `JWT_SECRET` | Clave secreta para firmar tokens JWT | `una-clave-secreta-muy-larga` |
-| `JWT_EXPIRATION` | Duración del token JWT | `7d` |
-| `PORT` | Puerto del servidor Express | `4000` |
-| `NODE_ENV` | Entorno de ejecución | `development` / `production` |
-
----
-
-## 9. Endpoints API Implementados
-
-| Método | Ruta | Descripción | Body esperado |
-|---|---|---|---|
-| `GET` | `/health` | Health check | — |
-| `POST` | `/api/auth/register` | Registrar empresa + usuario owner | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
-
----
-
-## 10. Guía para Agregar una Nueva Funcionalidad
-
-Supongamos que quieres agregar "Crear un Lead". Estos son los pasos **en orden**:
-
-### Paso 1 — Dominio
-Crear la entidad `src/domain/entities/Lead.ts` con su `static create()`.
-
-### Paso 2 — Puerto (contrato)
-Crear `src/application/ports/repositories/ILeadRepository.ts` con los métodos necesarios (create, findById, etc.).
-
-### Paso 3 — DTO
-Crear `src/application/dtos/CreateLeadDTO.ts` con la forma de los datos de entrada.
-
-### Paso 4 — Caso de uso
-Crear `src/application/use-case/leads/CreateLeadUseCase.ts`. Recibe interfaces en el constructor, nunca implementaciones.
-
-### Paso 5 — Repositorio
-Crear `src/infrastructure/persistence/repositories/PrismaLeadRepository.ts`. Extiende `BasePrismaRepository` e implementa `ILeadRepository`.
-
-### Paso 6 — Controller
-Crear `src/infrastructure/web/controllers/LeadController.ts`. Recibe el use case y maneja req/res.
-
-### Paso 7 — Container
-Agregar un método en `src/cross-cutting/container.ts` para construir el use case con sus dependencias.
-
-### Paso 8 — Ruta
-Crear `src/presentation/routes/leadRoutes.ts` con el schema Zod de validación y conectar controller.
-
-### Paso 9 — Registrar en app.ts
-Agregar `app.use('/api/leads', leadRouter(container))` en `src/app.ts`.
-
----
-
-## 11. Reglas de Dependencia (Qué puede importar qué)
+### 11.6. Formato de la peticion HTTP para el cliente
 
 ```
-✅ domain/         → NADA externo (solo Node.js nativo como crypto)
-✅ application/    → domain/
-✅ infrastructure/ → domain/, application/
-✅ presentation/   → infrastructure/, application/, cross-cutting/
-✅ cross-cutting/  → application/, infrastructure/ (ensambla todo)
-✅ config/         → Librerías externas (dotenv, prisma, pg)
+GET /api/lead/filtered?search=john&page=1&limit=20&filters=[{"field":"statusId","operator":"equals","value":"uuid-xxx"},{"field":"estimatedValue","operator":"gte","value":5000}]
+```
 
-❌ domain/         → NO puede importar application/, infrastructure/, ni librerías externas
-❌ application/    → NO puede importar infrastructure/ ni librerías externas
-❌ Nadie           → NO debe importar directamente de cross-cutting/ excepto presentation/ y app.ts
+- `search`: texto libre, busca en campos con `searchable: true` del filterConfig.
+- `filters`: JSON string. Array de `{ field, operator, value }`. Validados contra filterConfig.
+- `page`: numero de pagina (default: 1).
+- `limit`: registros por pagina (default: 20, max: 100).
+
+**Respuesta estandarizada:**
+```json
+{
+  "data": [ ...DTOs ],
+  "total": 150,
+  "page": 1,
+  "limit": 20
+}
 ```
 
 ---
 
-## 12. Patrones de Diseño en Uso
+## 12. Decisiones de Diseño del Motor de Filtrado
 
-| Patrón | Dónde | Qué hace |
-|---|---|---|
-| **Singleton** | `PrismaService` | Garantiza una sola instancia de PrismaClient en toda la app |
-| **Repository** | `PrismaUserRepository`, `PrismaTenantRepository` | Encapsula el acceso a datos detrás de una interfaz |
-| **Factory Method** | `User.create()`, `Tenant.create()` | Crea entidades con ID auto-generado sin exponer el constructor completo |
-| **Dependency Injection** | `ScopedContainer` | Construye objetos inyectando sus dependencias por constructor |
-| **Ports & Adapters** | `IHashService` → `BcryptHashService` | Separa contrato de implementación |
-| **Middleware** | `validateBody()` | Intercepta peticiones para validar datos antes de llegar al controller |
-| **Scoped Container** | `ScopedContainer` | Crea un conjunto de dependencias con contexto (con/sin tenant) |
-
----
-
-## 13. Decisiones Técnicas Relevantes
-
-- **Prisma con driver adapter (`@prisma/adapter-pg`):** Se usa un pool de pg nativo en vez del driver por defecto de Prisma, lo que da más control sobre conexiones.
-- **IDs tipo CUID:** Generados por Prisma (`@default(cuid())`), pero las entidades de dominio usan `crypto.randomUUID()` (UUIDv4). Esto podría necesitar alinearse en el futuro.
-- **ESM (ES Modules):** El proyecto usa `"type": "module"` y todas las importaciones llevan extensión `.js` (requerido por NodeNext).
-- **Sin framework de DI:** La inyección de dependencias es manual (sin librerías como tsyringe o inversify). El `ScopedContainer` hace ese trabajo explícitamente.
-- **Validación en capa de presentación:** Los schemas Zod se definen en las rutas (`presentation/routes/`), no en los DTOs. Así la validación HTTP queda separada de la lógica de negocio.
+- **Whitelist de campos y operadores:** El motor rechaza cualquier campo o combinacion campo+operador no declarada en el filterConfig. Previene acceso a columnas internas y filtros no autorizados.
+- **Tenant siempre incluido:** `buildFilterWhere()` en `BasePrismaRepository` inyecta `{ tenantId }` como primera condicion, siempre, sin importar los filtros del cliente. Es imposible filtrar datos de otro tenant.
+- **Restricciones de rol en el controller, no en el use case:** La logica "SALES_REP solo ve sus leads" vive en el controller porque depende de `req.user` (concepto HTTP). El caso de uso generico permanece puro y sin conocimiento de roles.
+- **Type alias en lugar de subclase:** `ListFilteredLeadsUseCase` es un `type`, no una clase. Evita codigo repetido y expresa que la especializacion es solo de tipos, no de comportamiento.

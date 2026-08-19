@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     ports:
-      - "5433:5432"
+      - "3363:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -38,6 +38,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    
+  prisma-studio:
+    build: .
+    container_name: saas_studio
+    ports:
+      - "3364:5555"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+    command: >
+      sh -c "
+        pnpm prisma generate &&
+        HOST=0.0.0.0 pnpm prisma studio --port 5555 --browser none
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./prisma:/app/prisma
 
 volumes:
   postgres_data:
