@@ -16,6 +16,13 @@ import { UpdateLeadUseCase } from "@/application/use-case/leads/updateLeadUseCas
 import { GenericListFilteredUseCase } from "@/application/use-case/filter/GenericListFilteredUseCase.js";
 import { leadFilterConfig } from "@/infrastructure/persistence/filters/leadFilterConfig.js";
 import { ListFilteredLeadsUseCase } from '@/application/use-case/leads/listFilteredLeadsUseCase.js';
+import { ContactMapper } from "@/application/mappers/ContactMapper.js";
+import { GetContactsUseCase } from "@/application/use-case/contacts/getContactsUseCase.js";
+import { PrismaContactRepository } from "@/infrastructure/persistence/repositories/PrismaContactRepository.js";
+import { CreateContactUseCase } from "@/application/use-case/contacts/createContactUseCase.js";
+import { UpdateContactUseCase } from "@/application/use-case/contacts/updateContactUseCase.js";
+import { contactFilterConfig } from "@/infrastructure/persistence/filters/contactFilterConfig.js";
+import { ListFilteredContactsUseCase } from '@/application/use-case/contacts/listFilteredContactsUseCase.js';
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -69,5 +76,25 @@ export class ScopedContainer {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
         return new GenericListFilteredUseCase(leadRepo, leadMapper, leadFilterConfig);
+    }
+    getGetContactsUseCase(): GetContactsUseCase {
+        const contactRepo = new PrismaContactRepository(this.prisma, this.tenantContext);
+        const contactMapper = new ContactMapper();
+        return new GetContactsUseCase(contactRepo, contactMapper);
+    }
+    getCreateContactUseCase(): CreateContactUseCase {
+        const contactRepo = new PrismaContactRepository(this.prisma, this.tenantContext);
+        const contactMapper = new ContactMapper();
+        return new CreateContactUseCase(contactRepo, contactMapper, this.tenantContext);
+    }
+    getUpdateContactUseCase(): UpdateContactUseCase {
+        const contactRepo = new PrismaContactRepository(this.prisma, this.tenantContext);
+        const contactMapper = new ContactMapper();
+        return new UpdateContactUseCase(contactRepo, contactMapper, this.tenantContext);
+    }
+    getListFilteredContactsUseCase(): ListFilteredContactsUseCase {
+        const contactRepo = new PrismaContactRepository(this.prisma, this.tenantContext);
+        const contactMapper = new ContactMapper();
+        return new GenericListFilteredUseCase(contactRepo, contactMapper, contactFilterConfig);
     }
 }
