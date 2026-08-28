@@ -23,6 +23,13 @@ import { CreateContactUseCase } from "@/application/use-case/contacts/createCont
 import { UpdateContactUseCase } from "@/application/use-case/contacts/updateContactUseCase.js";
 import { contactFilterConfig } from "@/infrastructure/persistence/filters/contactFilterConfig.js";
 import { ListFilteredContactsUseCase } from '@/application/use-case/contacts/listFilteredContactsUseCase.js';
+import { CompanyContactMapper } from "@/application/mappers/CompanyContactMapper.js";
+import { GetCompanyContactsUseCase } from "@/application/use-case/companyContacts/getCompanyContactsUseCase.js";
+import { PrismaCompanyContactRepository } from "@/infrastructure/persistence/repositories/PrismaCompanyContactRepository.js";
+import { CreateCompanyContactUseCase } from "@/application/use-case/companyContacts/createCompanyContactUseCase.js";
+import { UpdateCompanyContactUseCase } from "@/application/use-case/companyContacts/updateCompanyContactUseCase.js";
+import { companyContactFilterConfig } from "@/infrastructure/persistence/filters/companyContactFilterConfig.js";
+import { ListFilteredCompanyContactsUseCase } from '@/application/use-case/companyContacts/listFilteredCompanyContactsUseCase.js';
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -96,5 +103,25 @@ export class ScopedContainer {
         const contactRepo = new PrismaContactRepository(this.prisma, this.tenantContext);
         const contactMapper = new ContactMapper();
         return new GenericListFilteredUseCase(contactRepo, contactMapper, contactFilterConfig);
+    }
+    getGetCompanyContactsUseCase(): GetCompanyContactsUseCase {
+        const companyContactRepo = new PrismaCompanyContactRepository(this.prisma, this.tenantContext);
+        const companyContactMapper = new CompanyContactMapper();
+        return new GetCompanyContactsUseCase(companyContactRepo, companyContactMapper);
+    }
+    getCreateCompanyContactUseCase(): CreateCompanyContactUseCase {
+        const companyContactRepo = new PrismaCompanyContactRepository(this.prisma, this.tenantContext);
+        const companyContactMapper = new CompanyContactMapper();
+        return new CreateCompanyContactUseCase(companyContactRepo, companyContactMapper, this.tenantContext);
+    }
+    getUpdateCompanyContactUseCase(): UpdateCompanyContactUseCase {
+        const companyContactRepo = new PrismaCompanyContactRepository(this.prisma, this.tenantContext);
+        const companyContactMapper = new CompanyContactMapper();
+        return new UpdateCompanyContactUseCase(companyContactRepo, companyContactMapper, this.tenantContext);
+    }
+    getListFilteredCompanyContactsUseCase(): ListFilteredCompanyContactsUseCase {
+        const companyContactRepo = new PrismaCompanyContactRepository(this.prisma, this.tenantContext);
+        const companyContactMapper = new CompanyContactMapper();
+        return new GenericListFilteredUseCase(companyContactRepo, companyContactMapper, companyContactFilterConfig);
     }
 }
