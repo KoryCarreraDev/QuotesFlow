@@ -8,6 +8,7 @@ import { authRouter } from './presentation/routes/authRoutes.js';
 import { ScopedContainer } from './cross-cutting/container.js';
 import { leadRouter } from './presentation/routes/leadRoutes.js';
 import { contactRouter } from './presentation/routes/contactRoutes.js';
+import { companyContactRouter } from './presentation/routes/companyContactRoutes.js';
 import { JwTokenService } from './infrastructure/services/JwtTokenService.js';
 import { IAuthTokenService } from "./application/ports/services/IAuthTokenService.js";
 
@@ -44,5 +45,6 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRouter(publicContainer));
 app.use('/api/lead', leadRouter(jwtService));
 app.use('/api/contact', contactRouter(jwtService));
+app.use('/api/companyContact', companyContactRouter(jwtService));
 
 export default app;
