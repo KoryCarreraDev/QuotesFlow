@@ -84,33 +84,4 @@ export class Lead {
             now
         );
     }
-
-    static update(props: {
-        companyName?: string;
-        contactName?: string;
-        email?: string;
-        phone?: string;
-        statusId?: string;
-        source?: string;
-        assignedToId?: string;
-        estimatedValue?: number;
-        expectedCloseDate?: Date;
-        notes?: string;
-    }):Lead {
-        const now = new Date();
-        return new Lead(
-            props.companyName as string,
-            props.contactName as string,
-            props.email as string,
-            props.phone as string,
-            props.statusId as string,
-            props.source as string,
-            props.assignedToId as string,
-            props.estimatedValue as number,
-            props.expectedCloseDate as Date,
-            props.notes as string,
-            now,
-            now
-        );
-    }
 }

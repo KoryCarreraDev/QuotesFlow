@@ -33,12 +33,19 @@ enum QuoteStatus {
   REJECTED
 }
 
+//Estados posibles de un registro
+enum DeletedState {
+  DELETED
+  INUSE
+}
+
 //Modelo Tenant (Modelo principal e impresindible para el aislamiento de datos por empresa)
 model Tenant {
   id        String   @id @default(cuid())
   name      String
   logoUrl   String?
   settings  Json?    // Configuración general en JSON
+  deleted   DeletedState @default(INUSE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -68,6 +75,7 @@ model User {
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deleted      DeletedState @default(INUSE)
 
   assignedLeads       Lead[]               @relation("AssignedTo")
   createdFormulas     Formula[]
@@ -98,6 +106,7 @@ model Lead {
   notes            String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  deleted          DeletedState @default(INUSE)
 
   statusHistory LeadStatusHistory[]
   quotes        Quote[]
@@ -118,6 +127,7 @@ model LeadStatusConfig {
   isDefault Boolean  @default(false) // Estado inicial para nuevos leads
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deleted   DeletedState @default(INUSE)
 
   leads          Lead[]               // Leads con este estado
   oldStatusHist  LeadStatusHistory[]  @relation("OldStatus")
@@ -141,6 +151,7 @@ model LeadStatusHistory {
   changedBy   User      @relation(fields: [changedById], references: [id])
   note        String?
   changedAt   DateTime  @default(now())
+  deleted     DeletedState @default(INUSE)
 
   @@index([leadId])
 }
@@ -158,6 +169,7 @@ model Contact {
   company   CompanyContact? @relation(fields: [companyId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deleted   DeletedState @default(INUSE)
 
   quotes Quote[]
 
@@ -182,6 +194,7 @@ model CompanyContact {
   country   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deleted   DeletedState @default(INUSE)
 
   @@index([tenantId])
 }
@@ -198,6 +211,7 @@ model Formula {
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deleted     DeletedState @default(INUSE)
 
   products Product[]
   @@index([tenantId])
@@ -220,6 +234,7 @@ model Quote {
   createdBy   User        @relation(fields: [createdById], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  deleted     DeletedState @default(INUSE)
 
   items QuoteItem[]
 
@@ -239,6 +254,7 @@ model Product {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deleted     DeletedState @default(INUSE)
 
   quoteItems QuoteItem[]
 
@@ -257,6 +273,7 @@ model QuoteItem {
   variables   Json?    // Variables ingresadas si el producto usa fórmula: {"ancho": 200, "alto": 150}
   unitPrice   Decimal? // Precio unitario calculado o manual
   total       Decimal  // Precio total (calculado o manual)
+  deleted     DeletedState @default(INUSE)
 }
 
 
@@ -266,6 +283,7 @@ model TenantSettings {
   tenantId              String                @unique
   tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   leadAssignmentStrategy LeadAssignmentStrategy @default(MANUAL)
+  deleted                DeletedState           @default(INUSE)
 }
 
 //Modelo de auditoría

@@ -8,7 +8,9 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "migrate": "prisma migrate dev",
+    "studio": "prisma studio"
   },
   "keywords": [],
   "author": "",
