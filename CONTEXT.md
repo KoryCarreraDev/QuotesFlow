@@ -1,4 +1,4 @@
-﻿# CONTEXT.md — QuotesFlow (SaaS Comerciales)
+# CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > **¿Qué es este archivo?**
 > Fuente de verdad del proyecto para IAs y personas nuevas en el equipo. Léelo antes de tocar cualquier archivo. Está escrito para ser entendido aunque no sepas TypeScript, Node.js ni Clean Architecture.
@@ -32,17 +32,18 @@ Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM
 | **Autenticación** | `POST /api/auth/register`, `POST /api/auth/login` | Registro de empresa + usuario OWNER, login con cookie JWT |
 | **Middleware multi-tenant** | — | Extrae JWT de cookie, inyecta `tenantId` en contexto global |
 | **Leads (CRM)** | `GET /api/lead/getAll`, `POST /api/lead/create`, `PATCH /api/lead/update/:id`, `GET /api/lead/filtered` | CRUD completo + filtrado paginado + restricción por rol `SALES_REP` |
-| **Contactos** | `GET /api/contact/getAll`, `POST /api/contact/create`, `PATCH /api/contact/update/:id`, `GET /api/contact/filtered` | CRUD completo + filtrado paginado, sin restricción de rol |
+| **Contactos (persona)** | `GET /api/contact/getAll`, `POST /api/contact/create`, `PATCH /api/contact/update/:id`, `GET /api/contact/filtered` | CRUD completo + filtrado paginado, sin restricción de rol |
+| **Contactos (empresa)** | `GET /api/companyContact/getAll`, `POST /api/companyContact/create`, `PATCH /api/companyContact/update/:id`, `GET /api/companyContact/filtered` | CRUD completo + filtrado paginado, sin restricción de rol |
 | **Motor de Filtrado Genérico** | — | Reutilizable para cualquier entidad (ver sección 9) |
 
 ### ⏳ Pendiente de implementar
 
 - Productos y Fórmulas de precio (modelos ya definidos en `schema.prisma`)
 - Cotizaciones y generación de PDF (modelos ya definidos en `schema.prisma`)
-- CompanyContacts (modelo en esquema, sin capa de aplicación)
-- Configuración de estados de Lead (`LeadStatusConfig`)
+- Configuración de estados de Lead (`LeadStatusConfig` — modelo en esquema, sin entidad de dominio ni capa de aplicación)
 - AuditLog activo
 - Mensajería
+- Value Objects (carpeta `domain/value-objects/` creada, aún vacía)
 
 ---
 
@@ -139,44 +140,53 @@ QuotesFlow/
 |   |
 |   +-- domain/                # CAPA MAS INTERNA — Reglas de negocio puras
 |   |   +-- entities/
-|   |   |   +-- Tenant.ts      # Empresa registrada
-|   |   |   +-- User.ts        # Usuario con rol dentro de un tenant
-|   |   |   +-- Lead.ts        # Oportunidad de venta (metodos: create, fromPrisma, update)
-|   |   |   +-- Contact.ts     # Persona de contacto (metodos: create, fromPrisma)
+|   |   |   +-- Tenant.ts           # Empresa registrada
+|   |   |   +-- User.ts             # Usuario con rol dentro de un tenant
+|   |   |   +-- Lead.ts             # Oportunidad de venta (metodos: create, fromPrisma, update)
+|   |   |   +-- Contact.ts          # Persona de contacto (metodos: create, fromPrisma)
+|   |   |   +-- CompanyContact.ts   # Empresa cliente (metodos: create, fromPrisma)
 |   |   +-- enums/
-|   |       +-- Role.ts        # OWNER | PARTNER | SALES_LEADER | SALES_REP
+|   |   |   +-- Role.ts             # OWNER | PARTNER | SALES_LEADER | SALES_REP
+|   |   +-- value-objects/          # [VACIO] Reservado para Value Objects futuros
 |   |
 |   +-- application/           # Casos de uso, DTOs, Puertos (interfaces), Mappers
 |   |   +-- dtos/
-|   |   |   +-- RegisterCompanyDTO.ts   # { companyName, ownerEmail, password, ... }
-|   |   |   +-- LoginDTO.ts             # { email, password }
-|   |   |   +-- LeadDTO.ts              # Salida de Lead al cliente
-|   |   |   +-- CreateLeadDTO.ts        # Entrada para crear Lead
-|   |   |   +-- UpdateLeadDTO.ts        # Entrada para actualizar Lead (todos opcionales)
-|   |   |   +-- ContactDTO.ts           # Salida de Contact al cliente
-|   |   |   +-- CreateContactDTO.ts     # { firstName, lastName, email?, phone?, companyId? }
-|   |   |   +-- UpdateContactDTO.ts     # Todos los campos opcionales
-|   |   |   +-- FilterCriteriaDTO.ts    # Motor generico: { filters?, search?, page?, limit? }
-|   |   |   +-- PaginatedResultDTO.ts   # Respuesta paginada: { data, total, page, limit }
+|   |   |   +-- RegisterCompanyDTO.ts          # { companyName, ownerEmail, password, ... }
+|   |   |   +-- LoginDTO.ts                    # { email, password }
+|   |   |   +-- LeadDTO.ts                     # Salida de Lead al cliente
+|   |   |   +-- CreateLeadDTO.ts               # Entrada para crear Lead
+|   |   |   +-- UpdateLeadDTO.ts               # Entrada para actualizar Lead (todos opcionales)
+|   |   |   +-- ContactDTO.ts                  # Salida de Contact al cliente
+|   |   |   +-- CreateContactDTO.ts            # { firstName, lastName, email?, phone?, companyId? }
+|   |   |   +-- UpdateContactDTO.ts            # Todos los campos opcionales
+|   |   |   +-- CompanyContactDTO.ts           # Salida de CompanyContact al cliente
+|   |   |   +-- CreateCompanyContactDTO.ts     # { name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }
+|   |   |   +-- UpdateCompanyContactDTO.ts     # Todos los campos opcionales
+|   |   |   +-- FilterCriteriaDTO.ts           # Motor generico: { filters?, search?, page?, limit? }
+|   |   |   +-- PaginatedResultDTO.ts          # Respuesta paginada: { data, total, page, limit }
 |   |   +-- mappers/
-|   |   |   +-- LeadMapper.ts           # Lead -> LeadDTO (implementa ILeadMapper)
-|   |   |   +-- ContactMapper.ts        # Contact -> ContactDTO (implementa IContactMapper)
+|   |   |   +-- LeadMapper.ts                  # Lead -> LeadDTO (implementa ILeadMapper)
+|   |   |   +-- ContactMapper.ts               # Contact -> ContactDTO (implementa IContactMapper)
+|   |   |   +-- CompanyContactMapper.ts        # CompanyContact -> CompanyContactDTO (implementa ICompanyContactMapper)
 |   |   +-- ports/
 |   |   |   +-- repositories/
-|   |   |   |   +-- IFilterableRepository.ts  # Contrato generico: findFiltered() + countFiltered()
-|   |   |   |   +-- ILeadRepository.ts        # Extiende IFilterableRepository<Lead>
-|   |   |   |   +-- IContactRepository.ts     # Extiende IFilterableRepository<Contact>
+|   |   |   |   +-- IFilterableRepository.ts   # Contrato generico: findFiltered() + countFiltered()
+|   |   |   |   +-- ILeadRepository.ts         # Extiende IFilterableRepository<Lead>
+|   |   |   |   +-- IContactRepository.ts      # Extiende IFilterableRepository<Contact>
+|   |   |   |   +-- ICompanyContactRepository.ts  # Extiende IFilterableRepository<CompanyContact>
 |   |   |   |   +-- ITenantRepository.ts
 |   |   |   |   +-- IUserRepository.ts
 |   |   |   +-- services/
 |   |   |   |   +-- IHashService.ts
-|   |   |   |   +-- IAuthTokenService.ts      # sign(payload) + verify(token)
-|   |   |   |   +-- ITenantContext.ts         # getTenantId(): string
-|   |   |   |   +-- IFilterFieldConfig.ts     # Mapa de campos filtrables con operadores
+|   |   |   |   +-- IAuthTokenService.ts       # sign(payload) + verify(token)
+|   |   |   |   +-- ITenantContext.ts          # getTenantId(): string
+|   |   |   |   +-- IFilterFieldConfig.ts      # Mapa de campos filtrables con operadores
 |   |   |   +-- mappers/
-|   |   |       +-- IMapper.ts                # Contrato generico: toDTO(entity): DTO
-|   |   |       +-- ILeadMapper.ts
-|   |   |       +-- IContactMapper.ts
+|   |   |   |   +-- IMapper.ts                 # Contrato generico: toDTO(entity): DTO
+|   |   |   |   +-- ILeadMapper.ts
+|   |   |   |   +-- IContactMapper.ts
+|   |   |   |   +-- ICompanyContactMapper.ts
+|   |   |   +-- messaging/                     # [VACIO] Reservado para puertos de mensajería
 |   |   +-- use-case/
 |   |       +-- auth/
 |   |       |   +-- RegisterCompanyAndOwnerUseCase.ts
@@ -189,32 +199,43 @@ QuotesFlow/
 |   |       |   +-- updateLeadUseCase.ts
 |   |       |   +-- listFilteredLeadsUseCase.ts    # Type alias: GenericListFilteredUseCase<Lead, LeadDTO>
 |   |       +-- contacts/
-|   |           +-- getContactsUseCase.ts
-|   |           +-- createContactUseCase.ts
-|   |           +-- updateContactUseCase.ts
-|   |           +-- listFilteredContactsUseCase.ts # Type alias: GenericListFilteredUseCase<Contact, ContactDTO>
+|   |       |   +-- getContactsUseCase.ts
+|   |       |   +-- createContactUseCase.ts
+|   |       |   +-- updateContactUseCase.ts
+|   |       |   +-- listFilteredContactsUseCase.ts # Type alias: GenericListFilteredUseCase<Contact, ContactDTO>
+|   |       +-- companyContacts/
+|   |       |   +-- getCompanyContactsUseCase.ts
+|   |       |   +-- createCompanyContactUseCase.ts
+|   |       |   +-- updateCompanyContactUseCase.ts
+|   |       |   +-- listFilteredCompanyContactsUseCase.ts  # Type alias: GenericListFilteredUseCase<CompanyContact, CompanyContactDTO>
+|   |       +-- messaging/                     # [VACIO] Reservado para casos de uso de mensajería
+|   |       +-- pricing/                       # [VACIO] Reservado para casos de uso de pricing/formulas
 |   |
 |   +-- infrastructure/        # Implementaciones concretas de los puertos
 |   |   +-- persistence/
 |   |   |   +-- prisma/
-|   |   |   |   +-- PrismaService.ts            # Singleton de PrismaClient
+|   |   |   |   +-- PrismaService.ts                    # Singleton de PrismaClient
 |   |   |   +-- repositories/
-|   |   |   |   +-- BasePrismaRepository.ts     # Clase base: tenantWhere(), buildFilterWhere(), buildPagination()
+|   |   |   |   +-- BasePrismaRepository.ts              # Clase base: tenantWhere(), buildFilterWhere(), buildPagination()
 |   |   |   |   +-- PrismaUserRepository.ts
 |   |   |   |   +-- PrismaTenantRepository.ts
-|   |   |   |   +-- PrismaLeadRepository.ts     # Implementa ILeadRepository + findFiltered() + countFiltered()
-|   |   |   |   +-- PrismaContactRepository.ts  # Implementa IContactRepository + findFiltered() + countFiltered()
+|   |   |   |   +-- PrismaLeadRepository.ts              # Implementa ILeadRepository + findFiltered() + countFiltered()
+|   |   |   |   +-- PrismaContactRepository.ts           # Implementa IContactRepository + findFiltered() + countFiltered()
+|   |   |   |   +-- PrismaCompanyContactRepository.ts    # Implementa ICompanyContactRepository + findFiltered() + countFiltered()
 |   |   |   +-- filters/
-|   |   |       +-- leadFilterConfig.ts         # Campos filtrables de Lead y operadores permitidos
-|   |   |       +-- contactFilterConfig.ts      # Campos filtrables de Contact y operadores permitidos
+|   |   |       +-- leadFilterConfig.ts                  # Campos filtrables de Lead y operadores permitidos
+|   |   |       +-- contactFilterConfig.ts               # Campos filtrables de Contact y operadores permitidos
+|   |   |       +-- companyContactFilterConfig.ts        # Campos filtrables de CompanyContact y operadores permitidos
 |   |   +-- services/
 |   |   |   +-- BcryptHashService.ts            # Implementa IHashService
 |   |   |   +-- JwtTokenService.ts              # Implementa IAuthTokenService (clase exportada: JwTokenService)
+|   |   +-- messaging/                          # [VACIO] Reservado para implementaciones de mensajería
 |   |   +-- web/
 |   |       +-- controllers/
 |   |       |   +-- AuthControllers.ts
 |   |       |   +-- leadControllers.ts          # getAll, create, update, getFiltered (con restriccion SALES_REP)
 |   |       |   +-- contactControllers.ts       # getAll, create, update, getFiltered
+|   |       |   +-- companyContactControllers.ts # getAll, create, update, getFiltered
 |   |       +-- middleware/
 |   |           +-- validateBody.ts             # Valida req.body con un schema Zod
 |   |           +-- createAuthValidateCookie.ts # Lee cookie accessToken, verifica JWT, pone req.user
@@ -223,12 +244,14 @@ QuotesFlow/
 |   +-- presentation/
 |   |   +-- routes/
 |   |   |   +-- authRoutes.ts
-|   |   |   +-- leadRoutes.ts     # /getAll, /create, /update/:id, /filtered
-|   |   |   +-- contactRoutes.ts  # /getAll, /create, /update/:id, /filtered
+|   |   |   +-- leadRoutes.ts              # /getAll, /create, /update/:id, /filtered
+|   |   |   +-- contactRoutes.ts           # /getAll, /create, /update/:id, /filtered
+|   |   |   +-- companyContactRoutes.ts   # /getAll, /create, /update/:id, /filtered
 |   |   +-- schemas/
 |   |       +-- authSchema.ts
-|   |       +-- leadSchema.ts     # createLeadSchema, updateLeadSchema (Zod)
-|   |       +-- contactSchema.ts  # createContactSchema, updateContactSchema (Zod)
+|   |       +-- leadSchema.ts              # createLeadSchema, updateLeadSchema (Zod)
+|   |       +-- contactSchema.ts           # createContactSchema, updateContactSchema (Zod)
+|   |       +-- companyContactSchema.ts    # createCompanyContactSchema, updateCompanyContactSchema (Zod)
 |   |
 |   +-- cross-cutting/
 |   |   +-- container.ts         # ScopedContainer: DI manual por request
@@ -353,10 +376,14 @@ Tenant (empresa)
 | `POST` | `/api/lead/create` | Cookie JWT | `{ contactName?, companyName?, email?, phone?, statusId?, source?, assignedToId?, estimatedValue?, notes? }` | Crear lead |
 | `PATCH` | `/api/lead/update/:id` | Cookie JWT | Campos opcionales de lead | Actualizar lead |
 | `GET` | `/api/lead/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Leads paginados y filtrados |
-| `GET` | `/api/contact/getAll` | Cookie JWT | — | Lista simple de contactos |
-| `POST` | `/api/contact/create` | Cookie JWT | `{ firstName, lastName, email?, phone?, companyId? }` | Crear contacto |
-| `PATCH` | `/api/contact/update/:id` | Cookie JWT | Campos opcionales de contacto | Actualizar contacto |
+| `GET` | `/api/contact/getAll` | Cookie JWT | — | Lista simple de contactos (persona) |
+| `POST` | `/api/contact/create` | Cookie JWT | `{ firstName, lastName, email?, phone?, companyId? }` | Crear contacto (persona) |
+| `PATCH` | `/api/contact/update/:id` | Cookie JWT | Campos opcionales de contacto | Actualizar contacto (persona) |
 | `GET` | `/api/contact/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Contactos paginados y filtrados |
+| `GET` | `/api/companyContact/getAll` | Cookie JWT | — | Lista simple de empresas cliente |
+| `POST` | `/api/companyContact/create` | Cookie JWT | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` | Crear empresa cliente |
+| `PATCH` | `/api/companyContact/update/:id` | Cookie JWT | Campos opcionales de empresa cliente | Actualizar empresa cliente |
+| `GET` | `/api/companyContact/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Empresas cliente paginadas y filtradas |
 
 ---
 
@@ -425,6 +452,22 @@ Campos o operadores no declarados en el `filterConfig` son **rechazados automát
 | `companyId` | `equals`, `in` | No |
 | `createdAt` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
 
+**CompanyContact** (`companyContactFilterConfig.ts`):
+
+| Campo | Operadores | Searchable |
+|---|---|---|
+| `name` | `contains`, `equals` | Si |
+| `industry` | `contains`, `equals` | Si |
+| `taxNumber` | `contains`, `equals` | No |
+| `phone` | `contains`, `equals` | Si |
+| `email` | `contains`, `equals` | Si |
+| `address` | `contains`, `equals` | No |
+| `city` | `contains`, `equals` | Si |
+| `state` | `contains`, `equals` | No |
+| `zip` | `contains`, `equals` | No |
+| `country` | `contains`, `equals` | No |
+| `createdAt` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
+
 ### 9.5. Flujo interno de una request filtrada
 
 ```
@@ -474,6 +517,7 @@ Cookie: accessToken=<jwt>
 > Sustituye `[Entidad]` por el nombre en PascalCase (ej: `Product`) y `[entidad]` en camelCase (ej: `product`).
 
 Las referencias canónicas son:
+- **CompanyContact** para un módulo sin restricción de rol (más completo y reciente)
 - **Contact** para un módulo sin restricción de rol (más simple)
 - **Lead** para un módulo con restricción de rol
 
@@ -614,7 +658,7 @@ getListFiltered[Entidades]UseCase(): ListFiltered[Entidades]UseCase {
 }
 ```
 
-**Referencia:** métodos `getGetContactsUseCase`, `getCreateContactUseCase`, etc. en `container.ts` (líneas 80-99)
+**Referencia:** métodos `getGetCompanyContactsUseCase`, `getCreateCompanyContactUseCase`, etc. en `container.ts` (líneas 107-126)
 
 ### Paso 10 — Controller
 
