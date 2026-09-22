@@ -30,6 +30,11 @@ import { CreateCompanyContactUseCase } from "@/application/use-case/companyConta
 import { UpdateCompanyContactUseCase } from "@/application/use-case/companyContacts/updateCompanyContactUseCase.js";
 import { companyContactFilterConfig } from "@/infrastructure/persistence/filters/companyContactFilterConfig.js";
 import { ListFilteredCompanyContactsUseCase } from '@/application/use-case/companyContacts/listFilteredCompanyContactsUseCase.js';
+import { PrismaLeadStatusConfigRepository } from "@/infrastructure/persistence/repositories/PrismaLeadStatusConfig.js";
+import { LeadStatusConfigMapper } from "@/application/mappers/LeadConfigStatusMapper.js";
+import { GetLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js";
+import { CreateLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js";
+import { UpdateLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/updateLeadStatusConfigUseCase.js";
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -123,5 +128,20 @@ export class ScopedContainer {
         const companyContactRepo = new PrismaCompanyContactRepository(this.prisma, this.tenantContext);
         const companyContactMapper = new CompanyContactMapper();
         return new GenericListFilteredUseCase(companyContactRepo, companyContactMapper, companyContactFilterConfig);
+    }
+    getGetLeadStatusConfigUseCase(): GetLeadStatusConfigUseCase {
+        const leadStatusRepo = new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext);
+        const leadStatusMapper = new LeadStatusConfigMapper();
+        return new GetLeadStatusConfigUseCase(leadStatusRepo, leadStatusMapper, this.tenantContext);
+    }
+    getCreateLeadStatusConfigUseCase(): CreateLeadStatusConfigUseCase {
+        const leadStatusRepo = new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext);
+        const leadStatusMapper = new LeadStatusConfigMapper();
+        return new CreateLeadStatusConfigUseCase(leadStatusRepo, leadStatusMapper, this.tenantContext);
+    }
+    getUpdateLeadStatusConfigUseCase(): UpdateLeadStatusConfigUseCase {
+        const leadStatusRepo = new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext);
+        const leadStatusMapper = new LeadStatusConfigMapper();
+        return new UpdateLeadStatusConfigUseCase(leadStatusRepo, leadStatusMapper, this.tenantContext);
     }
 }

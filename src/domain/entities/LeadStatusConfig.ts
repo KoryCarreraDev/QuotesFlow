@@ -1,15 +1,16 @@
 import crypto from "crypto";
 
-export class LeadStatusConfig{
+export class LeadStatusConfig {
     constructor(
-        public readonly name: string,
-        public readonly order: number,
-        public readonly isDefault: boolean = false,
-        public readonly updateAt: Date,
+        public readonly id: string,
+        public readonly name?: string,
+        public readonly order?: number,
+        public readonly isDefault?: boolean,
+        public readonly updateAt?: Date,
         public readonly createdAt?: Date,
         public readonly color?: string,
-        public readonly id?: string,
         public readonly tenantId?: string,
+        public readonly deleted?: string
     ) { }
 
     static fromPrisma(prismaLead: {
@@ -19,57 +20,43 @@ export class LeadStatusConfig{
         order: number;
         isDefault: boolean;
         createdAt: Date;
-        updateAt: Date;
-        color?: string;
+        updatedAt: Date;
+        color: string | null;
+        deleted: string | null;
     }): LeadStatusConfig {
         return new LeadStatusConfig(
+            prismaLead.id,
             prismaLead.name,
             prismaLead.order,
             prismaLead.isDefault,
-            prismaLead.updateAt,
+            prismaLead.updatedAt,
             prismaLead.createdAt,
-            prismaLead.color,
-            prismaLead.id,
+            prismaLead.color ?? undefined,
             prismaLead.tenantId,
+            prismaLead.deleted ?? undefined
         )
     }
 
     static create(props: {
-        name: string;
-        order: number;
-        isDefault: boolean;
-        tenantId: string;
+        name?: string;
+        order?: number;
+        isDefault?: boolean;
+        tenantId?: string;
         color?: string;
+        deleted?: string;
     }): LeadStatusConfig {
         const id = crypto.randomUUID();
         const now = new Date();
         return new LeadStatusConfig(
-            props.name,
-            props.order,
-            props.isDefault,
-            now,
-            now,
-            props.color,
             id,
-            props.tenantId
-        )
-    }
-
-    static update(props: {
-        name: string;
-        order: number;
-        isDefault: boolean;
-        updateAt: Date;
-        color?: string;
-    }): LeadStatusConfig {
-        const now = new Date();
-        return new LeadStatusConfig(
             props.name,
             props.order,
             props.isDefault,
             now,
             now,
             props.color,
+            props.tenantId,
+            props.deleted
         )
     }
 }
