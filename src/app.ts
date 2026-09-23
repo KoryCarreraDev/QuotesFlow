@@ -11,6 +11,7 @@ import { contactRouter } from './presentation/routes/contactRoutes.js';
 import { companyContactRouter } from './presentation/routes/companyContactRoutes.js';
 import { JwTokenService } from './infrastructure/services/JwtTokenService.js';
 import { IAuthTokenService } from "./application/ports/services/IAuthTokenService.js";
+import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRouter.js';
 
 const jwtService: IAuthTokenService = new JwTokenService();
 const app: Express = express();
@@ -46,5 +47,6 @@ app.use('/api/auth', authRouter(publicContainer));
 app.use('/api/lead', leadRouter(jwtService));
 app.use('/api/contact', contactRouter(jwtService));
 app.use('/api/companyContact', companyContactRouter(jwtService));
+app.use('/api/leadStatusConfig', leadStatusConfigRouter(jwtService));
 
 export default app;
