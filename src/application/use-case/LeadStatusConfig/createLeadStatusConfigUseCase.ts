@@ -24,6 +24,25 @@ export class CreateLeadStatusConfigUseCase {
             throw new Error('Insufficient permissions')
         }
 
+        const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+
+        if(createLeadStatus.isDefault === true){
+            if(defaultStatus){
+                const oldDefaultLeadStatus = new LeadStatusConfig(
+                    defaultStatus.id,
+                    defaultStatus.name,
+                    defaultStatus.order,
+                    false,
+                    new Date(),
+                    defaultStatus.createdAt,
+                    defaultStatus.color,
+                    tenantId,
+                    defaultStatus.deleted
+                )
+                await this.statusRepo.update(oldDefaultLeadStatus.id, oldDefaultLeadStatus);
+            }
+        }
+
         const leadStatusEntity = LeadStatusConfig.create({
             name: createLeadStatus.name,
             order: createLeadStatus.order,
