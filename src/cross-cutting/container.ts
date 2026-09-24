@@ -57,7 +57,8 @@ export class ScopedContainer {
         return new RegisterCompanyAndOwnerUseCase(
             new PrismaTenantRepository(this.prisma, this.tenantContext),
             new PrismaUserRepository(this.prisma, this.tenantContext),
-            this.hashService
+            this.hashService,
+            new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext)
         );
     }
 
@@ -77,7 +78,8 @@ export class ScopedContainer {
     getCreateLeadUseCase(): CreateLeadUseCase{
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
-        return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
+        const statusRepo = new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext);
+        return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext, statusRepo);
     }
     getUpdateLeadUseCase(): UpdateLeadUseCase {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
