@@ -35,6 +35,7 @@ import { LeadStatusConfigMapper } from "@/application/mappers/LeadConfigStatusMa
 import { GetLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js";
 import { CreateLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js";
 import { UpdateLeadStatusConfigUseCase } from "@/application/use-case/LeadStatusConfig/updateLeadStatusConfigUseCase.js";
+import { DeleteLeadUseCase } from "@/application/use-case/leads/deleteLeadUseCase.js";
 
 export class ScopedContainer {
     private prisma: PrismaClient;
@@ -79,12 +80,17 @@ export class ScopedContainer {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
         const statusRepo = new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext);
-        return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext, statusRepo);
+        const userRepo = new PrismaUserRepository(this.prisma, this.tenantContext);
+        return new CreateLeadUseCase(leadRepo, leadMapper, this.tenantContext, statusRepo, userRepo);
     }
     getUpdateLeadUseCase(): UpdateLeadUseCase {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
         const leadMapper = new LeadMapper();
         return new UpdateLeadUseCase(leadRepo, leadMapper, this.tenantContext);
+    }
+    getDeleteLeadUseCase(): DeleteLeadUseCase {
+        const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);
+        return new DeleteLeadUseCase(leadRepo, this.tenantContext);
     }
     getListFilteredLeadsUseCase(): ListFilteredLeadsUseCase {
         const leadRepo = new PrismaLeadRepository(this.prisma, this.tenantContext);

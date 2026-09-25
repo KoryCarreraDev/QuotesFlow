@@ -3,6 +3,7 @@ import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js
 import { Role } from '@/domain/enums/Role.js';
 import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCase.js';
 import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCase.js';
+import { DeleteLeadUseCase } from '@/application/use-case/leads/deleteLeadUseCase.js';
 import { ListFilteredLeadsUseCase } from '@/application/use-case/leads/listFilteredLeadsUseCase.js';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 
@@ -12,7 +13,8 @@ export class leadController {
         private readonly getLeadsUseCase: GetLeadsUseCase,
         private readonly listFilteredLeadsUseCase: ListFilteredLeadsUseCase,
         private readonly createLeadUseCase: CreateLeadUseCase,
-        private readonly updateLeadUseCase: UpdateLeadUseCase
+        private readonly updateLeadUseCase: UpdateLeadUseCase,
+        private readonly deleteLeadUseCase: DeleteLeadUseCase
     ) {}
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -97,5 +99,17 @@ export class leadController {
             next(error);
         }
     };
+
+    delete = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const userId = req.user?.userId;
+            const role = req.user?.role;
+            const leadId = req.params.id as string;
+            await this.deleteLeadUseCase.execute(leadId, userId!, role as Role);
+            res.status(200).json({ message: 'Lead deleted successfully' });
+        } catch(error) {
+            next(error)
+        }
+    }
 }
 

@@ -13,7 +13,8 @@ function getLeadController(req: Request): leadController {
     const listFilteredUseCase = req.container!.getListFilteredLeadsUseCase();
     const createUseCase = req.container!.getCreateLeadUseCase();
     const updateUseCase = req.container!.getUpdateLeadUseCase();
-    return new leadController(getLeadsUseCase, listFilteredUseCase, createUseCase, updateUseCase);
+    const deleteUseCase = req.container!.getDeleteLeadUseCase();
+    return new leadController(getLeadsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
 }
 
 export function leadRouter(jwtService: IAuthTokenService): Router {
@@ -35,6 +36,10 @@ export function leadRouter(jwtService: IAuthTokenService): Router {
 
     router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
         getLeadController(req).getFiltered(req, res, next);
+    });
+
+    router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+        getLeadController(req).delete(req, res, next);
     })
 
     return router;
