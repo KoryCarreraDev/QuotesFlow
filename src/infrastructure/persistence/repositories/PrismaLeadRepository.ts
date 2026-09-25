@@ -117,4 +117,8 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
         const where = this.buildFilterWhere(criteria, config);
         return this.prisma.lead.count({ where });
     };
+
+    async delete(id: string){
+        await this.softDeleteRegister(this.prisma.lead, id);
+    }
 }

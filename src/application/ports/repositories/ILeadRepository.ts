@@ -6,4 +6,5 @@ export interface ILeadRepository extends IFilterableRepository<Lead>{
     create(lead: Lead): Promise<void>;
     findById(id: string): Promise<Lead | null>;
     update(leadId: string, data: Lead): Promise<void>;
+    delete(id: string): Promise<void>;
 }

@@ -5,10 +5,10 @@ import { IFilterFieldConfig } from "../../../application/ports/services/IFilterF
 
 export abstract class BasePrismaRepository {
 
-    constructor (
+    constructor(
         protected readonly prisma: PrismaClient,
         protected readonly tenantContext: ITenantContext
-    ) {}
+    ) { }
 
     //Obtiene el tenantId actual obteiniendolo del contexto
     //Siendo funcional para construir filtros
@@ -84,10 +84,10 @@ export abstract class BasePrismaRepository {
         //Busqueda global
         if (criteria.search) {
             const searchableFields = Object.entries(config)
-            .filter(([, cfg]) => cfg.searchable)
-            .map(([fieldName]) => fieldName);
+                .filter(([, cfg]) => cfg.searchable)
+                .map(([fieldName]) => fieldName);
 
-            if(searchableFields.length > 0) {
+            if (searchableFields.length > 0) {
                 const orConditions = searchableFields.map((fieldName) => ({
                     [fieldName]: {
                         contains: criteria.search,
@@ -106,13 +106,26 @@ export abstract class BasePrismaRepository {
     }
 
     //Calcula la paginación con valores seguros por defecto
-    protected buildPagination(criteria: FilterCriteriaDTO): { skip: number; take: number;} {
-        const page = criteria.page && criteria.page > 0 ? criteria.page: 1;
+    protected buildPagination(criteria: FilterCriteriaDTO): { skip: number; take: number; } {
+        const page = criteria.page && criteria.page > 0 ? criteria.page : 1;
         const limit = criteria.limit && criteria.limit > 0 && criteria.limit <= 100 ? criteria.limit : 20;
 
         return {
-            skip: (page -1) * limit,
+            skip: (page - 1) * limit,
             take: limit,
         };
+    }
+
+    //Softdelete generico 
+    protected async softDeleteRegister<T extends { update: Function }>(
+        model: T,
+        id: string
+    ): Promise<void> {
+        if (!id) throw new Error('Id is required');
+
+        await model.update({
+            where: { id, tenantId: this.tenantId },
+            data: { deleted: 'DELETED', updatedAt: new Date() },
+        });
     }
 }
