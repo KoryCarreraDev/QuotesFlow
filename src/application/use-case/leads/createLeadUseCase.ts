@@ -4,16 +4,19 @@ import { ILeadStatusConfigRepository } from "@/application/ports/repositories/IL
 import { ILeadMapper } from "../../../application/ports/mappers/ILeadMapper.js";
 import { ITenantContext } from "@/application/ports/services/ITenantContext.js";
 import { Lead } from "../../../domain/entities/Lead.js";
+import { Role } from "@/domain/enums/Role.js";
+import { IUserRepository } from "@/application/ports/repositories/IUserRepository.js";
 
 export class CreateLeadUseCase {
     constructor(
         private readonly leadRepo: ILeadRepository,
         private readonly leadmap: ILeadMapper,
         private readonly tenantContext: ITenantContext,
-        private readonly statusRepo: ILeadStatusConfigRepository
+        private readonly statusRepo: ILeadStatusConfigRepository,
+        private readonly userRepo: IUserRepository
     ) { }
 
-    async execute(createLead: CreateLeadDTO, userId: string, role: string) {
+    async execute(createLead: CreateLeadDTO, userId: string, role: Role) {
 
         const tenantId = this.tenantContext.getTenantId();
 
@@ -36,6 +39,17 @@ export class CreateLeadUseCase {
             }
         }
 
+        if (createLead.assignedToId && role !== Role.SALES_REP) {
+            const findUser = await this.userRepo.findById(createLead.assignedToId);
+            if (!findUser) {
+                throw new Error('User not found');
+            }
+        }
+
+        const assignedToId = role === Role.SALES_REP
+            ? userId
+            : createLead.assignedToId;
+
         const leadEntity = Lead.create({
             tenantId: tenantId,
             companyName: createLead.companyName,
@@ -44,7 +58,7 @@ export class CreateLeadUseCase {
             phone: createLead.phone,
             statusId: statusId,
             source: createLead.source,
-            assignedToId: createLead.assignedToId,
+            assignedToId: assignedToId,
             estimatedValue: createLead.estimatedValue,
             expectedCloseDate: createLead.expectedCloseDate,
             notes: createLead.notes,
