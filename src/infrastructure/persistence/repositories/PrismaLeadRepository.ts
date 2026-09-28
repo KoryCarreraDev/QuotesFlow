@@ -56,9 +56,10 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
     };
 
     async findById(id: string): Promise<Lead | null> {
-        const record = await this.prisma.lead.findUnique({
+        const record = await this.prisma.lead.findFirst({
             where: {
                 id: id,
+                deleted: 'INUSE',
                 tenantId: this.tenantId,
             },
             include: {

@@ -18,8 +18,8 @@ export abstract class BasePrismaRepository {
 
     //Genera un filtro (Where) con el tenantID
     //para usasrse en cualquier consulta con el campo tenantId
-    protected tenantWhere(): { tenantId: string } {
-        return { tenantId: this.tenantId };
+    protected tenantWhere(): { tenantId: string; deleted: "INUSE"} {
+        return { tenantId: this.tenantId, deleted: "INUSE" };
     }
 
     //Helper para añadir el filtro a un objeto where ya existente
@@ -48,6 +48,8 @@ export abstract class BasePrismaRepository {
 
         //Añade el tenantId
         conditions.push({ tenantId: this.tenantId });
+        //Añade el deleted en INUSE
+        conditions.push({ deleted: 'INUSE' });
 
         //Filtros especificos
         for (const filter of criteria.filters ?? []) {
