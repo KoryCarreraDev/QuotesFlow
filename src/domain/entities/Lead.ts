@@ -16,6 +16,7 @@ export class Lead {
         public readonly notes?: string,
         public readonly createdAt?: Date,
         public readonly updatedAt?: Date,
+        public readonly deleted?: string
     ) { }
 
     static fromPrisma(prismaLead: {
@@ -33,6 +34,7 @@ export class Lead {
         notes?: string | null;
         createdAt?: Date;
         updatedAt?: Date;
+        deleted?: string
     }): Lead {
         return new Lead(
             prismaLead.id,
@@ -49,6 +51,7 @@ export class Lead {
             prismaLead.notes ?? undefined,
             prismaLead.createdAt ?? undefined,
             prismaLead.updatedAt ?? undefined,
+            prismaLead.deleted ?? undefined,
         );
     }
 
@@ -64,6 +67,7 @@ export class Lead {
         estimatedValue?: number;
         expectedCloseDate?: Date;
         notes?: string;
+        deleted?: string;
     }): Lead {
         const id = crypto.randomUUID();
         const now = new Date();
@@ -81,7 +85,8 @@ export class Lead {
             props.expectedCloseDate,
             props.notes,
             now,
-            now
+            now,
+            props.deleted
         );
     }
 }

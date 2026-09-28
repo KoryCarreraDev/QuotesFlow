@@ -28,6 +28,10 @@ export class UpdateLeadUseCase {
             throw new Error("Lead not found");
         }
 
+        if (leadProperty.deleted === 'DELETED'){
+            throw new Error("This lead is deleted");
+        }
+
         if (role === Role.SALES_REP && leadProperty.assignedToId !== userId) {
             throw new Error("You can only update your own leads");
         }
