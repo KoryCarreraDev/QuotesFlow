@@ -1,0 +1,444 @@
+# PLAN.md — QuotesFlow: de base actual a MVP
+
+> **Estado: planeación.** La ejecución no ha empezado.
+> Este archivo es la fuente de verdad del trabajo pendiente. `CONTEXT.md` es la fuente de verdad de lo ya hecho. `QUESTION.md` recoge las dudas de los modelos.
+
+## 0. Contexto
+
+QuotesFlow es un backend multi-tenant (Express 5 + Prisma 7 + PostgreSQL, arquitectura hexagonal). Hoy tiene auth básica, leads, estados de lead, contactos y un motor de filtrado. No tiene tests, CI, manejo de errores, logging ni auditoría, y arrastra fallos de seguridad (sección 4). Faltan los módulos que lo hacen vendible: cotizaciones, suscripciones, panel de administración, correos, integración con Siigo, cartera y analíticas.
+
+Objetivo: llegar a un MVP seguro (OWASP), testeado y mantenible, desarrollado por modelos (Opus y Sonnet) bajo supervisión y aprobación humana.
+
+Alcance acordado: **solo backend** (la API entrega datos listos para graficar y archivos descargables; el frontend se planea aparte). Orden funcional: **cotizaciones primero**. Cartera: la factura de Siigo pertenece al comercial responsable del cliente en QuotesFlow, emparejando el documento/NIT del cliente con el de Siigo.
+
+---
+
+## 1. Reglas inviolables
+
+| # | Regla |
+|---|---|
+| R1 | **Tests obligatorios.** Ninguna tarea se considera hecha sin tests unitarios (dominio y casos de uso), de integración (repositorios contra PostgreSQL real) y de API (supertest). Todo bug corregido lleva test de regresión. |
+| R2 | **Tests insaltables.** Prohibido `.skip`, `.only`, `--no-verify`, bajar umbrales de cobertura o borrar/debilitar un test para que pase. Lo bloquean lint, hook de pre-push y CI. Si un test existente debe cambiar, el PR lo declara y un humano lo aprueba expresamente. |
+| R3 | **CONTEXT.md se actualiza solo con cambios confirmados y testeados.** Cada PR que toque `src/` o `prisma/` incluye la actualización de `CONTEXT.md` (estado, endpoints, reglas, deuda y una línea en "Registro de cambios": fecha, ID de tarea, PR). El merge humano es la confirmación. CI falla si falta. Lo planeado nunca va a `CONTEXT.md`; va aquí. |
+| R4 | **Arquitectura hexagonal.** `domain` no importa nada externo; `application` solo importa `domain`; toda librería o servicio externo entra por un puerto en `application/ports` con adaptador en `infrastructure`. Lo verifica `dependency-cruiser` en CI. |
+| R5 | **Aislamiento por tenant.** Toda consulta filtra por `tenantId` y `deleted`. Todo endpoint nuevo entra en la matriz de tests de aislamiento (recurso de otro tenant → 404) y en la matriz de roles. |
+| R6 | **Humanos aprueban.** Los modelos no hacen merge, no hacen push a `develop`/`main`, no ejecutan migraciones en producción, no manejan secretos reales y no toman decisiones abiertas de la sección 9. |
+| R7 | **Decisiones abiertas bloquean.** Si una tarea depende de una decisión sin marcar, el modelo se detiene, lo anota en `QUESTION.md` y toma otra tarea no bloqueada. |
+| R8 | **Seguridad por defecto.** Entrada validada con Zod en el borde, salida por DTO (nunca la entidad Prisma), dinero con decimales exactos (nunca `number`), SQL crudo solo con plantillas parametrizadas (`$queryRaw`, nunca `$queryRawUnsafe`), secretos solo por variables de entorno. |
+| R9 | **PRs pequeños.** Una tarea = una rama `feat/F<fase>-T<nn>-descripcion` = un PR contra `develop`. |
+| R10 | **Auditoría por fase.** Ninguna fase se cierra sin su informe de seguridad en `docs/audits/` firmado por un humano. |
+| R11 | **Idioma.** La documentación va en español: archivos `.md`, `docs/`, descripciones de OpenAPI, comentarios del código y JSDoc. Todo lo demás va en inglés: nombres de variables, funciones, clases, archivos, carpetas, rutas, campos de base de datos, códigos y mensajes de error, logs. El contenido que lee el cliente final (correos, PDF, notificaciones) va en español. |
+| R12 | **Documentación obligatoria.** Cada módulo entrega `docs/modulos/<modulo>.md` (propósito, reglas de negocio, endpoints, ejemplos de petición y respuesta) en el mismo PR. Puertos, casos de uso y entidades llevan JSDoc. Sin documentación no hay merge. |
+| R13 | **Código autodocumentado obligatorio.** Nombres completos, obvios y sin abreviaturas ni genéricos (`data`, `tmp`, `leadmap`, `rolUser`). Funciones cortas con un solo propósito y un nombre que dice qué hacen. Sin números ni cadenas mágicas: constantes con nombre o enums. Sin `any`. Los comentarios explican el porqué (regla de negocio, decisión de seguridad, caso límite), nunca repiten lo que el código ya dice. Prohibido dejar código comentado. Lo verifican lint y la revisión. |
+| R14 | **Las dudas van a `QUESTION.md`.** Un modelo con una duda o pregunta no supone ni inventa: la escribe en `QUESTION.md` con el formato de ese archivo y sigue con otra tarea si la duda bloquea. Las preguntas no se borran; se responden en las rondas de dudas. |
+
+---
+
+## 2. Responsables
+
+**Humanos** (pueden ser la misma persona):
+- **Dueño de producto:** marca las decisiones de la sección 9, fija precios y prioridades.
+- **Revisor técnico:** revisa y aprueba cada PR, hace el merge, firma la puerta de cada fase.
+- **Responsable de seguridad:** firma los informes de auditoría y la matriz de permisos.
+- **Operaciones:** secretos, DNS, cuenta de Resend, credenciales de Siigo, migraciones y despliegues en producción, backups.
+
+**Modelos:**
+- **Opus `[O]`:** tareas sensibles (auth, autorización, aislamiento, transacciones, evaluador de fórmulas, facturación, sincronización con Siigo, auditorías) y revisión del código escrito por Sonnet.
+- **Sonnet `[S]`:** módulos CRUD que siguen el patrón, DTOs, mappers, tests, documentación.
+
+**Flujo por tarea:**
+1. Leer `CONTEXT.md` y la fase correspondiente de este plan.
+2. Escribir primero los tests de la tarea (deben fallar).
+3. Implementar hasta que pasen typecheck, lint, tests y cobertura.
+4. Revisión cruzada por el otro modelo (`/code-review` y `/security-review`).
+5. Actualizar `CONTEXT.md`, la documentación del módulo y marcar la tarea en `PLAN.md` dentro del mismo PR.
+6. Revisión y merge humanos.
+
+En cualquier paso: si surge una duda, se anota en `QUESTION.md` (R14).
+
+**Rondas de dudas y auditoría.** Cada cierto tiempo el humano abre una ronda con un modelo:
+1. Recorrer las preguntas abiertas de `QUESTION.md`, responderlas y pasar a este plan las que resulten ser decisiones.
+2. Auditar lo fusionado desde la ronda anterior contra R1 a R14: tests, capas, aislamiento, idioma, nombres, documentación y `CONTEXT.md`.
+3. Dejar el resultado en `docs/audits/ronda-<fecha>.md` y convertir cada hallazgo en una tarea de este plan.
+
+---
+
+## 3. Puerta de cierre de cada fase
+
+- [ ] Todas las tareas de la fase con PR aprobado y fusionado por un humano
+- [ ] CI en verde; cobertura dentro del umbral
+- [ ] Matrices de aislamiento y de roles actualizadas y en verde
+- [ ] Informe `docs/audits/F<n>-seguridad.md` (OWASP Top 10:2025 + OWASP API Top 10:2023 sobre el diff de la fase) firmado
+- [ ] `CONTEXT.md` refleja el estado real
+- [ ] Documentación en español de cada módulo de la fase entregada (R12)
+- [ ] `QUESTION.md` sin preguntas bloqueantes abiertas de la fase
+- [ ] Firma: `Aprobado por ______ el ____-__-__`
+
+---
+
+## 4. Auditoría inicial (hallazgos sobre el código actual)
+
+Leída del código, no ejecutada. Se formaliza en `docs/audits/00-linea-base.md` (tarea F0-T10).
+
+| # | Hallazgo | Archivo | OWASP 2025 | Fase |
+|---|---|---|---|---|
+| H1 | `JWT_SECRET` cae a `'default-secret'` si falta la variable | `src/config/env.ts` | A04, A02 | F1 |
+| H2 | `jwt.verify` sin algoritmo fijo; token de 7 días sin revocación ni logout; el rol queda congelado en el token | `src/infrastructure/services/JwtTokenService.ts` | A07 | F2 |
+| H3 | Login no comprueba `isActive` ni `deleted` del usuario o del tenant | `src/application/use-case/auth/LoginUseCase.ts` | A07, A01 | F1 |
+| H4 | `cors()` abierto a cualquier origen | `src/app.ts` | A02 | F1 |
+| H5 | Sin manejador global de errores: todo error es 500 y puede filtrar stack trace | `src/app.ts` | A10 | F1 |
+| H6 | Solo límite global 100/15 min; sin límite propio de login ni bloqueo; `trust proxy` sin configurar | `src/app.ts` | A07 | F1 |
+| H7 | Contraseña mínima de 6; sin verificación de correo ni recuperación | `src/presentation/schemas/authSchema.ts` | A07 | F2 |
+| H8 | Registro no transaccional (tenant, usuario y 5 estados en escrituras separadas); revela si un correo existe | `RegisterCompanyAndOwnerUseCase.ts` | A10, A08 | F1 |
+| H9 | `UpdateLeadUseCase` acepta `assignedToId` sin validar que el usuario sea del tenant; contactos aceptan `companyId` sin validarlo | `updateLeadUseCase.ts`, `use-case/contacts/` | A01 | F1 |
+| H10 | `findById` de contactos y empresas ignora `deleted`; no existe borrado | `PrismaContactRepository.ts`, `PrismaCompanyContactRepository.ts` | A01 | F1 |
+| H11 | `filters[].value` sin tipo llega a Prisma; errores de filtro son 500 | `BasePrismaRepository.ts`, controllers | A05, A10 | F1 |
+| H12 | Autorización dispersa en `if (role === …)` entre casos de uso y controllers | varios | A01 | F1 |
+| H13 | Sin logging ni auditoría (`winston` sin usar, `AuditLog` sin escribir) | — | A09 | F1 |
+| H14 | `express.json({ limit: '10mb' })` | `src/app.ts` | API4 | F1 |
+| H15 | `QuoteItem` y `LeadStatusHistory` no tienen `tenantId` | `prisma/schema.prisma` | A01 | F1 |
+| H16 | Imagen Docker única de desarrollo: usuario root, pnpm sin fijar, sin `--frozen-lockfile` | `Dockerfile` | A02, A03 | F0 |
+| H17 | Node 20 (fin de soporte abril 2026) | `Dockerfile` | A03 | F0 |
+| H18 | Sin tests, sin configuración de ESLint, sin CI, sin escaneo de dependencias ni de secretos | — | A03 | F0 |
+| H19 | Dependencias instaladas sin uso (axios, nodemailer, multer, node-cron, mathjs, pdf-lib, winston, http-status-codes) | `package.json` | A03 | F0 |
+| H20 | `pnpm build` + `pnpm start` probablemente roto: `tsc` no reescribe el alias `@/` (por verificar) | `tsconfig.json` | — | F0 |
+| H21 | Dinero convertido a `number` (`Number(estimatedValue)`) | `src/domain/entities/Lead.ts` | A06 | F3 |
+
+Riesgos de lo que viene, a diseñar desde el inicio: inyección en fórmulas con mathjs (A05), inyección de fórmulas en Excel/CSV (A05), credenciales de Siigo en reposo (A04), consumo inseguro de API externa (API10), panel admin como objetivo de alto valor (A01, A07).
+
+---
+
+## 5. Fases
+
+### F0 — Fundaciones (sin esto no se escribe funcionalidad)
+Bloqueada por: D-01 a D-05.
+
+- F0-T01 `[S]` Crear `docs/audits/`, `docs/security/`, `docs/modulos/`, plantilla de PR con lista de verificación (R1 a R14) y `CODEOWNERS`.
+- F0-T11 `[S]` `docs/guia-de-codigo.md`: convenciones de idioma, nombres, comentarios y JSDoc con ejemplos buenos y malos tomados del código actual (R11 a R13).
+- F0-T02 `[O]` Framework de tests, estructura `tests/unit`, `tests/integration`, `tests/api`, dobles en memoria de los puertos, base de datos de test efímera, fábricas de datos.
+- F0-T03 `[S]` ESLint (typescript-eslint, reglas de seguridad, prohibición de tests deshabilitados o enfocados, convención de nombres, sin `any`, sin números mágicos, sin código comentado) y Prettier.
+- F0-T04 `[O]` `dependency-cruiser` con las reglas de capas de R4.
+- F0-T05 `[S]` Hooks de git (pre-commit: lint; pre-push: typecheck + tests unitarios).
+- F0-T06 `[O]` CI en GitHub Actions: typecheck, lint, capas, tests con PostgreSQL, cobertura con umbral, `pnpm audit`, escaneo de secretos (gitleaks), verificación de `CONTEXT.md`.
+- F0-T07 `[S]` Verificar y corregir H20 (build de producción con alias).
+- F0-T08 `[S]` Dockerfile multi-etapa de producción (no root, pnpm fijado, `--frozen-lockfile`), Node LTS vigente; compose de desarrollo aparte.
+- F0-T09 `[S]` Limpiar dependencias sin uso que no entren en fases próximas (según decisiones).
+- F0-T10 `[O]` `docs/audits/00-linea-base.md` con los hallazgos de la sección 4, severidad y tarea asignada.
+- **Humano:** protección de ramas `develop` y `main` (checks obligatorios + 1 aprobación), Dependabot o Renovate.
+
+### F1 — Endurecimiento y mejora de lo existente
+Bloqueada por: D-06, D-07, D-15 a D-19.
+
+Transversal:
+- F1-T01 `[O]` Variables de entorno validadas con Zod al arrancar; sin valores por defecto para secretos (H1).
+- F1-T02 `[O]` Jerarquía de errores (`NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`) en dominio/aplicación + manejador global en infraestructura con formato único y sin stack trace (H5). Sustituir los `throw new Error` existentes.
+- F1-T03 `[O]` Puerto `ITransactionManager` (adaptador Prisma `$transaction`) y registro atómico (H8).
+- F1-T04 `[O]` Políticas de autorización centralizadas en `application/policies` (`can(usuario, acción, recurso)`); retirar los `if (role …)` dispersos (H12). Generar `docs/security/matriz-permisos.md`.
+- F1-T05 `[O]` Suite de aislamiento por tenant y suite de roles que recorren el inventario de rutas; CI falla si una ruta no está cubierta (R5).
+- F1-T06 `[S]` CORS con lista blanca y credenciales, `trust proxy`, límite de cuerpo 100 kb, límites de tasa por ruta (H4, H6, H14).
+- F1-T07 `[O]` Logger estructurado detrás de puerto `ILogger` (winston), id de petición, redacción de datos sensibles; puerto `IAuditLogger` que escribe `AuditLog` en toda mutación, evento de auth y descarga (H13).
+- F1-T08 `[S]` `/health` (vida) y `/ready` (BD), apagado ordenado.
+- F1-T09 `[S]` Dividir `cross-cutting/container.ts` por módulo.
+- F1-T10 `[S]` Migración: `tenantId` en `QuoteItem` y `LeadStatusHistory` (H15).
+- F1-T11 `[S]` Si D-06 = Sí: rutas REST bajo `/api/v1`. Si D-07 = Sí: OpenAPI generado desde los esquemas Zod.
+
+Motor de filtrado:
+- F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11).
+
+Leads y estados:
+- F1-T13 `[O]` Cambio de estado como caso de uso propio que escribe `LeadStatusHistory` en transacción; validar `assignedToId` al actualizar (H9); login comprueba usuario y tenant activos (H3).
+- F1-T14 `[S]` Estados: campo `type` (abierto/ganado/perdido, ver D-51), borrado suave con regla (no es el predeterminado y no tiene leads: reutilizar `countLeadByStatus`), reordenamiento transaccional.
+- F1-T15 `[S]` Correcciones de nombres y tipos: `PrismaLeadStatusConfig.ts`, `LeadConfigStatusMapper.ts`, `updateAt`, uso real del enum `DeletedState`, `map(this.mapper.toDTO)` sin enlazar.
+- F1-T18 `[S]` Poner el código existente al día con R11 a R13: renombrar identificadores poco claros (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`), JSDoc en puertos, casos de uso y entidades, y `docs/modulos/` de auth, leads, estados, contactos y filtrado.
+
+Contactos y empresas:
+- F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9).
+- F1-T17 `[O]` Migración: `ownerId` (comercial responsable) en `Contact` y `CompanyContact`; `documentType` y `documentNumber` en `Contact`; documento normalizado en ambos (solo dígitos, sin dígito de verificación). Visibilidad por rol según D-18, unicidad según D-19. Es la base de la cartera.
+
+### F2 — Identidad, sesiones y usuarios
+Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
+
+- F2-T01 `[S]` Puerto `IEmailService` + adaptador Resend + registro de envíos (`EmailLog`) + plantillas base.
+- F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2).
+- F2-T03 `[O]` Política de contraseñas, límite por cuenta e IP, bloqueo progresivo, respuestas genéricas (H7).
+- F2-T04 `[O]` Verificación de correo y recuperación de contraseña (tokens de un solo uso, con hash y caducidad).
+- F2-T05 `[O]` Usuarios del tenant: invitar por correo, aceptar invitación, listar, cambiar rol, desactivar (revoca sesiones). Reglas según D-16 y D-17.
+- F2-T06 `[S]` Perfil del tenant y `TenantSettings` (nombre, logo, zona horaria; por defecto `America/Bogota`).
+- F2-T07 `[O]` Protección CSRF acorde a D-14 (verificación de `Origin` en peticiones que modifican).
+
+### F3 — Productos, fórmulas y cotizaciones
+Bloqueada por: D-20 a D-26.
+
+- F3-T01 `[O]` Objeto de valor `Money` con decimales exactos; corregir H21.
+- F3-T02 `[S]` Productos: CRUD, filtrado, borrado suave.
+- F3-T03 `[O]` Puerto `IFormulaEvaluator` + adaptador mathjs endurecido: funciones peligrosas deshabilitadas (`import`, `createUnit`, `evaluate`, `parse`, `simplify`, `derivative`), lista blanca de nodos, longitud máxima, solo variables declaradas y numéricas. Tests de inyección obligatorios.
+- F3-T04 `[S]` Fórmulas: CRUD; la expresión se valida al guardar.
+- F3-T05 `[O]` Cotizaciones: numeración consecutiva por tenant sin huecos por concurrencia, ítems con precio calculado en servidor y guardado como instantánea, descuento, impuestos, vigencia, máquina de estados, reglas por rol. Todo en transacción.
+- F3-T06 `[S]` Puerto `IPdfGenerator` + adaptador pdf-lib (logo, datos del tenant, ítems, totales, condiciones).
+- F3-T07 `[O]` Puerto `IFileStorage` + subida de logo con validación de tipo real y tamaño.
+- F3-T08 `[S]` Enviar cotización por correo con PDF adjunto; pasa a `SENT`; queda en auditoría.
+- F3-T09 `[S]` Crear cotización desde un lead; al aceptar, el lead puede pasar a ganado.
+
+### F4 — Tareas en segundo plano, alertas y notificaciones
+Bloqueada por: D-27 a D-30.
+
+- F4-T01 `[O]` Puerto `IJobQueue` + adaptador; reintentos, ejecución única entre instancias, historial de ejecuciones (`JobRun`).
+- F4-T02 `[S]` Envío de correo por cola con idempotencia; webhook de Resend con firma verificada (entregado, rebotado, queja) y lista de supresión.
+- F4-T03 `[S]` Notificaciones in-app: modelo, listar, contador de no leídas, marcar leídas.
+- F4-T04 `[S]` Preferencias por usuario, tipo y canal (correo / in-app).
+- F4-T05 `[O]` Servicio de notificación único que resuelve destinatarios, preferencias y canales.
+- F4-T06 `[S]` Alertas iniciales: lead asignado, cotización aceptada o rechazada, cotización por vencer, tarea de seguimiento vencida (si C-01 = Sí).
+
+### F5 — Suscripciones y administración de plataforma
+Bloqueada por: D-31 a D-39 y la tabla de precios (sección 8).
+
+Suscripciones:
+- F5-T01 `[O]` Modelos `Plan`, `Subscription` (prueba, activa, vencida, suspendida, cancelada), `SubscriptionEvent` (historial inmutable: quién, qué, cuándo, motivo), `ManualPayment`.
+- F5-T02 `[O]` Máquina de estados; prueba automática al registrarse (D-31); tarea diaria de vencimientos.
+- F5-T03 `[O]` Guardas: `subscriptionGuard` (comportamiento al vencer según D-33), `requireFeature(...)`, límite de usuarios al invitar (D-34).
+- F5-T04 `[S]` Endpoints del tenant: ver plan, estado, uso e historial.
+- F5-T05 `[S]` Correos: fin de prueba a 7, 3 y 1 día; activada; vencida; suspendida.
+
+Administración (`/api/v1/admin/*`, identidad separada de los tenants):
+- F5-T06 `[O]` Modelo `PlatformAdmin` sin tenant, login propio con 2FA TOTP obligatorio, cookie y secreto distintos, sesión corta, límite estricto. El primer admin se crea por script de consola, nunca por endpoint.
+- F5-T07 `[O]` Repositorios de admin separados de los de tenant (no heredan el filtro), `AdminAuditLog` inmutable de cada acción.
+- F5-T08 `[S]` Empresas: listar, ver detalle y uso, suspender, reactivar.
+- F5-T09 `[O]` Suscripciones manuales: activar (plan, periodo, referencia de pago), extender, suspender, cancelar, cambiar plan y **otorgar prueba gratuita manual** (días y motivo).
+- F5-T10 `[S]` Logs: auditoría entre tenants, acciones de admin, correos, tareas y sincronizaciones, con filtros y paginación.
+- F5-T11 `[O]` Tareas de mantenimiento: lista cerrada ejecutable a mano (purgar borrados antiguos, limpiar tokens y sesiones caducadas, reintentar correos fallidos, resincronizar un tenant, recalcular cartera), historial y modo mantenimiento (503 con mensaje).
+- F5-T12 `[O]` Mantenimiento de base de datos: salud (tamaño, tablas, índices, conexiones, consultas largas, estado de migraciones), acciones de lista cerrada (`VACUUM (ANALYZE)`, `REINDEX CONCURRENTLY` sobre tablas predefinidas) y estado de backups. Nunca SQL libre.
+- F5-T13 `[S]` Alertas al admin: tarea fallida, pico de errores, sincronización caída, prueba por convertir.
+
+### F6 — Integración con Siigo y cartera
+Bloqueada por: D-40 a D-49. Requiere credenciales de API de Siigo de una cuenta de pruebas.
+
+- F6-T01 `[O]` + humano. **Investigación previa:** contrastar con la documentación oficial de Siigo autenticación, endpoints de clientes y facturas (saldo, vencimiento, vendedor), paginación, límites y webhooks. Resultado en `docs/integrations/siigo.md`. No se programa sobre supuestos.
+- F6-T02 `[O]` Puerto `ISecretCipher` (AES-256-GCM, clave por entorno con versión) y modelo `SiigoConnection`: la clave de acceso se guarda cifrada y nunca se devuelve por la API.
+- F6-T03 `[O]` Puerto `IAccountingProvider` + adaptador Siigo: URL base fija, tiempo máximo, reintentos con espera, respeto de límites, respuestas validadas con Zod.
+- F6-T04 `[O]` Sincronización idempotente por tenant (`SiigoCustomer`, `ReceivableInvoice`, `SyncRun`), programada y manual con enfriamiento (D-41).
+- F6-T05 `[O]` Emparejamiento: documento normalizado de Siigo contra `CompanyContact` y `Contact` del tenant. El comercial de la factura es el `ownerId` del cliente emparejado. Sin coincidencia o con conflicto → "Sin asignar" (D-42), con endpoint de vinculación manual y de crear cliente desde Siigo.
+- F6-T06 `[O]` Cartera: por factura con saldo, comercial, cliente, documento, número de factura, emisión, vencimiento, **días vencidos**, saldo, interés de mora y **deuda total**; totales por cliente y por comercial; tramos de antigüedad.
+- F6-T07 `[O]` Interés por mora configurable en `TenantSettings` (activo, tasa, días de gracia) según D-43 a D-45 y D-48; cálculo con decimales exactos.
+- F6-T08 `[O]` Puerto `IExcelExporter` + adaptador; `GET /api/v1/receivables/export`: dueño y líder comercial descargan la completa (filtrable por comercial); el comercial recibe solo la suya, forzado en servidor. Celdas saneadas contra inyección de fórmulas; cada descarga queda en auditoría; límite de tasa.
+- F6-T09 `[S]` Alertas de cartera: factura que cruza umbrales de días vencidos (comercial y líder), resumen semanal, fallo de sincronización (dueño).
+
+### F7 — Analíticas
+Bloqueada por: D-50 a D-52.
+
+Cada reporte responde `{ series, rows }` (series para graficar, filas crudas) y acepta `?format=csv|xlsx` para descarga. El comercial solo ve lo suyo. Rango de fechas acotado.
+
+- F7-T01 `[O]` Base común: parámetros validados (`from`, `to`, `groupBy`, `userId`), alcance por rol, exportación reutilizando `IExcelExporter`, índices necesarios.
+- F7-T02 `[S]` Embudo de leads por estado (cantidad y valor estimado).
+- F7-T03 `[S]` Leads creados, ganados y perdidos por periodo, con tasa de conversión.
+- F7-T04 `[S]` Cotizaciones por estado y monto, con tasa de aceptación.
+- F7-T05 `[S]` Ventas (cotizaciones aceptadas) por comercial y periodo.
+- F7-T06 `[S]` Cartera por antigüedad y por comercial.
+
+### F8 — Auditoría final y salida del MVP
+Bloqueada por: D-53 a D-56.
+
+- F8-T01 `[O]` Verificación ASVS: nivel 1 completo, nivel 2 en autenticación, sesiones y control de acceso. Informe en `docs/audits/`.
+- F8-T02 `[O]` Revisión completa de arquitectura (capas, puertos, dependencias) e inventario de dependencias con licencias (SBOM).
+- F8-T03 `[S]` Escaneo dinámico contra staging (si D-53 = Sí) y corrección de hallazgos.
+- F8-T04 **Humano:** simulacro de restauración de backup, revisión legal (D-56), prueba externa de penetración (si D-54 = Sí), despliegue.
+- F8-T05 `[S]` Guía de operación: variables, despliegue, rotación de claves, respuesta a incidentes.
+
+### F9 — Después del MVP
+Lo marcado "No" en las sugerencias de CRM (sección 9.8), pasarela de pago, SSE, 2FA para usuarios, otros ERP.
+
+---
+
+## 6. Dependencias
+
+**Paquetes** (versiones exactas se fijan al instalar; cada alta pasa por `pnpm audit` y revisión humana):
+
+| Fase | Añadir | Quitar |
+|---|---|---|
+| F0 | vitest, @vitest/coverage-v8, supertest, @testcontainers/postgresql, typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, dependency-cruiser, lefthook, tsc-alias (si H20 se confirma) | jest, ts-jest, @types/jest (si D-01 = Sí) |
+| F1 | @asteasolutions/zod-to-openapi (si D-07 = Sí) | — |
+| F2 | resend | nodemailer, @types/nodemailer (si D-30 = Sí) |
+| F3 | decimal.js, file-type, cliente S3 (si D-26 = Sí) | — |
+| F4 | pg-boss (si D-27 = Sí), svix | node-cron (si D-27 = Sí) |
+| F5 | otplib, qrcode | — |
+| F6 | exceljs | axios (si D-49 = Sí) |
+
+Ya instaladas y que se usarán: zod, winston, mathjs, pdf-lib, multer, bcryptjs, jsonwebtoken, helmet, express-rate-limit.
+
+**Externas, a cargo de humanos:**
+
+| Necesario para | Dependencia |
+|---|---|
+| F0 | Protección de ramas en GitHub; Dependabot o Renovate |
+| F2 | Cuenta de Resend, dominio verificado (SPF, DKIM, DMARC), `RESEND_API_KEY`, dirección remitente |
+| F3 | Almacenamiento de archivos para producción |
+| F5 | Precios y planes; términos del servicio |
+| F6 | Credenciales de API de Siigo de una cuenta de pruebas; clave de cifrado en gestor de secretos; tasa máxima legal de mora vigente |
+| F8 | Hosting, PostgreSQL gestionado con backups y recuperación a un punto en el tiempo, dominio y TLS, gestor de secretos, revisión legal de tratamiento de datos (Ley 1581 de 2012) |
+
+---
+
+## 7. Auditorías
+
+| Auditoría | Cuándo | Quién | Entregable |
+|---|---|---|---|
+| Línea base de seguridad | F0 | Opus, firma humano | `docs/audits/00-linea-base.md` |
+| Seguridad de fase (OWASP Top 10:2025 + API Top 10:2023) | Cierre de cada fase | Opus, firma humano | `docs/audits/F<n>-seguridad.md` |
+| Arquitectura (capas y puertos) | Cada PR (automática) y cierre de fase | CI + Opus | Reporte de `dependency-cruiser` |
+| Aislamiento por tenant | Cada PR | CI | Suite de aislamiento |
+| Permisos por rol | Cada PR | CI, firma humano de la matriz | `docs/security/matriz-permisos.md` + suite |
+| Dependencias y secretos | Cada PR y semanal | CI | `pnpm audit`, gitleaks, PRs de actualización |
+| Auditoría de negocio (dentro de la app) | Continua desde F1 | Sistema | `AuditLog`, `AdminAuditLog`, `SubscriptionEvent` |
+| Verificación ASVS, escaneo dinámico, SBOM | F8 | Opus + humano | `docs/audits/F8-*.md` |
+
+---
+
+## 8. Suscripciones: planes y precios (a decidir)
+
+Propuesta de estructura; nombres, límites y precios los fija el dueño de producto.
+
+| Plan | Usuarios incluidos | Funciones propuestas | Precio mensual | Precio anual |
+|---|---|---|---|---|
+| Básico | ____ | Leads, contactos, cotizaciones y PDF | ______ | ______ |
+| Profesional | ____ | Básico + analíticas + alertas | ______ | ______ |
+| Empresarial | ____ | Profesional + Siigo y cartera | ______ | ______ |
+| Usuario adicional | — | — | ______ | ______ |
+
+Moneda de cobro: ______ · Días de prueba: ____ · Días de gracia al vencer: ____
+
+---
+
+## 9. Decisiones a tomar
+
+Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquean su fase (R7).
+
+### 9.1 Proceso y herramientas (bloquean F0 y F1)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-01 | Usar Vitest en lugar de Jest (el proyecto es ESM con alias) | Sí | [ ] | [ ] | |
+| D-02 | Tests de integración contra PostgreSQL real en contenedor efímero | Sí | [ ] | [ ] | |
+| D-03 | Cobertura mínima: 90 % en dominio y aplicación, 80 % global | Sí | [ ] | [ ] | |
+| D-04 | Subir a la versión LTS vigente de Node | Sí | [ ] | [ ] | |
+| D-05 | CI en GitHub Actions y ramas protegidas con 1 aprobación humana | Sí | [ ] | [ ] | |
+| D-06 | Migrar ahora las rutas a REST bajo `/api/v1` (`GET /leads`, `DELETE /leads/:id`) | Sí | [ ] | [ ] | |
+| D-07 | Generar documentación OpenAPI desde los esquemas Zod (contrato para el frontend) | Sí | [ ] | [ ] | |
+| D-08 | Revisión cruzada entre modelos antes de la revisión humana | Sí | [ ] | [ ] | |
+
+### 9.2 Seguridad e identidad (bloquean F1 y F2)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-09 | Sesión con token de 15 min + refresh rotatorio en BD (reemplaza el JWT de 7 días) | Sí | [ ] | [ ] | |
+| D-10 | Mantener bcrypt (coste 12) en lugar de migrar a argon2id | Sí | [ ] | [ ] | |
+| D-11 | Contraseña mínima de 12 caracteres y rechazo de contraseñas filtradas | Sí | [ ] | [ ] | |
+| D-12 | Verificar el correo antes de poder usar la cuenta | Sí | [ ] | [ ] | |
+| D-13 | 2FA para usuarios de empresas en el MVP (en admin es obligatorio siempre) | No | [ ] | [ ] | |
+| D-14 | Frontend y API bajo el mismo dominio (`app.` y `api.`) para mantener cookies `SameSite=Strict` | Sí | [ ] | [ ] | |
+| D-15 | Row Level Security de PostgreSQL como segunda barrera en el MVP | No | [ ] | [ ] | |
+| D-16 | PARTNER tiene los permisos de OWNER excepto suscripción y borrar la empresa | Sí | [ ] | [ ] | |
+| D-17 | SALES_LEADER puede invitar y gestionar a los SALES_REP | Sí | [ ] | [ ] | |
+| D-18 | SALES_REP solo ve los clientes de los que es responsable | Sí | [ ] | [ ] | |
+| D-19 | Un documento/NIT no puede repetirse entre clientes del mismo tenant | Sí | [ ] | [ ] | |
+
+### 9.3 Cotizaciones (bloquean F3)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-20 | IVA por ítem con tasa configurable (19 % por defecto) | Sí | [ ] | [ ] | |
+| D-21 | Solo pesos colombianos en el MVP | Sí | [ ] | [ ] | |
+| D-22 | Una cotización enviada no se edita; los cambios generan una versión nueva | Sí | [ ] | [ ] | |
+| D-23 | Estado "vencida" automático al pasar la fecha de vigencia | Sí | [ ] | [ ] | |
+| D-24 | El comercial puede cambiar a mano el precio calculado | No | [ ] | [ ] | |
+| D-25 | Descuento máximo por rol, configurable por el dueño | Sí | [ ] | [ ] | |
+| D-26 | Archivos (logos, PDF) en almacenamiento tipo S3 en producción | Sí | [ ] | [ ] | |
+
+### 9.4 Correos, notificaciones y tareas (bloquean F4)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-27 | Cola sobre PostgreSQL (pg-boss) en lugar de node-cron | Sí | [ ] | [ ] | |
+| D-28 | Plantillas de correo HTML propias, sin react-email | Sí | [ ] | [ ] | |
+| D-29 | Notificaciones in-app por consulta periódica en el MVP (tiempo real después) | Sí | [ ] | [ ] | |
+| D-30 | Eliminar nodemailer (Resend lo reemplaza) | Sí | [ ] | [ ] | |
+
+### 9.5 Suscripciones y administración (bloquean F5)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-31 | Prueba gratuita automática al registrarse (días en sección 8) | Sí | [ ] | [ ] | |
+| D-32 | MVP sin pasarela de pago: activación manual por admin | Sí | [ ] | [ ] | |
+| D-33 | Al vencer: solo lectura y exportación de datos, sin bloqueo total | Sí | [ ] | [ ] | |
+| D-34 | Límite de usuarios por plan | Sí | [ ] | [ ] | |
+| D-35 | Dos roles de admin: SUPER_ADMIN y SUPPORT (solo lectura) | Sí | [ ] | [ ] | |
+| D-36 | Lista de IP permitidas para el panel admin | No | [ ] | [ ] | |
+| D-37 | Backups a cargo del proveedor de BD; el panel solo muestra su estado | Sí | [ ] | [ ] | |
+| D-38 | Soporte puede entrar como un tenant (suplantación) | No | [ ] | [ ] | |
+| D-39 | Purgar definitivamente lo borrado tras un plazo (días: ____) | Sí | [ ] | [ ] | |
+
+### 9.6 Siigo y cartera (bloquean F6)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-40 | Puerto contable genérico para sumar otros ERP más adelante | Sí | [ ] | [ ] | |
+| D-41 | Sincronización nocturna diaria + botón "sincronizar ahora" con espera mínima | Sí | [ ] | [ ] | |
+| D-42 | Facturas sin cliente emparejado van a "Sin asignar", visibles para dueño y líder, con asignación manual | Sí | [ ] | [ ] | |
+| D-43 | Mora con interés simple diario: saldo × (tasa mensual ÷ 30) × días en mora | Sí | [ ] | [ ] | |
+| D-44 | La tasa no puede superar el máximo legal, que mantiene el admin de plataforma | Sí | [ ] | [ ] | |
+| D-45 | Solo el dueño configura el interés por mora | Sí | [ ] | [ ] | |
+| D-46 | PARTNER también puede descargar la cartera completa | No | [ ] | [ ] | |
+| D-47 | Enviar recordatorios de cobro por correo al cliente final | No | [ ] | [ ] | |
+| D-48 | Días de gracia configurables antes de generar mora | Sí | [ ] | [ ] | |
+| D-49 | Usar `fetch` nativo y eliminar axios | Sí | [ ] | [ ] | |
+
+### 9.7 Analíticas y salida (bloquean F7 y F8)
+| ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| D-50 | Los 5 reportes de F7 son suficientes para el MVP | Sí | [ ] | [ ] | |
+| D-51 | Cada estado de lead declara su tipo: abierto, ganado o perdido | Sí | [ ] | [ ] | |
+| D-52 | Rango máximo de consulta de 24 meses | Sí | [ ] | [ ] | |
+| D-53 | Escaneo dinámico (OWASP ZAP) contra staging antes de salir | Sí | [ ] | [ ] | |
+| D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [ ] | [ ] | |
+| D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] | |
+| D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] | |
+
+### 9.8 Funcionalidades comunes de CRM sugeridas (¿entran al MVP?)
+"Sí" las agrega a F1/F3/F4 como tareas nuevas; "No" las deja en F9.
+
+| ID | Funcionalidad | Recomendado | Sí | No | Otro (explicación) |
+|---|---|---|---|---|---|
+| C-01 | Actividades y tareas de seguimiento (llamada, reunión, nota, recordatorio con fecha) | Sí | [ ] | [ ] | |
+| C-02 | Línea de tiempo del lead (estados, actividades, cotizaciones) | Sí | [ ] | [ ] | |
+| C-03 | Convertir un lead ganado en cliente | Sí | [ ] | [ ] | |
+| C-04 | Importar leads y contactos desde CSV o Excel | Sí | [ ] | [ ] | |
+| C-05 | Aviso de duplicados por correo, teléfono o documento | Sí | [ ] | [ ] | |
+| C-06 | Motivo obligatorio al marcar un lead como perdido | Sí | [ ] | [ ] | |
+| C-07 | Enlace público firmado para que el cliente vea y acepte la cotización | No | [ ] | [ ] | |
+| C-08 | Asignación automática de leads (el esquema ya prevé rotación y balanceo) | No | [ ] | [ ] | |
+| C-09 | Etiquetas en leads y contactos | No | [ ] | [ ] | |
+| C-10 | Campos personalizados por tenant | No | [ ] | [ ] | |
+| C-11 | Metas de venta por comercial | No | [ ] | [ ] | |
+| C-12 | Formulario web o webhook de captura de leads | No | [ ] | [ ] | |
+| C-13 | Plantillas de cotización y de correo por tenant | No | [ ] | [ ] | |
+| C-14 | Búsqueda global | No | [ ] | [ ] | |
+| C-15 | Integración con calendario o WhatsApp | No | [ ] | [ ] | |
+
+---
+
+## 10. Verificación
+
+Por PR (automática, obligatoria):
+```bash
+pnpm typecheck && pnpm lint && pnpm arch:check
+pnpm test:unit
+pnpm test:integration     # PostgreSQL efímero
+pnpm test:api             # supertest, incluye suites de aislamiento y de roles
+pnpm test:coverage        # falla bajo el umbral
+pnpm audit
+```
+
+De extremo a extremo al cerrar cada fase (manual, humano o modelo con evidencia en el PR):
+- F1: una petición con un recurso de otro tenant responde 404; un error de dominio responde con su código y sin stack trace.
+- F2: registro → correo de verificación → login → refresh → logout; un refresh reutilizado revoca la sesión.
+- F3: crear producto con fórmula → cotización → PDF → envío por correo; una expresión maliciosa es rechazada.
+- F5: admin otorga prueba, activa y suspende una suscripción; el tenant suspendido queda en solo lectura; todo aparece en `AdminAuditLog`.
+- F6: sincronizar la cuenta de pruebas de Siigo → cartera con días vencidos y mora → el comercial descarga solo su Excel y el dueño el completo.
+- F7: cada reporte devuelve series y filas, y descarga CSV/XLSX respetando el rol.
+
+## 11. Primer paso tras aprobar
+
+1. El dueño de producto marca D-01 a D-08 y responde las preguntas abiertas de `QUESTION.md`.
+2. Arranca F0. No se escribe funcionalidad nueva hasta cerrar la puerta de F0.
