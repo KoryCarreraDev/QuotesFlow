@@ -1,781 +1,241 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
-> **¿Qué es este archivo?**
-> Fuente de verdad del proyecto para IAs y personas nuevas en el equipo. Léelo antes de tocar cualquier archivo. Está escrito para ser entendido aunque no sepas TypeScript, Node.js ni Clean Architecture.
+> Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
+> Última revisión: rama `feat/leads`, 2026-11-14.
 
 ---
 
-## 1. ¿Qué es QuotesFlow?
+## 1. Qué es
 
-Un **backend API REST** para un **SaaS multi-tenant de gestión comercial** (CRM + cotizaciones). Cada empresa que se registra recibe un espacio de datos completamente aislado dentro de la misma base de datos PostgreSQL.
+Backend API REST de un SaaS **multi-tenant** de gestión comercial (CRM + cotizaciones). Cada empresa (tenant) comparte BD PostgreSQL pero solo ve sus datos: **todas las tablas de negocio llevan `tenantId`** y todo repositorio filtra por él.
 
-> **Multi-tenant:** Múltiples "inquilinos" (empresas) comparten la misma aplicación y base de datos, pero cada uno solo puede ver y modificar sus propios datos. El aislamiento se garantiza mediante la columna `tenantId` presente en **todas** las tablas.
-
-### Funcionalidades planeadas
-
-- Registro de empresas y usuarios con autenticación JWT
-- Gestión de oportunidades de venta (Leads) con roles y permisos
-- Contactos (personas y empresas clientes)
-- Productos con precios fijos o calculados por fórmulas matemáticas
-- Cotizaciones con ítems, PDF y envío por email
-- Auditoría de acciones
-- Mensajería (preparado en esquema, aún no implementado)
+Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por fórmula, cotizaciones (PDF + email), auditoría, mensajería.
 
 ---
 
-## 2. Estado actual del desarrollo
+## 2. Estado actual
 
-### ✅ Completamente implementado
-
-| Módulo | Endpoints | Notas |
+| Módulo | Estado | Notas |
 |---|---|---|
-| **Autenticación** | `POST /api/auth/register`, `POST /api/auth/login` | Registro de empresa + usuario OWNER, login con cookie JWT |
-| **Middleware multi-tenant** | — | Extrae JWT de cookie, inyecta `tenantId` en contexto global |
-| **Leads (CRM)** | `GET /api/lead/getAll`, `POST /api/lead/create`, `PATCH /api/lead/update/:id`, `GET /api/lead/filtered` | CRUD completo + filtrado paginado + restricción por rol `SALES_REP` |
-| **Contactos (persona)** | `GET /api/contact/getAll`, `POST /api/contact/create`, `PATCH /api/contact/update/:id`, `GET /api/contact/filtered` | CRUD completo + filtrado paginado, sin restricción de rol |
-| **Contactos (empresa)** | `GET /api/companyContact/getAll`, `POST /api/companyContact/create`, `PATCH /api/companyContact/update/:id`, `GET /api/companyContact/filtered` | CRUD completo + filtrado paginado, sin restricción de rol |
-| **Motor de Filtrado Genérico** | — | Reutilizable para cualquier entidad (ver sección 9) |
+| Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto. Login emite cookie `accessToken` |
+| Leads | ✅ | getAll, create, update, filtered, **delete (soft)**. Reglas por rol (sección 6) |
+| LeadStatusConfig (estados de lead) | ✅ | getAll, create, update. **Sin delete** |
+| Contactos persona | ✅ CRUD + filtered | Sin soft delete ni restricción de rol |
+| Contactos empresa | ✅ CRUD + filtered | Sin soft delete ni restricción de rol |
+| Motor de filtrado genérico | ✅ | Sección 8 |
+| Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
+| AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
+| TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
+| Mensajería, winston, nodemailer, multer, node-cron, mathjs, pdf-lib | ⏳ | Instalados, sin uso |
+| Tests | ❌ | jest/ts-jest instalados, sin tests ni config |
 
-### ⏳ Pendiente de implementar
-
-- Productos y Fórmulas de precio (modelos ya definidos en `schema.prisma`)
-- Cotizaciones y generación de PDF (modelos ya definidos en `schema.prisma`)
-- Configuración de estados de Lead (`LeadStatusConfig` — modelo en esquema, sin entidad de dominio ni capa de aplicación)
-- AuditLog activo
-- Mensajería
-- Value Objects (carpeta `domain/value-objects/` creada, aún vacía)
+### Deuda / cosas a saber (no asumas lo contrario)
+- **No hay middleware global de errores.** Los use cases lanzan `Error` con mensaje en inglés y los controllers hacen `next(error)` → Express responde 500 (incluso para "Lead not found" o permisos). Solo `validateBody` (400) y el parseo de `filters` devuelven códigos propios. Un `errorHandler` con clases de error tipadas es mejora pendiente.
+- `UpdateLeadUseCase` **ignora `statusId`**: el estado no se puede cambiar por PATCH (aunque el schema Zod lo acepta). El cambio de estado y su historial (`LeadStatusHistory`) no existen.
+- `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
+- `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
+- `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
+- `PrismaLeadRepository.findByTenant` y `PrismaLeadStatusConfigRepository.findAllByTenant` filtran por `deleted: 'INUSE'`. `PrismaUserRepository`, `PrismaContactRepository`, etc. aún no están pensados para soft delete.
+- `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
 
 ---
 
-## 3. Stack tecnológico
+## 3. Stack
 
-| Tecnología | ¿Qué es? | Uso en este proyecto |
+TypeScript (ESM, imports terminan en `.js`) · Node 20 · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors · compression · express-rate-limit (100 req/15 min global) · pnpm · Docker Compose · tsx + nodemon en dev.
+
+Alias `@/` = `src/` (en `tsconfig.json`). En el código se mezclan imports `@/...` y relativos.
+
+---
+
+## 4. Arquitectura (Clean/Hexagonal)
+
+```
+domain/          entidades + enums. No importa nada externo.
+application/     use-cases, dtos, ports (interfaces), mappers, constants. Importa solo domain.
+infrastructure/  persistence (Prisma), services (bcrypt, jwt), web (controllers, middleware). Implementa ports.
+presentation/    routes + schemas Zod.
+cross-cutting/   container.ts (DI), tenantContext.ts (AsyncLocalStorage)
+config/          env.ts, database.ts
+```
+
+Regla: capas internas nunca importan las externas (`domain` y `application` no conocen Express ni Prisma).
+
+### Mapa de archivos (por módulo)
+```
+src/
+  server.ts                  arranca app en env.PORT (default 4000)
+  app.ts                     middlewares globales + montaje de routers
+  config/                    env.ts, database.ts
+  cross-cutting/             container.ts (ScopedContainer), tenantContext.ts
+  domain/entities/           Tenant, User, Lead, LeadStatusConfig, Contact, CompanyContact
+  domain/enums/              Role, DeletedState
+  domain/value-objects/      (vacío)
+  application/constants/     defaultLeadStatuses.ts
+  application/dtos/          [Entidad]DTO, Create…DTO, Update…DTO, FilterCriteriaDTO, PaginatedResultDTO, LoginDTO, RegisterCompanyDTO
+  application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadConfigStatusMapper
+  application/ports/         repositories/I*, services/I*, mappers/I*
+  application/use-case/      auth/, leads/, LeadStatusConfig/, contacts/, companyContacts/, filter/, (messaging/ y pricing/ vacíos)
+  infrastructure/persistence/prisma/PrismaService.ts          singleton PrismaClient
+  infrastructure/persistence/repositories/                    BasePrismaRepository + Prisma*Repository
+  infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
+  infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
+  infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
+  infrastructure/web/middleware/                              validateBody, createAuthValidateCookie, createTenantMiddleware
+  presentation/routes/                                        authRoutes, leadRoutes, leadStatusConfigRouter, contactRoutes, companyContactRoutes
+  presentation/schemas/                                       auth, lead, leadStatusConfig, contact, companyContact
+  types/express.d.ts                                          req.user, req.container
+```
+
+---
+
+## 5. Flujo de una request y multi-tenancy
+
+```
+cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId, tenantId, role})
+  -> createTenantMiddleware (TenantContext.run(tenantId) + req.container = new ScopedContainer(tenantId))
+  -> [validateBody(zod)] -> Router helper get*Controller(req) arma el controller con use cases de req.container
+  -> Controller -> UseCase -> Repository (extends BasePrismaRepository)
+```
+
+- `ScopedContainer` (`cross-cutting/container.ts`): DI manual. Un método `get<X>UseCase()` por use case, que instancia repo + mapper + use case. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
+- `TenantContext` usa `AsyncLocalStorage`; `BasePrismaRepository.tenantId` lo lee.
+- `BasePrismaRepository` ofrece: `tenantWhere()` (= `{tenantId, deleted:'INUSE'}`), `buildFilterWhere()` (siempre agrega tenantId + `deleted:'INUSE'`), `buildPagination()`, `softDeleteRegister(model, id)` (update `deleted='DELETED'` + `updatedAt`, con `where {id, tenantId}`), `validateTenant()`, `withTenant()`.
+- Nota: `PrismaUserRepository.findByEmail` busca **sin tenant** (email es único global); `findById` sí filtra por tenant.
+
+---
+
+## 6. Reglas de negocio vigentes
+
+**Roles:** `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP`. Solo Leads y LeadStatusConfig aplican roles.
+
+**Leads**
+| Acción | SALES_REP | Otros roles |
 |---|---|---|
-| **TypeScript** | JavaScript con tipos estáticos | Todo el código fuente |
-| **Node.js 20** | Motor de ejecución de JS/TS en servidor | Entorno de ejecución |
-| **Express 5** | Framework HTTP | Rutas, middlewares, servidor |
-| **Prisma 7** | ORM (mapea TypeScript ↔ SQL) | Acceso a BD, migraciones, esquema (`schema.prisma`) |
-| **PostgreSQL 15** | Base de datos relacional | Almacenamiento persistente |
-| **Zod** | Validador de esquemas | Validación de request bodies en presentación |
-| **bcryptjs** | Hashing seguro | Hash y verificación de contraseñas |
-| **jsonwebtoken** | JWT | Autenticación y sesión de usuario |
-| **cookie-parser** | Middleware Express | Parseo de cookies (`accessToken`) |
-| **compression** | Middleware Express | Compresión Gzip/Brotli de respuestas |
-| **helmet** | Middleware Express | Cabeceras de seguridad HTTP automáticas |
-| **cors** | Middleware Express | Control de acceso cross-origin |
-| **express-rate-limit** | Middleware Express | Protección contra fuerza bruta (100 req / 15 min global) |
-| **winston** | Logger | Logs estructurados (instalado, integración pendiente) |
-| **mathjs** | Evaluador matemático | Cálculo de precios dinámicos por fórmulas (pendiente) |
-| **pdf-lib** | Generador PDF | PDFs de cotizaciones (pendiente) |
-| **nodemailer** | Cliente SMTP | Envío de cotizaciones por email (pendiente) |
-| **multer** | Upload de archivos | Logos y adjuntos (pendiente) |
-| **node-cron** | Tareas programadas | Segundo plano (pendiente) |
-| **Docker & Docker Compose** | Contenedores | Entorno dev aislado (App + Postgres) |
-| **pnpm** | Gestor de paquetes | Reemplaza npm, más rápido y eficiente |
+| Listar (`getAll`/`filtered`) | Solo `assignedToId === userId` (en `filtered` el controller fuerza el filtro y descarta el que envíe el cliente) | Todos del tenant |
+| Crear | `assignedToId` se fuerza a su propio `userId` | `assignedToId` opcional; si viene, el usuario debe existir en el tenant |
+| Actualizar | Solo sus leads; no puede reasignar | Cualquiera; puede reasignar (sin validar que el usuario exista) |
+| Eliminar (soft) | Solo sus leads | Cualquiera |
+
+- Crear sin `statusId` → usa el estado `isDefault` del tenant (error si no hay). Con `statusId` → debe existir en el tenant.
+- Actualizar/eliminar un lead ya `DELETED` → no se encuentra (`findById` filtra `INUSE`).
+- Los leads con `deleted='DELETED'` no aparecen en ninguna consulta.
+
+**LeadStatusConfig**
+- `SALES_REP` no puede crear ni actualizar (error "Insufficient permissions").
+- Solo un estado `isDefault` por tenant: al marcar uno nuevo como default, el anterior se desmarca. No se puede poner `isDefault=false` al default actual sin otro que lo reemplace.
+- `@@unique([tenantId, order])` en BD: `order` duplicado por tenant falla.
+- Al registrar una empresa se crean 5 estados (`application/constants/defaultLeadStatuses.ts`): Nuevo (default, #3B82F6), Contactado, Calificado, Ganado, Perdido.
+
+**Auth**
+- Register: error si el email ya existe. Crea Tenant → User(OWNER) → 5 estados. Devuelve `{ tenantId, ownerId }`.
 
 ---
 
-## 4. Arquitectura: Clean Architecture / Hexagonal
+## 7. Modelo de datos (`prisma/schema.prisma`)
 
-### 4.1. ¿Por qué esta arquitectura?
-
-El código está dividido en **capas con responsabilidades estrictas**. La regla fundamental es:
-
-> **Las capas internas NUNCA importan las externas.** El dominio no sabe que existe Express, Prisma ni ninguna librería de terceros.
-
-Beneficios prácticos:
-- Cambiar la BD u ORM sin tocar la lógica de negocio
-- Cambiar Express por Fastify sin impactar el dominio
-- Testear la lógica con mocks de repositorios
-
-### 4.2. Capas (de adentro hacia afuera)
+Todos los modelos tienen `deleted DeletedState @default(INUSE)` (`INUSE` | `DELETED`), salvo `AuditLog`. IDs `cuid()` en Prisma, pero las entidades de dominio generan `crypto.randomUUID()` y lo pasan al crear.
 
 ```
-+------------------------------------------------------------------+
-|  PRESENTATION (routes/, schemas/)   <- URLs y validacion Zod    |
-|  +--------------------------------------------------------------+|
-|  |  INFRASTRUCTURE (web/, persistence/, services/)              ||
-|  |  +----------------------------------------------------------+||
-|  |  |  APPLICATION (use-case/, dtos/, ports/, mappers/)        |||
-|  |  |  +------------------------------------------------------+|||
-|  |  |  |  DOMAIN (entities/, enums/)                          ||||
-|  |  |  +------------------------------------------------------+|||
-|  |  +----------------------------------------------------------+||
-|  +--------------------------------------------------------------+|
-|  CROSS-CUTTING (container.ts, tenantContext.ts)  <- DI / Tenant  |
-|  CONFIG (env.ts, database.ts)                   <- Configuracion |
-+------------------------------------------------------------------+
+Tenant ─┬ User[]  ─ role Role, isActive
+        ├ Lead[] ─ status→LeadStatusConfig, assignedTo→User, estimatedValue, expectedCloseDate
+        │   ├ LeadStatusHistory[] (oldStatus/newStatus/changedBy)
+        │   └ Quote[]
+        ├ LeadStatusConfig[] ─ name, color, order, isDefault   @@unique([tenantId, order])
+        ├ Contact[] ─ companyId→CompanyContact
+        ├ CompanyContact[]
+        ├ Product[] ─ basePrice? | formula?
+        ├ Formula[] ─ expression, variables(Json), createdBy
+        ├ Quote[] ─ status QuoteStatus, total, discount, items QuoteItem[]
+        ├ TenantSettings (1:1) ─ leadAssignmentStrategy MANUAL|ROUND_ROBIN|LOAD_BALANCED
+        └ AuditLog[]
 ```
-
-### 4.3. Reglas de importación (qué puede importar qué)
-
-```
-OK  domain/         -> NADA externo (solo Node.js nativo, ej: crypto)
-OK  application/    -> domain/
-OK  infrastructure/ -> domain/, application/
-OK  presentation/   -> infrastructure/, application/, cross-cutting/
-OK  cross-cutting/  -> application/, infrastructure/
-OK  config/         -> dotenv, prisma, pg
-
-NO  domain/         -> NO importa application/, infrastructure/, Express, Prisma
-NO  application/    -> NO importa infrastructure/, Express, Prisma
-```
+Enums: `Role`, `QuoteStatus` (DRAFT/SENT/ACCEPTED/REJECTED), `LeadAssignmentStrategy`, `DeletedState`.
+Migraciones: `init` (2026-07-10) y `add_deleted_to_models` (2026-09-01).
 
 ---
 
-## 5. Estructura de archivos detallada
+## 8. API implementada
 
-```
-QuotesFlow/
-+-- prisma/
-|   +-- schema.prisma          # Esquema completo de la BD
-|   +-- migrations/            # Migraciones generadas por Prisma
-+-- src/
-|   +-- server.ts              # Entrada: arranca el servidor Express en el puerto env
-|   +-- app.ts                 # Configura middlewares globales y monta routers
-|   |
-|   +-- config/
-|   |   +-- env.ts             # Variables de entorno tipadas y validadas
-|   |   +-- database.ts        # Conexion PostgreSQL via PrismaClient + pg Pool
-|   |
-|   +-- domain/                # CAPA MAS INTERNA — Reglas de negocio puras
-|   |   +-- entities/
-|   |   |   +-- Tenant.ts           # Empresa registrada
-|   |   |   +-- User.ts             # Usuario con rol dentro de un tenant
-|   |   |   +-- Lead.ts             # Oportunidad de venta (metodos: create, fromPrisma, update)
-|   |   |   +-- Contact.ts          # Persona de contacto (metodos: create, fromPrisma)
-|   |   |   +-- CompanyContact.ts   # Empresa cliente (metodos: create, fromPrisma)
-|   |   +-- enums/
-|   |   |   +-- Role.ts             # OWNER | PARTNER | SALES_LEADER | SALES_REP
-|   |   +-- value-objects/          # [VACIO] Reservado para Value Objects futuros
-|   |
-|   +-- application/           # Casos de uso, DTOs, Puertos (interfaces), Mappers
-|   |   +-- dtos/
-|   |   |   +-- RegisterCompanyDTO.ts          # { companyName, ownerEmail, password, ... }
-|   |   |   +-- LoginDTO.ts                    # { email, password }
-|   |   |   +-- LeadDTO.ts                     # Salida de Lead al cliente
-|   |   |   +-- CreateLeadDTO.ts               # Entrada para crear Lead
-|   |   |   +-- UpdateLeadDTO.ts               # Entrada para actualizar Lead (todos opcionales)
-|   |   |   +-- ContactDTO.ts                  # Salida de Contact al cliente
-|   |   |   +-- CreateContactDTO.ts            # { firstName, lastName, email?, phone?, companyId? }
-|   |   |   +-- UpdateContactDTO.ts            # Todos los campos opcionales
-|   |   |   +-- CompanyContactDTO.ts           # Salida de CompanyContact al cliente
-|   |   |   +-- CreateCompanyContactDTO.ts     # { name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }
-|   |   |   +-- UpdateCompanyContactDTO.ts     # Todos los campos opcionales
-|   |   |   +-- FilterCriteriaDTO.ts           # Motor generico: { filters?, search?, page?, limit? }
-|   |   |   +-- PaginatedResultDTO.ts          # Respuesta paginada: { data, total, page, limit }
-|   |   +-- mappers/
-|   |   |   +-- LeadMapper.ts                  # Lead -> LeadDTO (implementa ILeadMapper)
-|   |   |   +-- ContactMapper.ts               # Contact -> ContactDTO (implementa IContactMapper)
-|   |   |   +-- CompanyContactMapper.ts        # CompanyContact -> CompanyContactDTO (implementa ICompanyContactMapper)
-|   |   +-- ports/
-|   |   |   +-- repositories/
-|   |   |   |   +-- IFilterableRepository.ts   # Contrato generico: findFiltered() + countFiltered()
-|   |   |   |   +-- ILeadRepository.ts         # Extiende IFilterableRepository<Lead>
-|   |   |   |   +-- IContactRepository.ts      # Extiende IFilterableRepository<Contact>
-|   |   |   |   +-- ICompanyContactRepository.ts  # Extiende IFilterableRepository<CompanyContact>
-|   |   |   |   +-- ITenantRepository.ts
-|   |   |   |   +-- IUserRepository.ts
-|   |   |   +-- services/
-|   |   |   |   +-- IHashService.ts
-|   |   |   |   +-- IAuthTokenService.ts       # sign(payload) + verify(token)
-|   |   |   |   +-- ITenantContext.ts          # getTenantId(): string
-|   |   |   |   +-- IFilterFieldConfig.ts      # Mapa de campos filtrables con operadores
-|   |   |   +-- mappers/
-|   |   |   |   +-- IMapper.ts                 # Contrato generico: toDTO(entity): DTO
-|   |   |   |   +-- ILeadMapper.ts
-|   |   |   |   +-- IContactMapper.ts
-|   |   |   |   +-- ICompanyContactMapper.ts
-|   |   |   +-- messaging/                     # [VACIO] Reservado para puertos de mensajería
-|   |   +-- use-case/
-|   |       +-- auth/
-|   |       |   +-- RegisterCompanyAndOwnerUseCase.ts
-|   |       |   +-- LoginUseCase.ts
-|   |       +-- filter/
-|   |       |   +-- GenericListFilteredUseCase.ts  # Motor reutilizable para cualquier entidad
-|   |       +-- leads/
-|   |       |   +-- getLeadsUseCase.ts
-|   |       |   +-- createLeadUseCase.ts
-|   |       |   +-- updateLeadUseCase.ts
-|   |       |   +-- listFilteredLeadsUseCase.ts    # Type alias: GenericListFilteredUseCase<Lead, LeadDTO>
-|   |       +-- contacts/
-|   |       |   +-- getContactsUseCase.ts
-|   |       |   +-- createContactUseCase.ts
-|   |       |   +-- updateContactUseCase.ts
-|   |       |   +-- listFilteredContactsUseCase.ts # Type alias: GenericListFilteredUseCase<Contact, ContactDTO>
-|   |       +-- companyContacts/
-|   |       |   +-- getCompanyContactsUseCase.ts
-|   |       |   +-- createCompanyContactUseCase.ts
-|   |       |   +-- updateCompanyContactUseCase.ts
-|   |       |   +-- listFilteredCompanyContactsUseCase.ts  # Type alias: GenericListFilteredUseCase<CompanyContact, CompanyContactDTO>
-|   |       +-- messaging/                     # [VACIO] Reservado para casos de uso de mensajería
-|   |       +-- pricing/                       # [VACIO] Reservado para casos de uso de pricing/formulas
-|   |
-|   +-- infrastructure/        # Implementaciones concretas de los puertos
-|   |   +-- persistence/
-|   |   |   +-- prisma/
-|   |   |   |   +-- PrismaService.ts                    # Singleton de PrismaClient
-|   |   |   +-- repositories/
-|   |   |   |   +-- BasePrismaRepository.ts              # Clase base: tenantWhere(), buildFilterWhere(), buildPagination()
-|   |   |   |   +-- PrismaUserRepository.ts
-|   |   |   |   +-- PrismaTenantRepository.ts
-|   |   |   |   +-- PrismaLeadRepository.ts              # Implementa ILeadRepository + findFiltered() + countFiltered()
-|   |   |   |   +-- PrismaContactRepository.ts           # Implementa IContactRepository + findFiltered() + countFiltered()
-|   |   |   |   +-- PrismaCompanyContactRepository.ts    # Implementa ICompanyContactRepository + findFiltered() + countFiltered()
-|   |   |   +-- filters/
-|   |   |       +-- leadFilterConfig.ts                  # Campos filtrables de Lead y operadores permitidos
-|   |   |       +-- contactFilterConfig.ts               # Campos filtrables de Contact y operadores permitidos
-|   |   |       +-- companyContactFilterConfig.ts        # Campos filtrables de CompanyContact y operadores permitidos
-|   |   +-- services/
-|   |   |   +-- BcryptHashService.ts            # Implementa IHashService
-|   |   |   +-- JwtTokenService.ts              # Implementa IAuthTokenService (clase exportada: JwTokenService)
-|   |   +-- messaging/                          # [VACIO] Reservado para implementaciones de mensajería
-|   |   +-- web/
-|   |       +-- controllers/
-|   |       |   +-- AuthControllers.ts
-|   |       |   +-- leadControllers.ts          # getAll, create, update, getFiltered (con restriccion SALES_REP)
-|   |       |   +-- contactControllers.ts       # getAll, create, update, getFiltered
-|   |       |   +-- companyContactControllers.ts # getAll, create, update, getFiltered
-|   |       +-- middleware/
-|   |           +-- validateBody.ts             # Valida req.body con un schema Zod
-|   |           +-- createAuthValidateCookie.ts # Lee cookie accessToken, verifica JWT, pone req.user
-|   |           +-- createTenantMiddleware.ts   # Corre TenantContext.run() y crea req.container
-|   |
-|   +-- presentation/
-|   |   +-- routes/
-|   |   |   +-- authRoutes.ts
-|   |   |   +-- leadRoutes.ts              # /getAll, /create, /update/:id, /filtered
-|   |   |   +-- contactRoutes.ts           # /getAll, /create, /update/:id, /filtered
-|   |   |   +-- companyContactRoutes.ts   # /getAll, /create, /update/:id, /filtered
-|   |   +-- schemas/
-|   |       +-- authSchema.ts
-|   |       +-- leadSchema.ts              # createLeadSchema, updateLeadSchema (Zod)
-|   |       +-- contactSchema.ts           # createContactSchema, updateContactSchema (Zod)
-|   |       +-- companyContactSchema.ts    # createCompanyContactSchema, updateCompanyContactSchema (Zod)
-|   |
-|   +-- cross-cutting/
-|   |   +-- container.ts         # ScopedContainer: DI manual por request
-|   |   +-- tenantContext.ts     # AsyncLocalStorage wrapper (clase: TenantContext)
-|   |
-|   +-- types/
-|       +-- express.d.ts         # Extiende Express.Request: req.container, req.user
-|
-+-- docker-compose.yml           # Levanta App (Node) + PostgreSQL en contenedores
-+-- Dockerfile                   # Imagen Docker de la app
-+-- package.json                 # Scripts: dev, build, start, migrate, studio
-+-- tsconfig.json                # TypeScript: paths alias @/ -> src/
-+-- prisma.config.ts             # Config Prisma CLI (apunta a schema.prisma)
-+-- nodemon.json                 # Configuracion de recarga en desarrollo
-```
+Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`). Rate limit global 100/15 min.
 
----
-
-## 6. Conceptos clave
-
-### 6.1. Multi-Tenancy con AsyncLocalStorage
-
-Cada request autenticada pasa por estos pasos en orden:
-
-```
-HTTP Request
-  |
-  v
-[createAuthValidateCookie]
-  Lee cookie "accessToken", verifica firma JWT
-  Pone { userId, tenantId, role } en req.user
-  |
-  v
-[createTenantMiddleware]
-  Llama TenantContext.run(tenantId, callback)
-  Crea req.container = new ScopedContainer(tenantId)
-  |
-  v
-[Controller] (usa req.container para obtener casos de uso)
-  |
-  v
-[BasePrismaRepository] <- automaticamente filtra WHERE tenantId = X en TODAS las consultas
-```
-
-> **Clave:** `AsyncLocalStorage` de Node.js permite que `tenantId` esté disponible en cualquier punto de la cadena de ejecución de una request sin pasarlo manualmente por cada función.
-
-### 6.2. Inyección de Dependencias (DI) por Request
-
-`ScopedContainer` (`src/cross-cutting/container.ts`) es una clase que ensambla manualmente todas las dependencias:
-
-- **Sin tenantId (scope público):** Usado por `authRouter` para registro y login.
-- **Con tenantId (scope autenticado):** Instanciado por `createTenantMiddleware` para cada request protegida. Disponible en `req.container`.
-
-Cada método `get[X]UseCase()` del container instancia el repositorio, el mapper y el caso de uso correspondiente.
-
-### 6.3. Restricciones de visibilidad por Rol
-
-Solo aplica al módulo de Leads:
-
-| Rol | Qué ve |
-|---|---|
-| `SALES_REP` | Solo leads donde `assignedToId === userId` |
-| `OWNER`, `PARTNER`, `SALES_LEADER` | Todos los leads del tenant |
-
-Esta lógica vive en `leadControllers.ts` en el método `getFiltered()`. El caso de uso genérico permanece puro y sin conocimiento de roles.
-
-### 6.4. Path alias `@/`
-
-En los imports, `@/` equivale a `src/`. Configurado en `tsconfig.json`. Ejemplo:
-
-```typescript
-import { Lead } from "@/domain/entities/Lead.js";
-// equivale a:
-import { Lead } from "../../domain/entities/Lead.js";
-```
-
-> **Importante:** Los imports siempre terminan en `.js` aunque el archivo sea `.ts`. Así lo requiere TypeScript con módulos ESM.
-
----
-
-## 7. Modelo de datos (schema.prisma)
-
-Todos los modelos tienen `tenantId` y se relacionan en cascada (`onDelete: Cascade`) con `Tenant`.
-
-```
-Tenant (empresa)
- +-- User[]               -> Usuarios (roles: OWNER, PARTNER, SALES_LEADER, SALES_REP)
- +-- Lead[]               -> Oportunidades de venta
- |    +-- LeadStatusHistory[]  -> Auditoria de cambios de estado
- |    +-- Quote[]              -> Cotizaciones del lead
- +-- Contact[]            -> Personas de contacto
- |    +-- Quote[]
- +-- CompanyContact[]     -> Empresas clientes (Contact.companyId -> CompanyContact.id)
- +-- Product[]            -> Productos/servicios (precio fijo o por formula)
- |    +-- QuoteItem[]
- +-- Formula[]            -> Formulas matematicas para precio dinamico
- +-- Quote[]              -> Cotizaciones
- |    +-- QuoteItem[]     -> Lineas de cotizacion (producto + cantidad + precio calculado)
- +-- LeadStatusConfig[]   -> Estados de lead personalizables por tenant
- +-- TenantSettings       -> Configuracion (estrategia de asignacion de leads)
- +-- AuditLog[]           -> Registro de acciones de usuarios
-```
-
-**Enums del esquema:**
-
-| Enum | Valores |
-|---|---|
-| `Role` | `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP` |
-| `QuoteStatus` | `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED` |
-| `LeadAssignmentStrategy` | `MANUAL`, `ROUND_ROBIN`, `LOAD_BALANCED` |
-
----
-
-## 8. Endpoints API implementados
-
-| Método | Ruta | Auth | Body / Query | Descripción |
-|---|---|---|---|---|
-| `GET` | `/health` | No | — | Health check del servidor |
-| `POST` | `/api/auth/register` | No | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` | Crea tenant + usuario OWNER, emite cookie JWT |
-| `POST` | `/api/auth/login` | No | `{ email, password }` | Verifica credenciales, emite cookie `accessToken` |
-| `GET` | `/api/lead/getAll` | Cookie JWT | — | Lista simple de leads (filtrada por rol) |
-| `POST` | `/api/lead/create` | Cookie JWT | `{ contactName?, companyName?, email?, phone?, statusId?, source?, assignedToId?, estimatedValue?, notes? }` | Crear lead |
-| `PATCH` | `/api/lead/update/:id` | Cookie JWT | Campos opcionales de lead | Actualizar lead |
-| `GET` | `/api/lead/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Leads paginados y filtrados |
-| `GET` | `/api/contact/getAll` | Cookie JWT | — | Lista simple de contactos (persona) |
-| `POST` | `/api/contact/create` | Cookie JWT | `{ firstName, lastName, email?, phone?, companyId? }` | Crear contacto (persona) |
-| `PATCH` | `/api/contact/update/:id` | Cookie JWT | Campos opcionales de contacto | Actualizar contacto (persona) |
-| `GET` | `/api/contact/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Contactos paginados y filtrados |
-| `GET` | `/api/companyContact/getAll` | Cookie JWT | — | Lista simple de empresas cliente |
-| `POST` | `/api/companyContact/create` | Cookie JWT | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` | Crear empresa cliente |
-| `PATCH` | `/api/companyContact/update/:id` | Cookie JWT | Campos opcionales de empresa cliente | Actualizar empresa cliente |
-| `GET` | `/api/companyContact/filtered` | Cookie JWT | `?search=&filters=[...]&page=1&limit=20` | Empresas cliente paginadas y filtradas |
-
----
-
-## 9. Motor de filtrado genérico
-
-### 9.1. ¿Qué hace?
-
-Cualquier endpoint `GET /api/[entidad]/filtered` acepta:
-
-- **`?search=texto`** → Busca en campos con `searchable: true` en el filterConfig (OR entre ellos, case-insensitive)
-- **`?filters=[{"field":"statusId","operator":"equals","value":"uuid-xxx"}]`** → JSON array de filtros específicos
-- **`?page=1&limit=20`** → Paginación (default page=1, limit=20, max limit=100)
-
-Campos o operadores no declarados en el `filterConfig` son **rechazados automáticamente con error 400**.
-
-### 9.2. Archivos del motor (ya existen, NO recrear)
-
-| Archivo | Rol |
-|---|---|
-| `src/application/dtos/FilterCriteriaDTO.ts` | Tipo de entrada: `{ filters?, search?, page?, limit? }` |
-| `src/application/dtos/PaginatedResultDTO.ts` | Tipo de salida: `{ data, total, page, limit }` |
-| `src/application/ports/repositories/IFilterableRepository.ts` | Contrato: `findFiltered()` + `countFiltered()` |
-| `src/application/ports/services/IFilterFieldConfig.ts` | Tipo del mapa de campos filtrables |
-| `src/application/ports/mappers/IMapper.ts` | Contrato generico: `toDTO(entity): DTO` |
-| `src/application/use-case/filter/GenericListFilteredUseCase.ts` | Motor central (reutilizable) |
-| `src/infrastructure/persistence/repositories/BasePrismaRepository.ts` | `buildFilterWhere()`, `buildPagination()`, `tenantWhere()` |
-
-### 9.3. Operadores disponibles
-
-| Operador | Uso | Tipo de campo |
+| Método | Ruta | Body / Query |
 |---|---|---|
-| `contains` | Búsqueda parcial (LIKE, case-insensitive) | Texto |
-| `equals` | Igualdad exacta | Texto, UUID, número, fecha |
-| `in` | Pertenece a un array de valores | UUID, enums |
-| `gt` | Mayor que | Número, fecha |
-| `gte` | Mayor o igual que | Número, fecha |
-| `lt` | Menor que | Número, fecha |
-| `lte` | Menor o igual que | Número, fecha |
+| GET | `/health` | — |
+| POST | `/api/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
+| POST | `/api/auth/login` | `{ email, password }` |
+| GET | `/api/lead/getAll` | — |
+| POST | `/api/lead/create` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
+| PATCH | `/api/lead/update/:id` | mismos campos, todos opcionales (`statusId` ignorado) |
+| POST | `/api/lead/delete/:id` | — (soft delete; es POST, no DELETE) |
+| GET | `/api/lead/filtered` | `?search=&filters=[...]&page=&limit=` |
+| GET | `/api/leadStatusConfig/getAll` | — (ordenado por `order` asc) |
+| POST | `/api/leadStatusConfig/create` | `{ name, order, isDefault?, color? }` |
+| PATCH | `/api/leadStatusConfig/update/:id` | `{ name?, order?, isDefault?, color? }` |
+| GET/POST/PATCH | `/api/contact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ firstName, lastName, email?, phone?, companyId? }` |
+| GET/POST/PATCH | `/api/companyContact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` |
 
-### 9.4. Campos filtrables por entidad
+### Motor de filtrado genérico
+`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20`
+- `search`: OR `contains` (insensible a mayúsculas) sobre campos con `searchable:true`.
+- `filters`: JSON array. Campo u operador fuera del `filterConfig` → `Error` (hoy 500, ver deuda).
+- `page` default 1; `limit` default 20, máx 100 (valores inválidos caen al default).
+- Respuesta: `{ data, total, page, limit }`.
+- Operadores: `contains`, `equals`, `in`, `gt`, `gte`, `lt`, `lte`.
+- Piezas: `GenericListFilteredUseCase<Entity,DTO>` (use case reutilizable), `IFilterableRepository` (`findFiltered`+`countFiltered`), `BasePrismaRepository.buildFilterWhere`, `*FilterConfig.ts`.
+- Los `ListFiltered*UseCase` son solo `type alias` del genérico.
 
-**Lead** (`leadFilterConfig.ts`):
-
-| Campo | Operadores | Searchable |
-|---|---|---|
-| `companyName` | `contains`, `equals` | Si |
-| `contactName` | `contains`, `equals` | Si |
-| `email` | `contains`, `equals` | Si |
-| `phone` | `contains`, `equals` | Si |
-| `notes` | `contains`, `equals` | Si |
-| `statusId` | `equals`, `in` | No |
-| `source` | `contains`, `equals` | No |
-| `assignedToId` | `equals`, `in` | No |
-| `estimatedValue` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
-| `expectedCloseDate` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
-| `createdAt` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
-
-**Contact** (`contactFilterConfig.ts`):
-
-| Campo | Operadores | Searchable |
-|---|---|---|
-| `firstName` | `contains`, `equals` | Si |
-| `lastName` | `contains`, `equals` | Si |
-| `email` | `contains`, `equals` | Si |
-| `phone` | `contains`, `equals` | Si |
-| `companyId` | `equals`, `in` | No |
-| `createdAt` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
-
-**CompanyContact** (`companyContactFilterConfig.ts`):
-
-| Campo | Operadores | Searchable |
-|---|---|---|
-| `name` | `contains`, `equals` | Si |
-| `industry` | `contains`, `equals` | Si |
-| `taxNumber` | `contains`, `equals` | No |
-| `phone` | `contains`, `equals` | Si |
-| `email` | `contains`, `equals` | Si |
-| `address` | `contains`, `equals` | No |
-| `city` | `contains`, `equals` | Si |
-| `state` | `contains`, `equals` | No |
-| `zip` | `contains`, `equals` | No |
-| `country` | `contains`, `equals` | No |
-| `createdAt` | `equals`, `gt`, `gte`, `lt`, `lte` | No |
-
-### 9.5. Flujo interno de una request filtrada
-
-```
-GET /api/[entidad]/filtered?search=foo&filters=[...]&page=1&limit=20
-  |
-  v
-[Controller]
-  Parsea query params -> construye FilterCriteriaDTO
-  Aplica restricciones de rol si aplica (ej: SALES_REP en Leads)
-  |
-  v
-[GenericListFilteredUseCase.execute(criteria)]
-  |
-  +-> repository.findFiltered(criteria, filterConfig)
-  |     +-> BasePrismaRepository.buildFilterWhere()
-  |           - Siempre agrega { tenantId } primero
-  |           - Valida cada filtro contra filterConfig (400 si invalido)
-  |           - Si search: OR sobre campos con searchable:true
-  |
-  +-> repository.countFiltered(criteria, filterConfig)
-  |     +-> BasePrismaRepository.buildFilterWhere() (mismo where, sin paginacion)
-  |
-  +-> retorna PaginatedResult<DTO> { data, total, page, limit }
-```
-
-### 9.6. Ejemplo de request HTTP
-
-```
-GET /api/lead/filtered?search=john&page=1&limit=20&filters=[{"field":"statusId","operator":"equals","value":"uuid-xxx"},{"field":"estimatedValue","operator":"gte","value":5000}]
-Cookie: accessToken=<jwt>
-```
-
-**Respuesta estandarizada:**
-```json
-{
-  "data": [ ],
-  "total": 150,
-  "page": 1,
-  "limit": 20
-}
-```
+Campos filtrables (✔ = searchable):
+- **Lead:** companyName✔, contactName✔, email✔, phone✔, notes✔ (contains/equals) · source (contains/equals) · statusId, assignedToId (equals/in) · estimatedValue, expectedCloseDate, createdAt (equals/gt/gte/lt/lte)
+- **Contact:** firstName✔, lastName✔, email✔, phone✔ · companyId (equals/in) · createdAt
+- **CompanyContact:** name✔, industry✔, phone✔, email✔, city✔ · taxNumber, address, state, zip, country (contains/equals) · createdAt
 
 ---
 
-## 10. Guía paso a paso: agregar una nueva entidad
+## 9. Cómo agregar una entidad nueva
 
-> Sustituye `[Entidad]` por el nombre en PascalCase (ej: `Product`) y `[entidad]` en camelCase (ej: `product`).
+Referencias: **Lead** (con roles, soft delete, validaciones), **CompanyContact** (CRUD simple más completo), **Contact** (el más simple). Copia el patrón de ellos.
 
-Las referencias canónicas son:
-- **CompanyContact** para un módulo sin restricción de rol (más completo y reciente)
-- **Contact** para un módulo sin restricción de rol (más simple)
-- **Lead** para un módulo con restricción de rol
+Checklist (`[E]` = Entidad PascalCase, `[e]` = camelCase):
+1. `prisma/schema.prisma` (si falta el modelo; incluir `tenantId`, `deleted`) + `pnpm migrate`.
+2. `domain/entities/[E].ts` — constructor `readonly`, `static create()` (`crypto.randomUUID()`), `static fromPrisma()` (`null → undefined`).
+3. `application/dtos/` — `[E]DTO`, `Create[E]DTO`, `Update[E]DTO`.
+4. `application/ports/repositories/I[E]Repository.ts` — extiende `IFilterableRepository<[E]>`; `findByTenant`, `create`, `findById`, `update`, (`delete`).
+5. `application/ports/mappers/I[E]Mapper.ts` (extiende `IMapper`) + `application/mappers/[E]Mapper.ts`.
+6. `application/use-case/[e]s/` — get, create, update, (delete), listFiltered (type alias).
+7. `infrastructure/persistence/repositories/Prisma[E]Repository.ts` — extiende `BasePrismaRepository`; usa `tenantWhere()`; `findById` con `deleted:'INUSE'` y tenant; `delete` → `softDeleteRegister(this.prisma.[e], id)`.
+8. `infrastructure/persistence/filters/[e]FilterConfig.ts`.
+9. `cross-cutting/container.ts` — un `get…UseCase()` por use case.
+10. `infrastructure/web/controllers/[e]Controllers.ts` (`getAll`, `create`, `update`, `getFiltered`, …; roles se leen de `req.user`).
+11. `presentation/schemas/[e]Schema.ts` (Zod) y `presentation/routes/[e]Routes.ts` (patrón de `leadRoutes.ts`).
+12. `app.ts` — `app.use('/api/[e]', [e]Router(jwtService))`.
 
-### Paso 1 — Entidad de Dominio
-
-**Archivo nuevo:** `src/domain/entities/[Entidad].ts`
-
-Clase con:
-- Constructor con todos los campos como `readonly`
-- `static create(props)`: genera `id` con `crypto.randomUUID()` y retorna la entidad
-- `static fromPrisma(record)`: convierte el registro de Prisma a entidad (maneja `null -> undefined`)
-
-### Paso 2 — DTOs
-
-**Archivos nuevos en** `src/application/dtos/`:
-- `[Entidad]DTO.ts`: lo que se devuelve al cliente (sin `tenantId` ni campos internos)
-- `Create[Entidad]DTO.ts`: campos de creación
-- `Update[Entidad]DTO.ts`: mismos campos pero todos opcionales
-
-### Paso 3 — Puerto del repositorio
-
-**Archivo nuevo:** `src/application/ports/repositories/I[Entidad]Repository.ts`
-
-```typescript
-import { IFilterableRepository } from "./IFilterableRepository.js";
-import { [Entidad] } from "../../../domain/entities/[Entidad].js";
-
-export interface I[Entidad]Repository extends IFilterableRepository<[Entidad]> {
-    findByTenant(): Promise<[Entidad][]>;
-    create(entity: [Entidad]): Promise<void>;
-    findById(id: string): Promise<[Entidad] | null>;
-    update(id: string, data: [Entidad]): Promise<void>;
-}
-```
-
-### Paso 4 — Puerto del mapper
-
-**Archivo nuevo:** `src/application/ports/mappers/I[Entidad]Mapper.ts`
-
-```typescript
-import { IMapper } from "./IMapper.js";
-import { [Entidad] } from "../../../domain/entities/[Entidad].js";
-import { [Entidad]DTO } from "../../dtos/[Entidad]DTO.js";
-
-export interface I[Entidad]Mapper extends IMapper<[Entidad], [Entidad]DTO> {}
-```
-
-### Paso 5 — Mapper de aplicación
-
-**Archivo nuevo:** `src/application/mappers/[Entidad]Mapper.ts`
-
-Implementa `I[Entidad]Mapper` con el método `toDTO(entity): [Entidad]DTO`.
-
-### Paso 6 — Casos de uso
-
-**Archivos nuevos en** `src/application/use-case/[entidades]/`:
-
-- `get[Entidades]UseCase.ts`
-- `create[Entidad]UseCase.ts`
-- `update[Entidad]UseCase.ts`
-- `listFiltered[Entidades]UseCase.ts` (solo un type alias):
-
-```typescript
-import { GenericListFilteredUseCase } from "../filter/GenericListFilteredUseCase.js";
-import { [Entidad] } from "@/domain/entities/[Entidad].js";
-import { [Entidad]DTO } from "@/application/dtos/[Entidad]DTO.js";
-
-export type ListFiltered[Entidades]UseCase = GenericListFilteredUseCase<[Entidad], [Entidad]DTO>;
-```
-
-**Referencia:** `src/application/use-case/contacts/listFilteredContactsUseCase.ts`
-
-### Paso 7 — Repositorio Prisma
-
-**Archivo nuevo:** `src/infrastructure/persistence/repositories/Prisma[Entidad]Repository.ts`
-
-Extiende `BasePrismaRepository` e implementa `I[Entidad]Repository`. Los métodos `findFiltered` y `countFiltered` son casi idénticos en todas las entidades:
-
-```typescript
-async findFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<[Entidad][]> {
-    const where = this.buildFilterWhere(criteria, config);  // heredado de BasePrismaRepository
-    const { skip, take } = this.buildPagination(criteria);  // heredado de BasePrismaRepository
-    const records = await this.prisma.[entidad].findMany({ where, skip, take });
-    return records.map([Entidad].fromPrisma);
-}
-
-async countFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<number> {
-    const where = this.buildFilterWhere(criteria, config);
-    return this.prisma.[entidad].count({ where });
-}
-```
-
-**Referencia:** `src/infrastructure/persistence/repositories/PrismaContactRepository.ts`
-
-### Paso 8 — FilterConfig
-
-**Archivo nuevo:** `src/infrastructure/persistence/filters/[entidad]FilterConfig.ts`
-
-```typescript
-import { IFilterFieldConfig } from "@/application/ports/services/IFilterFieldConfig.js";
-
-export const [entidad]FilterConfig: IFilterFieldConfig = {
-    nombreCampo: {
-        allowedOperators: ["contains", "equals"],
-        searchable: true,  // true = incluido en ?search=texto
-    },
-};
-```
-
-**Referencia:** `src/infrastructure/persistence/filters/contactFilterConfig.ts`
-
-### Paso 9 — Registrar en el contenedor DI
-
-**Archivo a modificar:** `src/cross-cutting/container.ts`
-
-Agregar los métodos en la clase `ScopedContainer`:
-
-```typescript
-getGet[Entidades]UseCase(): Get[Entidades]UseCase {
-    const repo = new Prisma[Entidad]Repository(this.prisma, this.tenantContext);
-    const mapper = new [Entidad]Mapper();
-    return new Get[Entidades]UseCase(repo, mapper);
-}
-getCreate[Entidad]UseCase(): Create[Entidad]UseCase {
-    const repo = new Prisma[Entidad]Repository(this.prisma, this.tenantContext);
-    const mapper = new [Entidad]Mapper();
-    return new Create[Entidad]UseCase(repo, mapper, this.tenantContext);
-}
-getUpdate[Entidad]UseCase(): Update[Entidad]UseCase {
-    const repo = new Prisma[Entidad]Repository(this.prisma, this.tenantContext);
-    const mapper = new [Entidad]Mapper();
-    return new Update[Entidad]UseCase(repo, mapper, this.tenantContext);
-}
-getListFiltered[Entidades]UseCase(): ListFiltered[Entidades]UseCase {
-    const repo = new Prisma[Entidad]Repository(this.prisma, this.tenantContext);
-    const mapper = new [Entidad]Mapper();
-    return new GenericListFilteredUseCase(repo, mapper, [entidad]FilterConfig);
-}
-```
-
-**Referencia:** métodos `getGetCompanyContactsUseCase`, `getCreateCompanyContactUseCase`, etc. en `container.ts` (líneas 107-126)
-
-### Paso 10 — Controller
-
-**Archivo nuevo:** `src/infrastructure/web/controllers/[entidad]Controllers.ts`
-
-Clase con los métodos `getAll`, `create`, `update`, `getFiltered`.
-
-Para `getFiltered`, la lógica de parseo de query params es siempre la misma (ver `contactControllers.ts`). Si se necesita restricción por rol, agregar antes de llamar al use case (ver `leadControllers.ts`).
-
-### Paso 11 — Schema Zod
-
-**Archivo nuevo:** `src/presentation/schemas/[entidad]Schema.ts`
-
-```typescript
-import { z } from 'zod';
-
-export const create[Entidad]Schema = z.object({
-    // campos requeridos y opcionales
-});
-export const update[Entidad]Schema = z.object({
-    // mismos campos, todos .optional()
-});
-```
-
-### Paso 12 — Rutas
-
-**Archivo nuevo:** `src/presentation/routes/[entidad]Routes.ts`
-
-Sigue exactamente el patrón de `contactRoutes.ts`:
-1. Función `get[Entidad]Controller(req)` que resuelve el controller desde `req.container`
-2. Función `[entidad]Router(jwtService)` que registra las rutas con `authMiddleware` y `tenantMiddleware`
-
-### Paso 13 — Registrar en app.ts
-
-**Archivo a modificar:** `src/app.ts`
-
-```typescript
-import { [entidad]Router } from './presentation/routes/[entidad]Routes.js';
-// ...
-app.use('/api/[entidad]', [entidad]Router(jwtService));
-```
-
-### Checklist completo
-
-| Estado | Archivo | Accion |
-|---|---|---|
-| [ ] | `src/domain/entities/[Entidad].ts` | Crear |
-| [ ] | `src/application/dtos/[Entidad]DTO.ts` | Crear |
-| [ ] | `src/application/dtos/Create[Entidad]DTO.ts` | Crear |
-| [ ] | `src/application/dtos/Update[Entidad]DTO.ts` | Crear |
-| [ ] | `src/application/ports/repositories/I[Entidad]Repository.ts` | Crear |
-| [ ] | `src/application/ports/mappers/I[Entidad]Mapper.ts` | Crear |
-| [ ] | `src/application/mappers/[Entidad]Mapper.ts` | Crear |
-| [ ] | `src/application/use-case/[entidades]/get[Entidades]UseCase.ts` | Crear |
-| [ ] | `src/application/use-case/[entidades]/create[Entidad]UseCase.ts` | Crear |
-| [ ] | `src/application/use-case/[entidades]/update[Entidad]UseCase.ts` | Crear |
-| [ ] | `src/application/use-case/[entidades]/listFiltered[Entidades]UseCase.ts` | Crear (type alias) |
-| [ ] | `src/infrastructure/persistence/repositories/Prisma[Entidad]Repository.ts` | Crear |
-| [ ] | `src/infrastructure/persistence/filters/[entidad]FilterConfig.ts` | Crear |
-| [ ] | `src/cross-cutting/container.ts` | Modificar: agregar 4 metodos get*UseCase |
-| [ ] | `src/infrastructure/web/controllers/[entidad]Controllers.ts` | Crear |
-| [ ] | `src/presentation/schemas/[entidad]Schema.ts` | Crear |
-| [ ] | `src/presentation/routes/[entidad]Routes.ts` | Crear |
-| [ ] | `src/app.ts` | Modificar: importar e instanciar el router |
-| [ ] | `prisma/schema.prisma` | Modificar si la entidad no existe en la BD |
+Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) o se aplican en el controller para filtrados; todo repositorio filtra por tenant y `deleted:'INUSE'`; errores como `throw new Error(...)`.
 
 ---
 
-## 11. Decisiones técnicas importantes
+## 10. Decisiones técnicas
 
-| Decisión | Razón |
-|---|---|
-| **Cookies HTTP-Only para JWT** | Más seguro que `localStorage`: no accesible desde JS del navegador (protege contra XSS) |
-| **AsyncLocalStorage para tenantId** | Evita pasar `tenantId` manualmente por todas las capas |
-| **Driver Adapter Prisma (`@prisma/adapter-pg`)** | Pool de conexiones nativo `pg` para mejor gestión en producción |
-| **DI por request** | `createTenantMiddleware` crea un `ScopedContainer` nuevo en cada request autenticada, garantizando aislamiento |
-| **Motor de filtrado genérico** | Un solo `GenericListFilteredUseCase` sirve para todas las entidades; solo se conecta la config específica |
-| **Type alias en vez de subclase** | `ListFilteredLeadsUseCase` es un `type`, no una clase. Evita código repetido |
-| **Whitelist de campos en filterConfig** | Campos no declarados retornan 400. Imposible filtrar por columnas internas |
-| **tenantId siempre primero** | `buildFilterWhere()` agrega `tenantId` como primera condición. Imposible acceder a datos de otro tenant |
-| **Restricción de rol en controller** | Depende de `req.user` (concepto HTTP), por eso vive en el controller y no en el use case |
+- JWT en cookie HTTP-only (no `localStorage`) para mitigar XSS.
+- `AsyncLocalStorage` para `tenantId`: no se pasa manualmente por las capas.
+- DI manual por request (`ScopedContainer`) en vez de librería.
+- Prisma con driver adapter `pg` (pool nativo).
+- Whitelist de campos/operadores en `filterConfig`: imposible filtrar por columnas internas.
+- Soft delete (`deleted = 'DELETED'`) en vez de borrado físico; las consultas filtran `INUSE`.
+- Roles evaluados en use cases (leads/estados) o controller (filtro de listados).
 
 ---
 
-## 12. Entorno de desarrollo
+## 11. Entorno
 
-### Variables de entorno (`.env`)
-
-Copia `.env.example` a `.env` y completa:
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/quotesflow
-JWT_SECRET=tu_secreto_muy_largo_y_seguro
-PORT=3000
-```
-
-### Comandos útiles
+`.env` (ver `.env.example`): `DATABASE_URL`, `JWT_SECRET` (default inseguro `default-secret` si falta), `JWT_EXPIRATION` (7d), `PORT` (default 4000), `NODE_ENV`. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
 ```bash
-# Instalar dependencias
 pnpm install
-
-# Desarrollo con recarga automática
-pnpm dev
-
-# Levantar App + PostgreSQL con Docker
-docker-compose up
-
-# Ejecutar migraciones de BD
-pnpm migrate
-
-# Abrir UI visual de la BD (Prisma Studio)
-pnpm studio
-
-# Compilar TypeScript a JS
-pnpm build
-
-# Iniciar en produccion
-pnpm start
+pnpm dev            # nodemon + tsx src/server.ts
+pnpm migrate        # prisma migrate dev
+pnpm studio         # Prisma Studio
+pnpm build          # tsc  ->  pnpm start (node dist/server.js)
+docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
 ```
+Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
