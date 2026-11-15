@@ -314,29 +314,29 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 ### 9.1 Proceso y herramientas (bloquean F0 y F1)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-01 | Usar Vitest en lugar de Jest (el proyecto es ESM con alias) | Sí | [ ] | [ ] | |
-| D-02 | Tests de integración contra PostgreSQL real en contenedor efímero | Sí | [ ] | [ ] | |
-| D-03 | Cobertura mínima: 90 % en dominio y aplicación, 80 % global | Sí | [ ] | [ ] | |
-| D-04 | Subir a la versión LTS vigente de Node | Sí | [ ] | [ ] | |
-| D-05 | CI en GitHub Actions y ramas protegidas con 1 aprobación humana | Sí | [ ] | [ ] | |
-| D-06 | Migrar ahora las rutas a REST bajo `/api/v1` (`GET /leads`, `DELETE /leads/:id`) | Sí | [ ] | [ ] | |
-| D-07 | Generar documentación OpenAPI desde los esquemas Zod (contrato para el frontend) | Sí | [ ] | [ ] | |
-| D-08 | Revisión cruzada entre modelos antes de la revisión humana | Sí | [ ] | [ ] | |
+| D-01 | Usar Vitest en lugar de Jest (el proyecto es ESM con alias) | Sí | [X] | [ ] | |
+| D-02 | Tests de integración contra PostgreSQL real en contenedor efímero | Sí | [X] | [ ] | |
+| D-03 | Cobertura mínima: 90 % en dominio y aplicación, 80 % global | Sí | [X] | [ ] | |
+| D-04 | Subir a la versión LTS vigente de Node | Sí | [ ] | [ ] | Sí, pero se fijara a la versión de Node 24 LTS |
+| D-05 | CI en GitHub Actions y ramas protegidas con 1 aprobación humana | Sí | [X] | [ ] | |
+| D-06 | Migrar ahora las rutas a REST bajo `/api/v1` (`GET /leads`, `DELETE /leads/:id`) | Sí | [X] | [ ] | |
+| D-07 | Generar documentación OpenAPI desde los esquemas Zod (contrato para el frontend) | Sí | [X] | [ ] | |
+| D-08 | Revisión cruzada entre modelos antes de la revisión humana | Sí | [X] | [ ] | |
 
 ### 9.2 Seguridad e identidad (bloquean F1 y F2)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-09 | Sesión con token de 15 min + refresh rotatorio en BD (reemplaza el JWT de 7 días) | Sí | [ ] | [ ] | |
-| D-10 | Mantener bcrypt (coste 12) en lugar de migrar a argon2id | Sí | [ ] | [ ] | |
-| D-11 | Contraseña mínima de 12 caracteres y rechazo de contraseñas filtradas | Sí | [ ] | [ ] | |
-| D-12 | Verificar el correo antes de poder usar la cuenta | Sí | [ ] | [ ] | |
-| D-13 | 2FA para usuarios de empresas en el MVP (en admin es obligatorio siempre) | No | [ ] | [ ] | |
-| D-14 | Frontend y API bajo el mismo dominio (`app.` y `api.`) para mantener cookies `SameSite=Strict` | Sí | [ ] | [ ] | |
-| D-15 | Row Level Security de PostgreSQL como segunda barrera en el MVP | No | [ ] | [ ] | |
-| D-16 | PARTNER tiene los permisos de OWNER excepto suscripción y borrar la empresa | Sí | [ ] | [ ] | |
-| D-17 | SALES_LEADER puede invitar y gestionar a los SALES_REP | Sí | [ ] | [ ] | |
-| D-18 | SALES_REP solo ve los clientes de los que es responsable | Sí | [ ] | [ ] | |
-| D-19 | Un documento/NIT no puede repetirse entre clientes del mismo tenant | Sí | [ ] | [ ] | |
+| D-09 | Sesión con token de 15 min + refresh rotatorio en BD (reemplaza el JWT de 7 días) | Sí | [X] | [ ] | |
+| D-10 | Mantener bcrypt (coste 12) en lugar de migrar a argon2id | Sí | [X] | [ ] | |
+| D-11 | Contraseña mínima de 12 caracteres y rechazo de contraseñas filtradas | Sí | [X] | [ ] | |
+| D-12 | Verificar el correo antes de poder usar la cuenta | Sí | [X] | [ ] | |
+| D-13 | 2FA para usuarios de empresas en el MVP (en admin es obligatorio siempre) | No | [ ] | [X] | |
+| D-14 | Frontend y API bajo el mismo dominio (`app.` y `api.`) para mantener cookies `SameSite=Strict` | Sí | [X] | [ ] | |
+| D-15 | Row Level Security de PostgreSQL como segunda barrera en el MVP | No | [ ] | [X] | |
+| D-16 | PARTNER tiene los permisos de OWNER excepto suscripción y borrar la empresa | Sí | [X] | [ ] | |
+| D-17 | SALES_LEADER puede invitar y gestionar a los SALES_REP | Sí | [X] | [ ] | |
+| D-18 | SALES_REP solo ve los clientes de los que es responsable | Sí | [X] | [ ] | |
+| D-19 | Un documento/NIT no puede repetirse entre clientes del mismo tenant | Sí | [X] | [ ] | |
 
 ### 9.3 Cotizaciones (bloquean F3)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
@@ -352,10 +352,10 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 ### 9.4 Correos, notificaciones y tareas (bloquean F4)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-27 | Cola sobre PostgreSQL (pg-boss) en lugar de node-cron | Sí | [ ] | [ ] | |
-| D-28 | Plantillas de correo HTML propias, sin react-email | Sí | [ ] | [ ] | |
-| D-29 | Notificaciones in-app por consulta periódica en el MVP (tiempo real después) | Sí | [ ] | [ ] | |
-| D-30 | Eliminar nodemailer (Resend lo reemplaza) | Sí | [ ] | [ ] | |
+| D-27 | Cola sobre PostgreSQL (pg-boss) en lugar de node-cron | Sí | [X] | [ ] | |
+| D-28 | Plantillas de correo HTML propias, sin react-email | Sí | [ ] | [ ] | Usar MJML para no tener que mantener a mano HTML de correo compatible con Gmail, Outlook, Apple Mail y Yahoo |
+| D-29 | Notificaciones in-app por consulta periódica en el MVP (tiempo real después) | Sí | [X] | [ ] | |
+| D-30 | Eliminar nodemailer (Resend lo reemplaza) | Sí | [X] | [ ] | |
 
 ### 9.5 Suscripciones y administración (bloquean F5)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
@@ -400,21 +400,21 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 
 | ID | Funcionalidad | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| C-01 | Actividades y tareas de seguimiento (llamada, reunión, nota, recordatorio con fecha) | Sí | [ ] | [ ] | |
-| C-02 | Línea de tiempo del lead (estados, actividades, cotizaciones) | Sí | [ ] | [ ] | |
-| C-03 | Convertir un lead ganado en cliente | Sí | [ ] | [ ] | |
-| C-04 | Importar leads y contactos desde CSV o Excel | Sí | [ ] | [ ] | |
-| C-05 | Aviso de duplicados por correo, teléfono o documento | Sí | [ ] | [ ] | |
-| C-06 | Motivo obligatorio al marcar un lead como perdido | Sí | [ ] | [ ] | |
-| C-07 | Enlace público firmado para que el cliente vea y acepte la cotización | No | [ ] | [ ] | |
-| C-08 | Asignación automática de leads (el esquema ya prevé rotación y balanceo) | No | [ ] | [ ] | |
-| C-09 | Etiquetas en leads y contactos | No | [ ] | [ ] | |
-| C-10 | Campos personalizados por tenant | No | [ ] | [ ] | |
-| C-11 | Metas de venta por comercial | No | [ ] | [ ] | |
-| C-12 | Formulario web o webhook de captura de leads | No | [ ] | [ ] | |
-| C-13 | Plantillas de cotización y de correo por tenant | No | [ ] | [ ] | |
-| C-14 | Búsqueda global | No | [ ] | [ ] | |
-| C-15 | Integración con calendario o WhatsApp | No | [ ] | [ ] | |
+| C-01 | Actividades y tareas de seguimiento (llamada, reunión, nota, recordatorio con fecha) | Sí | [X] | [ ] | |
+| C-02 | Línea de tiempo del lead (estados, actividades, cotizaciones) | Sí | [X] | [ ] | |
+| C-03 | Convertir un lead ganado en cliente | Sí | [X] | [ ] | |
+| C-04 | Importar leads y contactos desde CSV o Excel | Sí | [X] | [ ] | |
+| C-05 | Aviso de duplicados por correo, teléfono o documento | Sí | [X] | [ ] | |
+| C-06 | Motivo obligatorio al marcar un lead como perdido | Sí | [X] | [ ] | |
+| C-07 | Enlace público firmado para que el cliente vea y acepte la cotización | No | [ ] | [X] | |
+| C-08 | Asignación automática de leads (el esquema ya prevé rotación y balanceo) | No | [ ] | [X] | |
+| C-09 | Etiquetas en leads y contactos | No | [ ] | [X] | |
+| C-10 | Campos personalizados por tenant | No | [ ] | [X] | |
+| C-11 | Metas de venta por comercial | No | [ ] | [X] | |
+| C-12 | Formulario web o webhook de captura de leads | No | [ ] | [X] | |
+| C-13 | Plantillas de cotización y de correo por tenant | No | [ ] | [X] | |
+| C-14 | Búsqueda global | No | [ ] | [X] | |
+| C-15 | Integración con calendario o WhatsApp | No | [ ] | [X] | |
 
 ---
 
