@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T16-contacts-soft-delete` (apilada sobre F1-T01 a F1-T13 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T12-filter-validation` (apilada sobre F1-T01 a F1-T16 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 837 tests (unit, integración con PostgreSQL efímero, API, build). 5 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 868 tests (unit, integración con PostgreSQL efímero, API, build). 4 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -237,7 +237,7 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 
 | HTTP | Códigos |
 |---|---|
-| 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED` |
+| 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_COMPANY_CONTACT`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED`, `INVALID_FILTER_VALUE`, `SORT_FIELD_NOT_ALLOWED` |
 | 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `INVALID_SESSION` (token inválido, caducado o sin tenant) |
 | 403 | `INSUFFICIENT_PERMISSIONS` |
 | 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
@@ -248,9 +248,11 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 Un recurso de otro tenant responde igual que uno inexistente (404).
 
 ### Motor de filtrado genérico
-`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20`
+`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20&sortBy=createdAt&sortDir=desc`
+
+Desde F1-T12 la query la valida `src/infrastructure/web/filters/parseFilterQuery.ts` antes de llegar al caso de uso (H11). Cada campo de `*FilterConfig.ts` declara `type` (`text`, `number`, `date`, `id`) y, si se puede ordenar, `sortable: true`. Un valor de otro tipo (por ejemplo un objeto `{ "not": … }`, que Prisma interpretaría como operador) responde 400 `INVALID_FILTER_VALUE` con `details[].path = ['filters', i, 'value']`. Las fechas aceptan `2026-01-31` o ISO con zona y llegan como `Date`; `in` exige una lista de 1 a 100 valores; un texto, 200 caracteres como máximo; como mucho 20 filtros. Sin `sortBy`, orden por `createdAt` descendente con `id` de desempate; `sortBy` fuera de la lista responde 400 `SORT_FIELD_NOT_ALLOWED`. El alcance por rol (un comercial solo ve sus leads) lo aplica `GenericListFilteredUseCase` con `ownershipScope`, no el controller.
 - `search`: OR `contains` (insensible a mayúsculas) sobre campos con `searchable:true`.
-- `filters`: JSON array. Campo u operador fuera del `filterConfig` → 400 `FILTER_FIELD_NOT_ALLOWED` / `FILTER_OPERATOR_NOT_ALLOWED`; `filters` que no es JSON → 400 `INVALID_FILTERS_FORMAT`. El tipo del valor aún no se valida (H11, F1-T12).
+- `filters`: JSON array. Campo u operador fuera del `filterConfig` → 400 `FILTER_FIELD_NOT_ALLOWED` / `FILTER_OPERATOR_NOT_ALLOWED`; `filters` que no es una lista JSON de `{ field, operator, value }`, o un parámetro repetido → 400 `INVALID_FILTERS_FORMAT`.
 - `page` default 1; `limit` default 20, máx 100 (valores inválidos caen al default).
 - Respuesta: `{ data, total, page, limit }`.
 - Operadores: `contains`, `equals`, `in`, `gt`, `gte`, `lt`, `lte`.
@@ -294,7 +296,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 - Prisma con driver adapter `pg` (pool nativo).
 - Whitelist de campos/operadores en `filterConfig`: imposible filtrar por columnas internas.
 - Soft delete (`deleted = 'DELETED'`) en vez de borrado físico; las consultas filtran `INUSE`.
-- Roles evaluados solo por la política de `application/policies` (F1-T04). El alcance del listado filtrado de leads aún se aplica en el controller, preguntando a `scopeFor`; F1-T12 lo pasa al caso de uso.
+- Roles evaluados solo por la política de `application/policies` (F1-T04). El alcance del listado filtrado lo aplica el caso de uso (`ownershipScope`, F1-T12).
 
 ---
 
@@ -352,7 +354,7 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 5 (H2, H7, H11 y F1-T14), listados en `tests/README.md`. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 4 (H2, H7 y F1-T14), listados en `tests/README.md`. H11 terminó de pasar a regresión en F1-T12. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
 - **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/auth` (los tests suben ese cupo desde 10).
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
@@ -381,3 +383,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T10 | pendiente | Migración `add_tenant_id_to_history_and_quote_items` (H15): `tenantId` en `LeadStatusHistory` y `QuoteItem`, relleno desde el registro padre, NOT NULL, FK a `Tenant` en cascada e índice. Verificada contra una base con datos y con `prisma migrate diff` (sin diferencias). H15 pasa a regresión; 2 tests nuevos de esquema (ningún `tenantId` nullable, todos con FK). Pendiente: aplicarla en producción (Operaciones, R6). |
 | 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/lead/status/:id`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |
 | 2026-11-16 | F1-T16 | pendiente | Borrado suave de contactos y empresas cliente (`DeleteContactUseCase`, `DeleteCompanyContactUseCase`, `POST /api/contact/delete/:id`, `POST /api/companyContact/delete/:id`), solo para gestión (acciones nuevas `contact:delete` y `company-contact:delete`); una empresa con contactos activos no se borra (409). `findById` y `update` filtran `deleted` (H10). El `companyId` de un contacto debe ser una empresa cliente del tenant (H9). Suite de permisos por rol repartida en dos archivos por el cupo de peticiones. H10 (3) y H9 en contactos (1) pasan a regresión; 43 tests nuevos. Cambia la preparación de 2 archivos de tests unitarios (nuevo parámetro y empresas cliente sembradas). |
+| 2026-11-16 | F1-T12 | pendiente | Validación de la query de los listados filtrados (H11) en `parseFilterQuery`: tipo de cada valor según `type` del campo (`text`, `number`, `date`, `id`), `in` con lista, límites de tamaño, orden por lista blanca (`sortBy`, `sortDir`, campos `sortable`) con orden por defecto estable. Códigos `INVALID_FILTER_VALUE` y `SORT_FIELD_NOT_ALLOWED`. El alcance por rol pasa del controller a `GenericListFilteredUseCase` (`ownershipScope`). El último defecto conocido de H11 pasa a regresión; 31 tests nuevos. Las configuraciones de filtros de 2 tests unitarios ganan el campo `type`, ahora obligatorio. |

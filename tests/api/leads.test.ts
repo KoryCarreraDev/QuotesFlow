@@ -11,7 +11,6 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { serializeFilters, sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -352,7 +351,34 @@ describe('API de leads', () => {
       expect(response.status).toBe(HTTP_BAD_REQUEST);
     });
 
-    itKnownDefect('H11', 'responde 400 si el valor de un filtro no es del tipo del campo', async () => {
+    it('ordena por un campo de la lista blanca en el sentido pedido', async () => {
+      await persistLead(company.tenant.id, { contactName: 'Bruno' });
+      await persistLead(company.tenant.id, { contactName: 'Ana' });
+      await persistLead(company.tenant.id, { contactName: 'Carla' });
+
+      const response = await request(app)
+        .get(apiPaths.leads.filtered)
+        .query({ sortBy: 'contactName', sortDir: 'asc' })
+        .set('Cookie', ownerCookie);
+
+      expect(response.status).toBe(HTTP_OK);
+      expect(response.body.data.map((lead: { contactName: string }) => lead.contactName)).toEqual([
+        'Ana',
+        'Bruno',
+        'Carla',
+      ]);
+    });
+
+    it('responde 400 al ordenar por un campo que no es ordenable', async () => {
+      const response = await request(app)
+        .get(apiPaths.leads.filtered)
+        .query({ sortBy: 'tenantId' })
+        .set('Cookie', ownerCookie);
+
+      expect(response.status).toBe(HTTP_BAD_REQUEST);
+    });
+
+    it('responde 400 si el valor de un filtro no es del tipo del campo', async () => {
       const response = await request(app)
         .get(apiPaths.leads.filtered)
         .query({

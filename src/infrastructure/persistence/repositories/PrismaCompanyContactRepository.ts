@@ -81,6 +81,7 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
 
     const records = await this.prisma.companyContact.findMany({
       where,
+      orderBy: this.buildOrderBy(criteria, config),
       skip,
       take,
     });

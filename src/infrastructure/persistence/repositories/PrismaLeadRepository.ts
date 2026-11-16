@@ -99,6 +99,7 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
 
     const records = await this.prisma.lead.findMany({
       where,
+      orderBy: this.buildOrderBy(criteria, config),
       skip,
       take,
       include: {

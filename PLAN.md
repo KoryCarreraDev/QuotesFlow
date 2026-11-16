@@ -149,7 +149,7 @@ Transversal:
 - F1-T11 `[S]` Si D-06 = Sí: rutas REST bajo `/api/v1`. Si D-07 = Sí: OpenAPI generado desde los esquemas Zod.
 
 Motor de filtrado:
-- F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11).
+- F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `src/infrastructure/web/filters/parseFilterQuery.ts`.
 
 Leads y estados:
 - F1-T13 `[O]` Cambio de estado como caso de uso propio que escribe `LeadStatusHistory` en transacción; validar `assignedToId` al actualizar (H9); login comprueba usuario y tenant activos (H3). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `PATCH /api/lead/status/:id`. Leer el historial (línea de tiempo, C-02) queda para cuando se planifique C-02.

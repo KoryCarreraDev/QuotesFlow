@@ -75,6 +75,7 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
 
     const records = await this.prisma.contact.findMany({
       where,
+      orderBy: this.buildOrderBy(criteria, config),
       skip,
       take,
       include: {

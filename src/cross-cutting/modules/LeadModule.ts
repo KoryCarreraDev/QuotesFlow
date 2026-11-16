@@ -1,3 +1,4 @@
+import { Action } from '../../application/policies/authorizationPolicy.js';
 import { LeadMapper } from '../../application/mappers/LeadMapper.js';
 import { GenericListFilteredUseCase } from '../../application/use-case/filter/GenericListFilteredUseCase.js';
 import { CreateLeadUseCase } from '../../application/use-case/leads/createLeadUseCase.js';
@@ -66,6 +67,9 @@ export class LeadModule {
   }
 
   getListFilteredLeadsUseCase(): ListFilteredLeadsUseCase {
-    return new GenericListFilteredUseCase(this.createLeadRepository(), this.leadMapper, leadFilterConfig);
+    return new GenericListFilteredUseCase(this.createLeadRepository(), this.leadMapper, leadFilterConfig, {
+      action: Action.LEAD_LIST,
+      ownerField: 'assignedToId',
+    });
   }
 }

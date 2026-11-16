@@ -9,11 +9,6 @@
       "count": 1
     }
   },
-  "src/application/use-case/filter/GenericListFilteredUseCase.ts": {
-    "@typescript-eslint/no-magic-numbers": {
-      "count": 2
-    }
-  },
   "src/domain/entities/Lead.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -60,7 +55,7 @@
       "count": 1
     },
     "@typescript-eslint/no-magic-numbers": {
-      "count": 4
+      "count": 3
     }
   },
   "src/infrastructure/web/controllers/contactControllers.ts": {
@@ -68,7 +63,7 @@
       "count": 1
     },
     "@typescript-eslint/no-magic-numbers": {
-      "count": 4
+      "count": 3
     }
   },
   "src/infrastructure/web/controllers/leadControllers.ts": {
