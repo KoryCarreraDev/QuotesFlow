@@ -73,6 +73,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-009 · Tiempo mínimo de publicación para instalar dependencias
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F0 (informe `docs/audits/F0-seguridad.md`, F0-S3)
+- **Bloquea:** No
+- **Pregunta:** ¿Se configura en `pnpm-workspace.yaml` un `minimumReleaseAge` para que pnpm no instale versiones publicadas hace menos de N días?
+- **Contexto:** Las dependencias de F0 se eligieron a mano con más de dos semanas publicadas, pero nada lo impone en un `pnpm update` futuro. Los paquetes comprometidos suelen detectarse y retirarse en pocos días. La contrapartida: un parche de seguridad urgente tardaría N días en poder instalarse, salvo excepción explícita (`minimumReleaseAgeExclude`).
+- **Opciones:** a) 7 días. b) 14 días. c) No configurarlo.
+- **Supuesto mientras tanto:** c). No se configura sin decisión humana.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas
