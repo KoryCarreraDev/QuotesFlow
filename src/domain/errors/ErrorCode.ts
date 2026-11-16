@@ -41,6 +41,9 @@ export enum ErrorCode {
   // Límite de peticiones superado
   TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
 
+  // Una dependencia (la base de datos) no responde: la instancia no está lista.
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+
   // Fallo no previsto: el detalle solo queda en el servidor.
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }

@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T06-http-hardening` (apilada sobre F1-T01 a F1-T05 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T08-health-and-shutdown` (apilada sobre F1-T01 a F1-T06 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 726 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 733 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -88,7 +88,7 @@ Regla: capas internas nunca importan las externas (`domain` y `application` no c
 ### Mapa de archivos (por módulo)
 ```
 src/
-  server.ts                  arranca app en env.PORT (default 4000)
+  server.ts                  arranca app en env.PORT (default 4000) y registra el apagado ordenado (SIGTERM/SIGINT)
   app.ts                     middlewares globales + montaje de routers
   config/                    env.ts, database.ts
   cross-cutting/             container.ts (ScopedContainer), tenantContext.ts
@@ -108,6 +108,9 @@ src/
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
   infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
   infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
+  infrastructure/web/gracefulShutdown.ts                      cierra el servidor (espera peticiones en curso), luego Prisma; plazo 10 s
+  infrastructure/persistence/prisma/databaseReadiness.ts      SELECT 1 con plazo de 2 s para /ready
+  presentation/routes/healthRoutes.ts                         manejadores de /health y /ready
   infrastructure/web/middleware/                              validateBody, createAuthValidateCookie, createTenantMiddleware, errorHandler (manejador global + 404 de ruta)
   infrastructure/web/errors/                                  errorResponse.ts: clase de error -> HTTP y formato único
   presentation/routes/                                        authRoutes, leadRoutes, leadStatusConfigRouter, contactRoutes, companyContactRoutes
@@ -206,7 +209,8 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
 
 | Método | Ruta | Body / Query |
 |---|---|---|
-| GET | `/health` | — |
+| GET | `/health` | — (vida: el proceso responde; no toca la base de datos) |
+| GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`) |
 | POST | `/api/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
 | POST | `/api/auth/login` | `{ email, password }` |
 | GET | `/api/lead/getAll` | — |
@@ -328,7 +332,7 @@ docker build -t quotesflow-api .                        # imagen de PRODUCCIÓN 
 docker build --target migrator -t quotesflow-migrator . # `prisma migrate deploy`; en producción lo lanza Operaciones (R6)
 ```
 
-**Imágenes Docker (F0-T08).** `Dockerfile` es multi-etapa: `build` instala con `--frozen-lockfile`, genera Prisma, compila y poda a producción; `runtime` lleva solo `dist/`, `package.json` y las dependencias de producción, sin pnpm, como usuario `node` (uid 1000), con `HEALTHCHECK` sobre `/health` (unos 570 MB, 180 MB de `node_modules`); `migrator` lleva el CLI de Prisma y las migraciones. pnpm 11.28.10 fijado en todas. Ejecutar la API con `--init` (o `init: true`): sin manejador de SIGTERM hasta F1-T08. La API no aplica migraciones al arrancar. `Dockerfile.dev` + `docker-compose.yml` son solo de desarrollo; el compose exige `JWT_SECRET` en `.env` (sin valor por defecto).
+**Imágenes Docker (F0-T08).** `Dockerfile` es multi-etapa: `build` instala con `--frozen-lockfile`, genera Prisma, compila y poda a producción; `runtime` lleva solo `dist/`, `package.json` y las dependencias de producción, sin pnpm, como usuario `node` (uid 1000), con `HEALTHCHECK` sobre `/health` (unos 570 MB, 180 MB de `node_modules`); `migrator` lleva el CLI de Prisma y las migraciones. pnpm 11.28.10 fijado en todas. La API atiende SIGTERM/SIGINT con apagado ordenado (F1-T08); `--init` (o `init: true`) sigue recomendado. La API no aplica migraciones al arrancar. `Dockerfile.dev` + `docker-compose.yml` son solo de desarrollo; el compose exige `JWT_SECRET` en `.env` (sin valor por defecto).
 Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
 
 ---
@@ -365,3 +369,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T04 | pendiente | Políticas de autorización centralizadas (H12): `permissionMatrix`, `can` y `scopeFor` en `src/application/policies/authorizationPolicy.ts`; los casos de uso de leads y estados y el filtrado de leads dejan de comparar roles. Deniega por defecto (rol desconocido, `own` sin usuario). Antes un `SALES_REP` sin `userId` habría visto todos los leads. `docs/security/matriz-permisos.md` generado con `pnpm docs:permissions` (`scripts/docs/`) y comprobado por test. 66 tests nuevos (sobre todo combinaciones rol × acción); la matriz de roles de la API pasa sin cambios. |
 | 2026-11-16 | F1-T05 | pendiente | Suites de seguridad sobre todo el inventario de rutas (R5): `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts`, con escenarios por ruta en `tests/support/http/routeSecurityScenarios.ts`. La suite falla si una ruta protegida no tiene escenario o si un escenario apunta a una ruta que ya no existe. Lo esperado por rol sale de `permissionMatrix`. 82 tests nuevos; sin cambios en `src/`. |
 | 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |
+| 2026-11-16 | F1-T08 | pendiente | `GET /ready` (la base de datos responde en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE` sin detalles) junto a `GET /health`, que no toca la base. Apagado ordenado en `server.ts` con `createGracefulShutdown`: deja de aceptar conexiones, termina las peticiones en curso, cierra Prisma y sale con 0; a los 10 s corta las conexiones y sale con 1. 7 tests nuevos; `/ready` añadida al inventario de rutas. |

@@ -25,6 +25,7 @@ const COMPANY_CONTACT_BASE_PATH = '/api/companyContact';
 
 export const apiPaths = {
   health: '/health',
+  ready: '/ready',
   auth: {
     register: '/api/auth/register',
     login: '/api/auth/login',
@@ -57,6 +58,7 @@ export const apiPaths = {
 
 export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.health, access: 'public' },
+  { method: 'GET', pattern: apiPaths.ready, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.register, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.login, access: 'public' },
 

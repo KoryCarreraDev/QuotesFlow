@@ -13,6 +13,9 @@ import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRo
 import { createErrorHandler, createRouteNotFoundHandler } from './infrastructure/web/middleware/errorHandler.js';
 import { createCorsMiddleware, createRateLimiter } from './infrastructure/web/httpSecurity.js';
 import { env } from './config/env.js';
+import { createLivenessHandler, createReadinessHandler } from './presentation/routes/healthRoutes.js';
+import { isDatabaseReachable } from './infrastructure/persistence/prisma/databaseReadiness.js';
+import { PrismaService } from './infrastructure/persistence/prisma/PrismaService.js';
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 // Ningún cuerpo legítimo de la API se acerca a esto; uno mayor solo sirve para agotar memoria (H14).
@@ -43,10 +46,13 @@ const authRateLimiter = createRateLimiter({
   windowMs: RATE_LIMIT_WINDOW_MS,
 });
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Sondas de vida y de disponibilidad (F1-T08)
+const prismaClient = PrismaService.getInstance().client;
+app.get('/health', createLivenessHandler());
+app.get(
+  '/ready',
+  createReadinessHandler(() => isDatabaseReachable(prismaClient)),
+);
 
 app.use('/api/auth', authRateLimiter, authRouter(publicContainer));
 app.use('/api/lead', leadRouter(jwtService));
