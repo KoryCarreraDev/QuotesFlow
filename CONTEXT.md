@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, nodemailer, multer, node-cron, mathjs, pdf-lib | ⏳ | Instalados, sin uso |
-| Tests | ❌ | jest/ts-jest instalados, sin tests ni config |
+| Tests | ✅ | Vitest: 453 tests (unit, integración con PostgreSQL efímero, API). 30 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - **No hay middleware global de errores.** Los use cases lanzan `Error` con mensaje en inglés y los controllers hacen `next(error)` → Express responde 500 (incluso para "Lead not found" o permisos). Solo `validateBody` (400) y el parseo de `filters` devuelven códigos propios. Un `errorHandler` con clases de error tipadas es mejora pendiente.
@@ -37,6 +37,10 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 - `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
 - `PrismaLeadRepository.findByTenant` y `PrismaLeadStatusConfigRepository.findAllByTenant` filtran por `deleted: 'INUSE'`. `PrismaUserRepository`, `PrismaContactRepository`, etc. aún no están pensados para soft delete.
 - `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
+- **`pnpm build` falla hoy** (verificado 2026-11-16): `tsconfig.json(16,5): error TS5101: Option 'baseUrl' is deprecated` con TypeScript 6. Detrás hay un error de tipos real: `PrismaTenantRepository.ts(12,17) TS2322` (`settings` no es asignable a `InputJsonValue`). Lo corrige F0-T07; mientras tanto `pnpm typecheck:tests` muestra ese único error de `src/`.
+- **Crear un estado predeterminado con `order` repetido deja a la empresa sin predeterminado**: `CreateLeadStatusConfigUseCase` desmarca el anterior antes de crear el nuevo y no hay transacción; si la creación falla, no se revierte. Test: `tests/api/leadStatusConfig.test.ts` (defecto conocido F1-T14).
+- Reasignar un lead (`PATCH /api/lead/update/:id`) o crear un contacto con `companyId` acepta ids de **otro tenant** (H9, verificado con tests).
+- `pnpm audit` (2026-11-16): 94 avisos (1 crítico, 36 altos, 52 moderados, 5 bajos). 93 vienen de dependencias que no son de test (el crítico es `proxy-addr` vía `express`/`express-rate-limit`; la mayoría llegan por `prisma`, `axios`, `nodemailer`, `multer`). Las dependencias de test aportan 1 moderado (`glob` vía `@testcontainers/postgresql`, solo desarrollo).
 
 ---
 
@@ -44,7 +48,11 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 TypeScript (ESM, imports terminan en `.js`) · Node 20 · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors · compression · express-rate-limit (100 req/15 min global) · pnpm · Docker Compose · tsx + nodemon en dev.
 
-Alias `@/` = `src/` (en `tsconfig.json`). En el código se mezclan imports `@/...` y relativos.
+**Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
+
+`pnpm-workspace.yaml`: `allowBuilds` niega las compilaciones nativas opcionales de testcontainers (`cpu-features`, `protobufjs`, `ssh2`) y `overrides` fuerza `brace-expansion` 2.1.7 (versión corregida; la arrastra testcontainers).
+
+Alias `@/` = `src/` (en `tsconfig.json`). En el código se mezclan imports `@/...` y relativos. En los tests además `@tests/` = `tests/` (en `vitest.config.ts` y `tests/tsconfig.json`).
 
 ---
 
@@ -85,6 +93,18 @@ src/
   presentation/routes/                                        authRoutes, leadRoutes, leadStatusConfigRouter, contactRoutes, companyContactRoutes
   presentation/schemas/                                       auth, lead, leadStatusConfig, contact, companyContact
   types/express.d.ts                                          req.user, req.container
+
+vitest.config.ts             proyectos unit / integration / api, alias, umbrales de cobertura
+tests/
+  README.md                  guía de tests (leer antes de escribir uno)
+  tsconfig.json              tipos de los tests (no afecta a `pnpm build`)
+  setup/                     entorno de test, contenedor PostgreSQL efímero, base de datos por archivo
+  support/builders/          constructores de entidades de dominio
+  support/doubles/           dobles en memoria de los puertos (InMemory*Repository, Fake*Service, FixedTenantContext)
+  support/database/          fábricas persist* y limpieza de tablas
+  support/http/              apiRoutes.ts (rutas e inventario), apiClient.ts (cookie de sesión), registeredRoutes.ts
+  support/knownDefect.ts     itKnownDefect
+  unit/ integration/ api/    los tests; api/security/ = inventario de rutas, autenticación, aislamiento, roles
 ```
 
 ---
@@ -235,7 +255,35 @@ pnpm install
 pnpm dev            # nodemon + tsx src/server.ts
 pnpm migrate        # prisma migrate dev
 pnpm studio         # Prisma Studio
+pnpm test           # todos los tests (integration y api necesitan Docker en marcha)
+pnpm test:unit      # solo unitarios, sin Docker
+pnpm test:integration
+pnpm test:api
+pnpm test:coverage  # todos + cobertura; falla bajo 80 % global o 90 % en domain/application
+pnpm typecheck:tests
 pnpm build          # tsc  ->  pnpm start (node dist/server.js)
 docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
 ```
 Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
+
+---
+
+## 12. Tests
+
+Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
+
+- **Tres proyectos Vitest:** `unit` (dobles en memoria, sin base de datos), `integration` (repositorios contra PostgreSQL real), `api` (aplicación real con supertest).
+- **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
+- **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
+- **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts`. Todo endpoint nuevo añade ahí sus casos.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 30 (H2, H3, H4, H5, H7, H9, H10, H11, H14, H15 y F1-T14), listados en `tests/README.md`.
+- **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones.
+- **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
+
+---
+
+## 13. Registro de cambios
+
+| Fecha | Tarea | PR | Cambio |
+|---|---|---|---|
+| 2026-11-16 | F0-T02 | pendiente | Framework de tests (Vitest), dobles en memoria, fábricas de datos, base de datos efímera y 453 tests sobre el código existente. Sin cambios en `src/` ni en `prisma/`. |

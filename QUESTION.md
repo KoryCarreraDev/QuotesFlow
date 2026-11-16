@@ -37,6 +37,34 @@
 
 ## Preguntas abiertas
 
+### Q-006 · Idioma de los títulos de los tests
+- **Fecha:** 2026-11-16
+- **Modelo:** Fable (Claude Code)
+- **Fase / tarea:** F0-T02, R11
+- **Bloquea:** No
+- **Pregunta:** ¿Los títulos de `describe` e `it` van en español (como documentación del comportamiento) o en inglés (como código)?
+- **Contexto:** R11 no menciona los tests. Los títulos son frases que describen reglas de negocio y salen en el reporte de CI; los identificadores de los tests ya están en inglés.
+- **Opciones:** a) Títulos en español. b) Títulos en inglés.
+- **Supuesto mientras tanto:** a) español. Los 453 tests actuales están escritos así (`tests/README.md`).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-007 · Tests de defectos conocidos con `it.fails`
+- **Fecha:** 2026-11-16
+- **Modelo:** Fable (Claude Code)
+- **Fase / tarea:** F0-T02, R2
+- **Bloquea:** No
+- **Pregunta:** ¿Se acepta `itKnownDefect` (envoltura de `it.fails` de Vitest) para dejar escrito el comportamiento correcto de los hallazgos H2 a H15 antes de corregirlos?
+- **Contexto:** R2 prohíbe `.skip` y `.only`. `itKnownDefect` (`tests/support/knownDefect.ts`) no omite nada: el test se ejecuta siempre y solo se da por bueno mientras el defecto exista; al corregirlo, falla y obliga a convertirlo en test de regresión. Hoy hay 30, listados en `tests/README.md`.
+- **Opciones:** a) Aceptarlo y, en F0-T03, que el lint prohíba `.skip`/`.only`/`.todo` pero permita `itKnownDefect`. b) Rechazarlo: borrar esos 30 tests y escribirlos cuando se corrija cada hallazgo.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+---
+
+## Preguntas respondidas
+
 ### Q-001 · Idioma de los comentarios del código
 - **Fecha:** 2026-11-14
 - **Modelo:** planificación
@@ -46,8 +74,8 @@
 - **Contexto:** La regla pedida es "documentación en español, el resto en inglés". Los comentarios actuales están en español (por ejemplo en `src/infrastructure/persistence/repositories/BasePrismaRepository.ts`).
 - **Opciones:** a) Comentarios y JSDoc en español. b) Comentarios y JSDoc en inglés; solo los `.md` en español.
 - **Supuesto mientras tanto:** a) español, como está escrito en R11.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+- **Respuesta:** Español en documentacion tipo "#" "//" "<!>" y etc y los JSDoc tambien cuentan como documentación en español
+- **Respondida por / fecha:** Developer KoryCarreraDev, 15/11/2026
 
 ### Q-002 · Idioma de commits, ramas y PR
 - **Fecha:** 2026-11-14
@@ -58,8 +86,8 @@
 - **Contexto:** El historial actual está en español (`feat/ soft delete de leads con restricción de tenant y roles`).
 - **Opciones:** a) Español (como hoy). b) Inglés.
 - **Supuesto mientras tanto:** a) español; nombres de rama en inglés.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+- **Respuesta:** Mensajes de commit, títulos y descripciones de PR en español; nombres de rama en inglés
+- **Respondida por / fecha:** Developer KoryCarreraDev, 15/11/2026 (corregida 16/11/2026)
 
 ### Q-003 · Idioma de los mensajes de error de la API
 - **Fecha:** 2026-11-14
@@ -70,8 +98,8 @@
 - **Contexto:** Hoy los errores mezclan inglés (`Lead not found`) y español (`Campo no permitido para el filtro`).
 - **Opciones:** a) Solo código y mensaje técnico en inglés. b) Código en inglés + mensaje en español para el usuario.
 - **Supuesto mientras tanto:** a).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+- **Respuesta:** Opcion A
+- **Respondida por / fecha:** Developer KoryCarreraDev, 16/11/2026
 
 ### Q-004 · Acceso a la API de Siigo
 - **Fecha:** 2026-11-14
@@ -82,8 +110,8 @@
 - **Contexto:** F6 no puede empezar sin contrastar la documentación oficial contra una cuenta real.
 - **Opciones:** a) Ya existe cuenta de pruebas. b) Hay que solicitarla.
 - **Supuesto mientras tanto:** cada tenant conecta su propia cuenta; F6 queda en espera.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+- **Respuesta:** Cada tenant conecta su cuenta de siigo, seguir documentacion oficial para desarrollar
+- **Respondida por / fecha:** Developer KoryCarreraDev, 16/11/2026
 
 ### Q-005 · Clientes sin comercial responsable
 - **Fecha:** 2026-11-14
@@ -94,11 +122,6 @@
 - **Contexto:** `Contact` y `CompanyContact` no guardan hoy quién los registró (`prisma/schema.prisma`). La cartera depende de ese dato.
 - **Opciones:** a) Al dueño (OWNER) del tenant. b) Quedan sin responsable hasta que el dueño o el líder los asigne.
 - **Supuesto mientras tanto:** b).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+- **Respuesta:** B
+- **Respondida por / fecha:** Developer KoryCarreraDev, 16/11/2026
 
----
-
-## Preguntas respondidas
-
-_Ninguna todavía._
