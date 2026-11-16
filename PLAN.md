@@ -25,9 +25,9 @@ Alcance acordado: **solo backend** (la API entrega datos listos para graficar y 
 | R6 | **Humanos aprueban.** Los modelos no hacen merge, no hacen push a `develop`/`main`, no ejecutan migraciones en producción, no manejan secretos reales y no toman decisiones abiertas de la sección 9. |
 | R7 | **Decisiones abiertas bloquean.** Si una tarea depende de una decisión sin marcar, el modelo se detiene, lo anota en `QUESTION.md` y toma otra tarea no bloqueada. |
 | R8 | **Seguridad por defecto.** Entrada validada con Zod en el borde, salida por DTO (nunca la entidad Prisma), dinero con decimales exactos (nunca `number`), SQL crudo solo con plantillas parametrizadas (`$queryRaw`, nunca `$queryRawUnsafe`), secretos solo por variables de entorno. |
-| R9 | **PRs pequeños.** Una tarea = una rama `feat/F<fase>-T<nn>-descripcion` = un PR contra `develop`. |
+| R9 | **PRs pequeños.** Una tarea = una rama `feat/F<fase>-T<nn>-descripcion` = un PR contra `develop`. El nombre de la rama va en inglés (R11). |
 | R10 | **Auditoría por fase.** Ninguna fase se cierra sin su informe de seguridad en `docs/audits/` firmado por un humano. |
-| R11 | **Idioma.** La documentación va en español: archivos `.md`, `docs/`, descripciones de OpenAPI, comentarios del código y JSDoc. Todo lo demás va en inglés: nombres de variables, funciones, clases, archivos, carpetas, rutas, campos de base de datos, códigos y mensajes de error, logs. El contenido que lee el cliente final (correos, PDF, notificaciones) va en español. |
+| R11 | **Idioma.** La documentación va en español: archivos `.md`, `docs/`, descripciones de OpenAPI, comentarios del código y JSDoc, mensajes de commit, títulos y descripciones de PR (Q-002). Todo lo demás va en inglés: nombres de ramas, variables, funciones, clases, archivos, carpetas, rutas, campos de base de datos, códigos y mensajes de error, logs. El contenido que lee el cliente final (correos, PDF, notificaciones) va en español. |
 | R12 | **Documentación obligatoria.** Cada módulo entrega `docs/modulos/<modulo>.md` (propósito, reglas de negocio, endpoints, ejemplos de petición y respuesta) en el mismo PR. Puertos, casos de uso y entidades llevan JSDoc. Sin documentación no hay merge. |
 | R13 | **Código autodocumentado obligatorio.** Nombres completos, obvios y sin abreviaturas ni genéricos (`data`, `tmp`, `leadmap`, `rolUser`). Funciones cortas con un solo propósito y un nombre que dice qué hacen. Sin números ni cadenas mágicas: constantes con nombre o enums. Sin `any`. Los comentarios explican el porqué (regla de negocio, decisión de seguridad, caso límite), nunca repiten lo que el código ya dice. Prohibido dejar código comentado. Lo verifican lint y la revisión. |
 | R14 | **Las dudas van a `QUESTION.md`.** Un modelo con una duda o pregunta no supone ni inventa: la escribe en `QUESTION.md` con el formato de ese archivo y sigue con otra tarea si la duda bloquea. Las preguntas no se borran; se responden en las rondas de dudas. |
@@ -59,7 +59,7 @@ En cualquier paso: si surge una duda, se anota en `QUESTION.md` (R14).
 
 **Rondas de dudas y auditoría.** Cada cierto tiempo el humano abre una ronda con un modelo:
 1. Recorrer las preguntas abiertas de `QUESTION.md`, responderlas y pasar a este plan las que resulten ser decisiones.
-2. Auditar lo fusionado desde la ronda anterior contra R1 a R14: tests, capas, aislamiento, idioma, nombres, documentación y `CONTEXT.md`.
+2. Auditar lo fusionado desde la ronda anterior contra R1 a R15: tests, capas, aislamiento, idioma, nombres, documentación, versionamiento y `CONTEXT.md`.
 3. Dejar el resultado en `docs/audits/ronda-<fecha>.md` y convertir cada hallazgo en una tarea de este plan.
 
 ---
@@ -102,7 +102,7 @@ Leída del código, no ejecutada. Se formaliza en `docs/audits/00-linea-base.md`
 | H17 | Node 20 (fin de soporte abril 2026) | `Dockerfile` | A03 | F0 |
 | H18 | Sin tests, sin configuración de ESLint, sin CI, sin escaneo de dependencias ni de secretos | — | A03 | F0 |
 | H19 | Dependencias instaladas sin uso (axios, nodemailer, multer, node-cron, mathjs, pdf-lib, winston, http-status-codes) | `package.json` | A03 | F0 |
-| H20 | `pnpm build` + `pnpm start` probablemente roto: `tsc` no reescribe el alias `@/` (por verificar) | `tsconfig.json` | — | F0 |
+| H20 | `pnpm build` roto (verificado 2026-11-16): `TS5101` por `baseUrl` obsoleto en TypeScript 6 y, detrás, `TS2322` en `PrismaTenantRepository.ts`. Falta verificar además que `tsc` reescriba el alias `@/` | `tsconfig.json` | — | F0 |
 | H21 | Dinero convertido a `number` (`Number(estimatedValue)`) | `src/domain/entities/Lead.ts` | A06 | F3 |
 
 Riesgos de lo que viene, a diseñar desde el inicio: inyección en fórmulas con mathjs (A05), inyección de fórmulas en Excel/CSV (A05), credenciales de Siigo en reposo (A04), consumo inseguro de API externa (API10), panel admin como objetivo de alto valor (A01, A07).
@@ -114,9 +114,9 @@ Riesgos de lo que viene, a diseñar desde el inicio: inyección en fórmulas con
 ### F0 — Fundaciones (sin esto no se escribe funcionalidad)
 Bloqueada por: D-01 a D-05.
 
-- F0-T01 `[S]` Crear `docs/audits/`, `docs/security/`, `docs/modulos/`, plantilla de PR con lista de verificación (R1 a R14) y `CODEOWNERS`.
+- F0-T01 `[S]` Crear `docs/audits/`, `docs/security/`, `docs/modulos/`, plantilla de PR con lista de verificación (R1 a R15) y `CODEOWNERS`.
 - F0-T11 `[S]` `docs/guia-de-codigo.md`: convenciones de idioma, nombres, comentarios y JSDoc con ejemplos buenos y malos tomados del código actual (R11 a R13).
-- F0-T02 `[O]` Framework de tests, estructura `tests/unit`, `tests/integration`, `tests/api`, dobles en memoria de los puertos, base de datos de test efímera, fábricas de datos.
+- F0-T02 `[O]` Framework de tests, estructura `tests/unit`, `tests/integration`, `tests/api`, dobles en memoria de los puertos, base de datos de test efímera, fábricas de datos. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Guía: `tests/README.md`.
 - F0-T03 `[S]` ESLint (typescript-eslint, reglas de seguridad, prohibición de tests deshabilitados o enfocados, convención de nombres, sin `any`, sin números mágicos, sin código comentado) y Prettier.
 - F0-T04 `[O]` `dependency-cruiser` con las reglas de capas de R4.
 - F0-T05 `[S]` Hooks de git (pre-commit: lint; pre-push: typecheck + tests unitarios).
@@ -221,7 +221,7 @@ Bloqueada por: D-40 a D-49. Requiere credenciales de API de Siigo de una cuenta 
 - F6-T06 `[O]` Cartera: por factura con saldo, comercial, cliente, documento, número de factura, emisión, vencimiento, **días vencidos**, saldo, interés de mora y **deuda total**; totales por cliente y por comercial; tramos de antigüedad.
 - F6-T07 `[O]` Interés por mora configurable en `TenantSettings` (activo, tasa, días de gracia) según D-43 a D-45 y D-48; cálculo con decimales exactos.
 - F6-T08 `[O]` Puerto `IExcelExporter` + adaptador; `GET /api/v1/receivables/export`: dueño y líder comercial descargan la completa (filtrable por comercial); el comercial recibe solo la suya, forzado en servidor. Celdas saneadas contra inyección de fórmulas; cada descarga queda en auditoría; límite de tasa.
-- F6-T09 `[S]` Alertas de cartera: factura que cruza umbrales de días vencidos (comercial y líder), resumen semanal, fallo de sincronización (dueño).
+- F6-T09 `[S]` Alertas de cartera: factura que cruza umbrales de días vencidos (comercial y líder), resumen semanal, fallo de sincronización (dueño), cambio de la configuración de mora hecho por el líder comercial (dueño, D-45).
 
 ### F7 — Analíticas
 Bloqueada por: D-50 a D-52.
@@ -255,7 +255,7 @@ Lo marcado "No" en las sugerencias de CRM (sección 9.8), pasarela de pago, SSE,
 
 | Fase | Añadir | Quitar |
 |---|---|---|
-| F0 | vitest, @vitest/coverage-v8, supertest, @testcontainers/postgresql, typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, dependency-cruiser, lefthook, tsc-alias (si H20 se confirma) | jest, ts-jest, @types/jest (si D-01 = Sí) |
+| F0 | vitest, @vitest/coverage-v8, supertest, @types/supertest, @testcontainers/postgresql, typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, dependency-cruiser, lefthook, tsc-alias (si H20 se confirma) | jest, ts-jest, @types/jest (si D-01 = Sí) |
 | F1 | @asteasolutions/zod-to-openapi (si D-07 = Sí) | — |
 | F2 | resend | nodemailer, @types/nodemailer (si D-30 = Sí) |
 | F3 | decimal.js, file-type, cliente S3 (si D-26 = Sí) | — |
@@ -376,9 +376,9 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 | D-40 | Puerto contable genérico para sumar otros ERP más adelante | Sí | [x] | [ ] | |
 | D-41 | Sincronización nocturna diaria + botón "sincronizar ahora" con espera mínima | Sí | [x] | [ ] | |
 | D-42 | Facturas sin cliente emparejado van a "Sin asignar", visibles para dueño y líder, con asignación manual | Sí | [x] | [ ] | |
-| D-43 | Mora con interés simple diario: saldo × (tasa mensual ÷ 30) × días en mora | Sí | [ ] | [ ] |Por defecto deshabilitada, darle la opcion a dueño y socio de configurarlo en panel|
+| D-43 | Mora con interés simple diario: saldo × (tasa mensual ÷ 30) × días en mora | Sí | [ ] | [ ] |Por defecto deshabilitada, darle la opcion a dueño, socio y lider comercial de configurarlo en panel (ver D-45)|
 | D-44 | La tasa no puede superar el máximo legal, que mantiene el admin de plataforma | Sí | [x] | [ ] | |
-| D-45 | Solo el dueño configura el interés por mora | Sí | [x] | [ ] | |
+| D-45 | Dueño, socio y líder comercial configuran el interés por mora | Sí | [ ] | [ ] |Dueño, socio y lider comercial. Si lo cambia el lider comercial, le llega una alerta al dueño|
 | D-46 | PARTNER también puede descargar la cartera completa | No | [ ] | [ ] |Solo su cartera|
 | D-47 | Enviar recordatorios de cobro por correo al cliente final | No | [ ] | [ ] |Solo al comercial, no al cliente final, a menos que manualmente un usuario lo active, solo que el dueño lo active para que se envie automatico, manualmente o lo inhabilite a los clientes finales en el panel admin|
 | D-48 | Días de gracia configurables antes de generar mora | Sí | [X] | [ ] | |
@@ -392,7 +392,7 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 | D-52 | Rango máximo de consulta de 24 meses | Sí | [ ] | [ ] |Configurable por cada usuario, fijable por lider comercial y dueño/socio|
 | D-53 | Escaneo dinámico (OWASP ZAP) contra staging antes de salir | Sí | [X] | [ ] | |
 | D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [X] | [ ] | |
-| D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] |Neon, Plan Free|
+| D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] |PostgreSQL en Neon (plan Free): crear el proyecto en Neon, generar la migración y poner la URL de conexión en `.env` (`DATABASE_URL`). Hosting del backend: por definir|
 | D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] |Dejar genericos mientras se establece el mvp luego de testeos|
 
 ### 9.8 Funcionalidades comunes de CRM sugeridas (¿entran al MVP?)
@@ -434,7 +434,7 @@ De extremo a extremo al cerrar cada fase (manual, humano o modelo con evidencia 
 - F1: una petición con un recurso de otro tenant responde 404; un error de dominio responde con su código y sin stack trace.
 - F2: registro → correo de verificación → login → refresh → logout; un refresh reutilizado revoca la sesión.
 - F3: crear producto con fórmula → cotización → PDF → envío por correo; una expresión maliciosa es rechazada.
-- F5: admin otorga prueba, activa y suspende una suscripción; el tenant suspendido queda en solo lectura; todo aparece en `AdminAuditLog`.
+- F5: admin otorga prueba, activa y suspende una suscripción; al vencer, el tenant queda en solo lectura y exportación durante 1 mes con avisos constantes; pasado ese mes pierde el acceso, pero sus datos no se borran salvo que lo solicite (D-33); todo aparece en `AdminAuditLog`.
 - F6: sincronizar la cuenta de pruebas de Siigo → cartera con días vencidos y mora → el comercial descarga solo su Excel y el dueño el completo.
 - F7: cada reporte devuelve series y filas, y descarga CSV/XLSX respetando el rol.
 

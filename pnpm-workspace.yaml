@@ -1,5 +1,16 @@
 allowBuilds:
   '@prisma/engines': true
+  # Compilación nativa opcional que arrastra testcontainers; no se necesita.
+  cpu-features: false
   esbuild: true
   prisma: true
+  # Compilación nativa opcional que arrastra testcontainers; no se necesita.
+  protobufjs: false
+  # Compilación nativa opcional que arrastra testcontainers; no se necesita.
+  ssh2: false
   unrs-resolver: true
+
+overrides:
+  # testcontainers (solo tests) arrastra brace-expansion 2.1.2, con avisos de denegación de servicio.
+  # Se fuerza la versión corregida de la misma rama mayor. Quitar cuando testcontainers actualice archiver.
+  'brace-expansion@>=2.0.0 <2.1.7': 2.1.7
