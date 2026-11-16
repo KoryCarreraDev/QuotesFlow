@@ -59,6 +59,8 @@ model Tenant {
   tenantSettings     TenantSettings?
   auditLogs          AuditLog[]
   products           Product[]
+  leadStatusHistory  LeadStatusHistory[]
+  quoteItems         QuoteItem[]
 
 }
 
@@ -141,6 +143,9 @@ model LeadStatusConfig {
 //Modelo para el historial de cambios de estado de leads (Auditorias)
 model LeadStatusHistory {
   id          String    @id @default(cuid())
+  // H15 (F1-T10): toda tabla de negocio lleva su tenant, aunque se pueda deducir del lead.
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   leadId      String
   lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
   oldStatusId String?
@@ -154,6 +159,7 @@ model LeadStatusHistory {
   deleted     DeletedState @default(INUSE)
 
   @@index([leadId])
+  @@index([tenantId])
 }
 
 //Contactos del tipo persona (Personas de ventas de otras empresas o etc)
@@ -264,6 +270,9 @@ model Product {
 //Items de las cotizaciones
 model QuoteItem {
   id          String   @id @default(cuid())
+  // H15 (F1-T10): toda tabla de negocio lleva su tenant, aunque se pueda deducir de la cotización.
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   quoteId     String
   quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   productId   String?
@@ -274,6 +283,8 @@ model QuoteItem {
   unitPrice   Decimal? // Precio unitario calculado o manual
   total       Decimal  // Precio total (calculado o manual)
   deleted     DeletedState @default(INUSE)
+
+  @@index([tenantId])
 }
 
 

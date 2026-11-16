@@ -140,7 +140,7 @@ $env:SHOW_KNOWN_DEFECTS = '1'; pnpm test             # PowerShell
 
 No uses `itKnownDefect` para esquivar un test que no consigues hacer pasar. Solo vale para un hallazgo registrado en `PLAN.md` o en una auditoría, y hay que añadirlo a esta tabla.
 
-Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06).
+Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06), H15 (1 test, F1-T10).
 
 | Hallazgo | Comportamiento esperado | Tests | Dónde |
 |---|---|---|---|
@@ -150,7 +150,6 @@ Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 d
 | H9 | No se asigna un lead a un usuario de otra empresa ni un contacto a una empresa cliente de otro tenant | 2 | `api/leads.test.ts`, `api/contacts.test.ts` |
 | H10 | Contactos y empresas cliente borrados no se leen ni se modifican | 3 | `integration/repositories/PrismaContactRepositories.test.ts`, `api/contacts.test.ts` |
 | H11 | Un filtro con un valor de tipo incorrecto responde 400 (el campo no permitido ya responde 400 desde F1-T02) | 1 | `api/leads.test.ts` |
-| H15 | Toda tabla de negocio tiene `tenantId` | 1 | `integration/schema/databaseSchema.test.ts` |
 | F1-T14 | Si falla crear un estado predeterminado (orden repetido), la empresa conserva su predeterminado anterior. Hoy se queda sin ninguno | 1 | `api/leadStatusConfig.test.ts` |
 
 ## Cobertura
