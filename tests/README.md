@@ -118,8 +118,9 @@ const response = await request(app)
 Lista obligatoria (el inventario de rutas hace fallar la suite si olvidas el primer punto):
 
 1. Declarar la ruta en `apiPaths` y en `routeInventory` (`support/http/apiRoutes.ts`). Con eso entra sola en `api/security/authentication.test.ts` (401 sin sesión, token falsificado).
-2. Añadir su caso a `api/security/tenantIsolation.test.ts`: lectura sin datos ajenos y, si modifica, escritura sobre recurso ajeno rechazada y sin efecto.
-3. Si restringe por rol, añadir sus casos permitidos y denegados a `api/security/roles.test.ts`.
+2. Declarar su escenario en `support/http/routeSecurityScenarios.ts`: la acción de `permissionMatrix` que la autoriza, el recurso y la operación (`list`, `create`, `update`, `delete`). Sin escenario, `api/security/routeCoverageTenantIsolation.test.ts` falla (F1-T05). Con él, la ruta entra sola en las dos suites de cobertura: aislamiento entre empresas y permisos de cada rol según la matriz.
+3. Si tiene reglas de negocio propias por tenant o por rol (qué campos se ignoran, qué ve cada uno), añadir esos casos concretos a `api/security/tenantIsolation.test.ts` y `api/security/roles.test.ts`.
+   Cada archivo de API admite como mucho 100 peticiones (limitador global); `routeCoverageRoles.test.ts` usa 84 con 16 rutas. Si una ruta nueva lo supera, separar las rutas en dos archivos.
 4. Puerto nuevo en `application/ports`: su doble en `support/doubles/`.
 5. Entidad nueva: su constructor en `entityBuilders.ts` y su fábrica en `persistenceFactories.ts`.
 6. Tests unitarios del caso de uso, de integración del repositorio y de API del endpoint (R1).
