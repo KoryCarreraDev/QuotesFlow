@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/leads`, 2026-11-14.
+> Última revisión: ramas de la fase F0 (`feat/F0-*`), 2026-11-16.
 
 ---
 
@@ -37,7 +37,6 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 - `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
 - `PrismaLeadRepository.findByTenant` y `PrismaLeadStatusConfigRepository.findAllByTenant` filtran por `deleted: 'INUSE'`. `PrismaUserRepository`, `PrismaContactRepository`, etc. aún no están pensados para soft delete.
 - `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
-- **`pnpm build` falla hoy** (verificado 2026-11-16): `tsconfig.json(16,5): error TS5101: Option 'baseUrl' is deprecated` con TypeScript 6. Detrás hay un error de tipos real: `PrismaTenantRepository.ts(12,17) TS2322` (`settings` no es asignable a `InputJsonValue`). Lo corrige F0-T07; mientras tanto `pnpm typecheck:tests` muestra ese único error de `src/`.
 - **Crear un estado predeterminado con `order` repetido deja a la empresa sin predeterminado**: `CreateLeadStatusConfigUseCase` desmarca el anterior antes de crear el nuevo y no hay transacción; si la creación falla, no se revierte. Test: `tests/api/leadStatusConfig.test.ts` (defecto conocido F1-T14).
 - Reasignar un lead (`PATCH /api/lead/update/:id`) o crear un contacto con `companyId` acepta ids de **otro tenant** (H9, verificado con tests).
 - `pnpm audit` (2026-11-16): 94 avisos (1 crítico, 36 altos, 52 moderados, 5 bajos). 93 vienen de dependencias que no son de test (el crítico es `proxy-addr` vía `express`/`express-rate-limit`; la mayoría llegan por `prisma`, `axios`, `nodemailer`, `multer`). Las dependencias de test aportan 1 moderado (`glob` vía `@testcontainers/postgresql`, solo desarrollo).
@@ -52,7 +51,7 @@ TypeScript (ESM, imports terminan en `.js`) · Node 20 · Express 5 · Prisma 7 
 
 `pnpm-workspace.yaml`: `allowBuilds` niega las compilaciones nativas opcionales de testcontainers (`cpu-features`, `protobufjs`, `ssh2`) y `overrides` fuerza `brace-expansion` 2.1.7 (versión corregida; la arrastra testcontainers).
 
-Alias `@/` = `src/` (en `tsconfig.json`). En el código se mezclan imports `@/...` y relativos. En los tests además `@tests/` = `tests/` (en `vitest.config.ts` y `tests/tsconfig.json`).
+Alias `@/` = `src/` (en `tsconfig.json`, `paths` sin `baseUrl`). En el código se mezclan imports `@/...` y relativos. `pnpm build` ejecuta `tsc` y después `tsc-alias` (1.9.10, F0-T07), que reescribe `@/` a rutas relativas en `dist/`; sin ese paso `node dist/server.js` no arranca. En los tests además `@tests/` = `tests/` (en `vitest.config.ts` y `tests/tsconfig.json`).
 
 ---
 
@@ -260,8 +259,10 @@ pnpm test:unit      # solo unitarios, sin Docker
 pnpm test:integration
 pnpm test:api
 pnpm test:coverage  # todos + cobertura; falla bajo 80 % global o 90 % en domain/application
+pnpm test:build     # compila como producción y arranca el servidor compilado (sin Docker)
+pnpm typecheck      # src/ y tests/
 pnpm typecheck:tests
-pnpm build          # tsc  ->  pnpm start (node dist/server.js)
+pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
 ```
 Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
@@ -272,7 +273,7 @@ Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/
 
 Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 
-- **Tres proyectos Vitest:** `unit` (dobles en memoria, sin base de datos), `integration` (repositorios contra PostgreSQL real), `api` (aplicación real con supertest).
+- **Cuatro proyectos Vitest:** `unit` (dobles en memoria, sin base de datos), `integration` (repositorios contra PostgreSQL real), `api` (aplicación real con supertest), `build` (compila como `pnpm build` y arranca el servidor compilado; regresión de H20).
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts`. Todo endpoint nuevo añade ahí sus casos.
@@ -287,3 +288,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | Fecha | Tarea | PR | Cambio |
 |---|---|---|---|
 | 2026-11-16 | F0-T02 | pendiente | Framework de tests (Vitest), dobles en memoria, fábricas de datos, base de datos efímera y 453 tests sobre el código existente. Sin cambios en `src/` ni en `prisma/`. |
+| 2026-11-16 | F0-T07 | pendiente | Build de producción reparado (H20): `paths` sin `baseUrl`, conversión de `settings` a JSON de Prisma en `PrismaTenantRepository`, `tsc-alias` en `pnpm build`. Script `pnpm typecheck`. Proyecto de tests `build` (2 tests). |

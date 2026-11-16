@@ -13,6 +13,10 @@ const CORE_LAYERS_COVERAGE_THRESHOLD = 90;
 const DATABASE_TEST_TIMEOUT_MS = 30_000;
 const DATABASE_HOOK_TIMEOUT_MS = 120_000;
 
+// El test del build compila todo `src/` con `tsc` antes de empezar.
+const BUILD_TEST_TIMEOUT_MS = 30_000;
+const BUILD_HOOK_TIMEOUT_MS = 180_000;
+
 const COMMON_SETUP_FILE = 'tests/setup/testEnvironment.setup.ts';
 const DATABASE_GLOBAL_SETUP_FILE = 'tests/setup/databaseContainer.globalSetup.ts';
 const DATABASE_SETUP_FILE = 'tests/setup/database.setup.ts';
@@ -82,6 +86,16 @@ export default defineConfig({
           setupFiles: [COMMON_SETUP_FILE, DATABASE_SETUP_FILE],
           testTimeout: DATABASE_TEST_TIMEOUT_MS,
           hookTimeout: DATABASE_HOOK_TIMEOUT_MS,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'build',
+          include: ['tests/build/**/*.test.ts'],
+          setupFiles: [COMMON_SETUP_FILE, 'tests/setup/unit.setup.ts'],
+          testTimeout: BUILD_TEST_TIMEOUT_MS,
+          hookTimeout: BUILD_HOOK_TIMEOUT_MS,
         },
       },
     ],

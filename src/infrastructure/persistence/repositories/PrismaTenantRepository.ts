@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { ITenantRepository } from '../../../application/ports/repositories/ITenantRepository.js';
 import { Tenant } from '../../../domain/entities/Tenant.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -9,7 +10,8 @@ export class PrismaTenantRepository extends BasePrismaRepository implements ITen
                 id: tenant.id,
                 name: tenant.name,
                 logoUrl: tenant.logoUrl,
-                settings: tenant.settings ?? undefined,
+                // El dominio no conoce los tipos JSON de Prisma; el adaptador hace la conversión.
+                settings: (tenant.settings ?? undefined) as Prisma.InputJsonObject | undefined,
             },
         });
     }
