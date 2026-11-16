@@ -3,6 +3,7 @@ import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ITenantRepository } from '../../ports/repositories/ITenantRepository.js';
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
 import { IHashService } from '../../ports/services/IHashService.js';
+import { ITransactionManager } from '../../ports/services/ITransactionManager.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { RegisterCompanyDTO } from '../../dtos/RegisterCompanyDTO.js';
 import { Tenant } from '../../../domain/entities/Tenant.js';
@@ -17,6 +18,7 @@ export class RegisterCompanyAndOwnerUseCase {
     private userRepo: IUserRepository,
     private hashService: IHashService,
     private statusRepo: ILeadStatusConfigRepository,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(dto: RegisterCompanyDTO) {
@@ -37,20 +39,23 @@ export class RegisterCompanyAndOwnerUseCase {
       tenantId: tenant.id,
     });
 
-    await this.tenantRepo.create(tenant);
-    await this.userRepo.create(owner);
+    // Todo o nada (H8): una empresa sin dueño o sin estados no puede usarse ni volver a registrarse.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.tenantRepo.create(tenant);
+      await this.userRepo.create(owner);
 
-    for (const statusData of defaultLeadStatuses) {
-      const status = LeadStatusConfig.create({
-        name: statusData.name,
-        order: statusData.order,
-        isDefault: statusData.isDefault,
-        tenantId: tenant.id,
-        color: statusData.color,
-        deleted: 'INUSE',
-      });
-      await this.statusRepo.create(status);
-    }
+      for (const statusData of defaultLeadStatuses) {
+        const status = LeadStatusConfig.create({
+          name: statusData.name,
+          order: statusData.order,
+          isDefault: statusData.isDefault,
+          tenantId: tenant.id,
+          color: statusData.color,
+          deleted: 'INUSE',
+        });
+        await this.statusRepo.create(status);
+      }
+    });
 
     return { tenantId: tenant.id, ownerId: owner.id };
   }

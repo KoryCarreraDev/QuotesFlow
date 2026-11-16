@@ -2,15 +2,21 @@ import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { PrismaClient } from '@prisma/client';
+import { type PrismaDatabaseClient, currentTransactionClient } from '../prisma/PrismaTransactionManager.js';
 import { ITenantContext } from '../../../application/ports/services/ITenantContext.js';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '../../../application/ports/services/IFilterFieldConfig.js';
 
 export abstract class BasePrismaRepository {
   constructor(
-    protected readonly prisma: PrismaClient,
+    private readonly rootClient: PrismaClient,
     protected readonly tenantContext: ITenantContext,
   ) {}
+
+  /** Cliente para las consultas: el de la transacción abierta (`ITransactionManager`) o el raíz. */
+  protected get prisma(): PrismaDatabaseClient {
+    return currentTransactionClient() ?? this.rootClient;
+  }
 
   //Obtiene el tenantId actual obteiniendolo del contexto
   //Siendo funcional para construir filtros

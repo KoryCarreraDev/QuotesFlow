@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { ITenantContext } from '../application/ports/services/ITenantContext.js';
 import { TenantContext } from './tenantContext.js';
 import { PrismaService } from '../infrastructure/persistence/prisma/PrismaService.js';
+import { PrismaTransactionManager } from '../infrastructure/persistence/prisma/PrismaTransactionManager.js';
 import { PrismaTenantRepository } from '../infrastructure/persistence/repositories/PrismaTenantRepository.js';
 import { PrismaUserRepository } from '../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { BcryptHashService } from '../infrastructure/services/BcryptHashService.js';
@@ -62,6 +63,7 @@ export class ScopedContainer {
       new PrismaUserRepository(this.prisma, this.tenantContext),
       this.hashService,
       new PrismaLeadStatusConfigRepository(this.prisma, this.tenantContext),
+      new PrismaTransactionManager(this.prisma),
     );
   }
 

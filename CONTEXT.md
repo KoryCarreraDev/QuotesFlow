@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T02-error-handling` (sobre F1-T01 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T03-transaction-manager` (sobre F1-T02, F1-T01 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -17,7 +17,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 | Módulo | Estado | Notas |
 |---|---|---|
-| Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto. Login emite cookie `accessToken` |
+| Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto en una sola transacción (F1-T03). Login emite cookie `accessToken` |
 | Leads | ✅ | getAll, create, update, filtered, **delete (soft)**. Reglas por rol (sección 6) |
 | LeadStatusConfig (estados de lead) | ✅ | getAll, create, update. **Sin delete** |
 | Contactos persona | ✅ CRUD + filtered | Sin soft delete ni restricción de rol |
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 541 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 553 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -102,6 +102,7 @@ src/
   application/ports/         repositories/I*, services/I*, mappers/I*
   application/use-case/      auth/, leads/, LeadStatusConfig/, contacts/, companyContacts/, filter/, (messaging/ y pricing/ vacíos)
   infrastructure/persistence/prisma/PrismaService.ts          singleton PrismaClient
+  infrastructure/persistence/prisma/PrismaTransactionManager.ts  ITransactionManager sobre $transaction + AsyncLocalStorage
   infrastructure/persistence/repositories/                    BasePrismaRepository + Prisma*Repository
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
   infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
@@ -136,8 +137,9 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
   -> Controller -> UseCase -> Repository (extends BasePrismaRepository)
 ```
 
-- `ScopedContainer` (`cross-cutting/container.ts`): DI manual. Un método `get<X>UseCase()` por use case, que instancia repo + mapper + use case. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
+- `ScopedContainer` (`cross-cutting/container.ts`): DI manual. `PrismaTransactionManager` se crea en el contenedor y se inyecta al caso de uso como `ITransactionManager`. Un método `get<X>UseCase()` por use case, que instancia repo + mapper + use case. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
 - `TenantContext` usa `AsyncLocalStorage`; `BasePrismaRepository.tenantId` lo lee.
+- **Transacciones (F1-T03).** El caso de uso envuelve sus escrituras en `ITransactionManager.runInTransaction(work)`. `PrismaTransactionManager` abre `prisma.$transaction` y guarda el cliente de la transacción en otro `AsyncLocalStorage`; `BasePrismaRepository.prisma` es un getter que devuelve ese cliente si hay transacción abierta y, si no, el raíz. Así los repositorios no reciben la transacción como parámetro. Una llamada anidada se une a la transacción exterior. Si `work` lanza, se revierte todo y se relanza el mismo error. No se hace trabajo lento dentro (bcrypt va antes).
 - `BasePrismaRepository` ofrece: `tenantWhere()` (= `{tenantId, deleted:'INUSE'}`), `buildFilterWhere()` (siempre agrega tenantId + `deleted:'INUSE'`), `buildPagination()`, `softDeleteRegister(model, id)` (update `deleted='DELETED'` + `updatedAt`, con `where {id, tenantId}`), `validateTenant()`, `withTenant()`.
 - Nota: `PrismaUserRepository.findByEmail` busca **sin tenant** (email es único global); `findById` sí filtra por tenant.
 
@@ -166,7 +168,7 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 - Al registrar una empresa se crean 5 estados (`application/constants/defaultLeadStatuses.ts`): Nuevo (default, #3B82F6), Contactado, Calificado, Ganado, Perdido.
 
 **Auth**
-- Register: error si el email ya existe. Crea Tenant → User(OWNER) → 5 estados. Devuelve `{ tenantId, ownerId }`.
+- Register: 409 `EMAIL_ALREADY_IN_USE` si el email ya existe. Crea Tenant → User(OWNER) → 5 estados en una transacción: si algo falla, no queda nada (H8). Con dos registros simultáneos del mismo correo, la restricción única de la base decide y `PrismaUserRepository` la traduce a 409. Devuelve `{ tenantId, ownerId }`.
 
 ---
 
@@ -349,3 +351,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T06 | pendiente | CI en GitHub Actions: calidad, tests con cobertura, auditoría de dependencias, gitleaks, comprobación de R3 y prueba de la imagen Docker. Script `pnpm check:context` con 6 tests. Validado con actionlint; aún no se ha ejecutado en GitHub. |
 | 2026-11-16 | F1-T01 | pendiente | Variables de entorno validadas con Zod al arrancar (`parseEnvironment`, `InvalidEnvironmentError`). `JWT_SECRET` obligatorio de 32 caracteres o más, sin valor por defecto (H1); `NODE_ENV` y `DATABASE_URL` obligatorias; formato de `JWT_EXPIRATION` y `PORT` comprobado. Fuera el `any` de `JwtTokenService` (una supresión menos). 18 tests unitarios y 1 de build (el servidor compilado no arranca sin `JWT_SECRET`). |
 | 2026-11-16 | F1-T02 | pendiente | Jerarquía de errores en `src/domain/errors/` (`ApplicationError`, `NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`, `ErrorCode`) y manejador global con formato único `{ error: { code, message, details? } }`, sin trazas, más 404 JSON para rutas inexistentes (H5). `validateBody` pasa al manejador los errores que no son de Zod (H24). Filtros con campo u operador no permitido responden 400. Mensajes de error en inglés (R11). 13 tests de H5 y 1 de H11 pasan a regresión; 39 tests nuevos. Cambian 2 aserciones existentes por el formato nuevo (`body.errors` pasa a `body.error.details`). |
+| 2026-11-16 | F1-T03 | pendiente | Puerto `ITransactionManager` y adaptador `PrismaTransactionManager` (`$transaction` interactivo + `AsyncLocalStorage`); `BasePrismaRepository.prisma` usa la transacción abierta. Registro atómico (H8): empresa, dueño y estados en una transacción, con bcrypt fuera. `PrismaUserRepository.create` traduce el correo duplicado (P2002) a 409. 12 tests nuevos (unitarios, integración contra PostgreSQL y API con fallo simulado y registros simultáneos). La construcción del caso de uso en `unit/application/use-case/auth.test.ts` recibe el nuevo parámetro. |

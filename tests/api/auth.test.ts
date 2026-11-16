@@ -1,10 +1,11 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import app from '@/app.js';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import prisma from '@/config/database.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
+import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
 import {
   TEST_USER_PASSWORD,
   persistTenant,
@@ -19,6 +20,9 @@ const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
+const HTTP_CONFLICT = 409;
+const HTTP_INTERNAL_SERVER_ERROR = 500;
+const STATUS_CREATIONS_BEFORE_FAILURE = 2;
 const FIRST_ERROR_STATUS = 400;
 
 const STACK_TRACE_LINE_PATTERN = /\bat .+:\d+:\d+/;
@@ -217,5 +221,46 @@ describe('POST /api/auth/login', () => {
       .send({ email: user.email, password: TEST_USER_PASSWORD });
 
     expect(findSessionCookie(response.headers['set-cookie'])).toBeUndefined();
+  });
+});
+
+// Regresión de H8: empresa, dueño y estados se escribían por separado.
+describe('POST /api/auth/register es atómico', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('si falla la creación de un estado, no queda ni la empresa, ni el dueño, ni los estados ya creados', async () => {
+    const originalCreate = PrismaLeadStatusConfigRepository.prototype.create;
+    let statusCreations = 0;
+    vi.spyOn(PrismaLeadStatusConfigRepository.prototype, 'create').mockImplementation(async function (
+      this: PrismaLeadStatusConfigRepository,
+      status,
+    ) {
+      statusCreations += 1;
+      if (statusCreations > STATUS_CREATIONS_BEFORE_FAILURE) throw new Error('simulated database failure');
+      return originalCreate.call(this, status);
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await request(app).post(apiPaths.auth.register).send(registration);
+
+    expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
+    await expect(prisma.tenant.count()).resolves.toBe(0);
+    await expect(prisma.user.count()).resolves.toBe(0);
+    await expect(prisma.leadStatusConfig.count()).resolves.toBe(0);
+  });
+
+  it('dos registros simultáneos con el mismo correo crean una sola empresa y el otro recibe 409', async () => {
+    const [firstResponse, secondResponse] = await Promise.all([
+      request(app).post(apiPaths.auth.register).send(registration),
+      request(app)
+        .post(apiPaths.auth.register)
+        .send({ ...registration, companyName: 'Otra Empresa SAS' }),
+    ]);
+
+    expect([firstResponse.status, secondResponse.status].sort()).toEqual([HTTP_CREATED, HTTP_CONFLICT]);
+    await expect(prisma.tenant.count()).resolves.toBe(1);
+    await expect(prisma.user.count()).resolves.toBe(1);
   });
 });

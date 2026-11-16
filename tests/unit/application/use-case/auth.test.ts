@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import { RegisterCompanyDTO } from '@/application/dtos/RegisterCompanyDTO.js';
 import { LoginUseCase } from '@/application/use-case/auth/LoginUseCase.js';
@@ -11,6 +11,7 @@ import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryTenantRepository } from '@tests/support/doubles/InMemoryTenantRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
 
@@ -77,15 +78,71 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
     const userRepository = new InMemoryUserRepository(tenantContext);
     const leadStatusRepository = new InMemoryLeadStatusConfigRepository(tenantContext);
     const hashService = new FakeHashService();
+    const transactionManager = new RecordingTransactionManager();
 
     const registerUseCase = new RegisterCompanyAndOwnerUseCase(
       tenantRepository,
       userRepository,
       hashService,
       leadStatusRepository,
+      transactionManager,
     );
-    return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService };
+    return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService, transactionManager };
   }
+
+  // H8: el registro escribía empresa, dueño y estados por separado; un fallo a medias dejaba datos huérfanos.
+  it('crea la empresa, el dueño y los estados dentro de una sola transacción', async () => {
+    const { registerUseCase, tenantRepository, userRepository, leadStatusRepository, transactionManager } =
+      setupRegistration();
+    const writesOutsideTransaction: string[] = [];
+    const recordWrite = (writeName: string) => () => {
+      if (!transactionManager.isInsideTransaction) writesOutsideTransaction.push(writeName);
+    };
+    const originalTenantCreate = tenantRepository.create.bind(tenantRepository);
+    vi.spyOn(tenantRepository, 'create').mockImplementation(async (tenant) => {
+      recordWrite('tenant')();
+      await originalTenantCreate(tenant);
+    });
+    const originalUserCreate = userRepository.create.bind(userRepository);
+    vi.spyOn(userRepository, 'create').mockImplementation(async (user) => {
+      recordWrite('owner')();
+      await originalUserCreate(user);
+    });
+    const originalStatusCreate = leadStatusRepository.create.bind(leadStatusRepository);
+    vi.spyOn(leadStatusRepository, 'create').mockImplementation(async (status) => {
+      recordWrite('lead status')();
+      return originalStatusCreate(status);
+    });
+
+    await registerUseCase.execute(registration);
+
+    expect(writesOutsideTransaction).toEqual([]);
+    expect(transactionManager.completedTransactionCount).toBe(1);
+  });
+
+  it('cifra la contraseña antes de abrir la transacción, para no retenerla durante bcrypt', async () => {
+    const { registerUseCase, hashService, transactionManager } = setupRegistration();
+    let hashedInsideTransaction: boolean | undefined;
+    const originalHash = hashService.hash.bind(hashService);
+    vi.spyOn(hashService, 'hash').mockImplementation(async (plainText) => {
+      hashedInsideTransaction = transactionManager.isInsideTransaction;
+      return originalHash(plainText);
+    });
+
+    await registerUseCase.execute(registration);
+
+    expect(hashedInsideTransaction).toBe(false);
+  });
+
+  it('si una escritura falla, el error sale de la transacción para que se revierta', async () => {
+    const { registerUseCase, leadStatusRepository, transactionManager } = setupRegistration();
+    const storageFailure = new Error('database unavailable');
+    vi.spyOn(leadStatusRepository, 'create').mockRejectedValueOnce(storageFailure);
+
+    await expect(registerUseCase.execute(registration)).rejects.toBe(storageFailure);
+
+    expect(transactionManager.failedTransactionCount).toBe(1);
+  });
 
   it('crea la empresa y devuelve los ids de la empresa y de su dueño', async () => {
     const { registerUseCase, tenantRepository, userRepository } = setupRegistration();
