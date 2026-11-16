@@ -119,7 +119,7 @@ Bloqueada por: D-01 a D-05.
 - F0-T02 `[O]` Framework de tests, estructura `tests/unit`, `tests/integration`, `tests/api`, dobles en memoria de los puertos, base de datos de test efímera, fábricas de datos. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Guía: `tests/README.md`.
 - F0-T03 `[S]` ESLint (typescript-eslint, reglas de seguridad, prohibición de tests deshabilitados o enfocados, convención de nombres, sin `any`, sin números mágicos, sin código comentado) y Prettier. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Violaciones heredadas congeladas en `eslint-suppressions.json` (Q-008).
 - F0-T04 `[O]` `dependency-cruiser` con las reglas de capas de R4. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `pnpm arch:check`; tests de las reglas en `tests/unit/tooling/`.
-- F0-T05 `[S]` Hooks de git (pre-commit: lint; pre-push: typecheck + tests unitarios).
+- F0-T05 `[S]` Hooks de git (pre-commit: lint; pre-push: typecheck + tests unitarios). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** lefthook; el pre-push añade `pnpm arch:check`.
 - F0-T06 `[O]` CI en GitHub Actions: typecheck, lint, capas, tests con PostgreSQL, cobertura con umbral, `pnpm audit`, escaneo de secretos (gitleaks), verificación de `CONTEXT.md`.
 - F0-T07 `[S]` Verificar y corregir H20 (build de producción con alias). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Se confirmó que `tsc` no reescribe `@/`: se añadió `tsc-alias`. Regresión en `tests/build/`.
 - F0-T08 `[S]` Dockerfile multi-etapa de producción (no root, pnpm fijado, `--frozen-lockfile`), Node LTS vigente; compose de desarrollo aparte.

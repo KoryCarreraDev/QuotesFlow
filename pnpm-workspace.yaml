@@ -3,6 +3,8 @@ allowBuilds:
   # Compilación nativa opcional que arrastra testcontainers; no se necesita.
   cpu-features: false
   esbuild: true
+  # Su postinstall solo ejecuta `lefthook install` (instala los hooks de git de F0-T05); no lo hace con CI=true.
+  lefthook: true
   prisma: true
   # Compilación nativa opcional que arrastra testcontainers; no se necesita.
   protobufjs: false
