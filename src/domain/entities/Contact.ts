@@ -1,3 +1,4 @@
+import { DocumentType } from '../enums/DocumentType.js';
 import crypto from 'crypto';
 
 export class Contact {
@@ -11,6 +12,11 @@ export class Contact {
     public readonly companyId?: string,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
+    /** Comercial responsable (D-18). Sin responsable solo lo ve gestión. */
+    public readonly ownerId?: string,
+    public readonly documentType?: DocumentType,
+    /** Ya normalizado (`normalizeDocumentNumber`). */
+    public readonly documentNumber?: string,
   ) {}
 
   static fromPrisma(prismaContact: {
@@ -23,6 +29,9 @@ export class Contact {
     companyId?: string | null;
     createdAt?: Date;
     updatedAt?: Date;
+    ownerId?: string | null;
+    documentType?: string | null;
+    documentNumber?: string | null;
   }): Contact {
     return new Contact(
       prismaContact.id,
@@ -34,6 +43,9 @@ export class Contact {
       prismaContact.companyId ?? undefined,
       prismaContact.createdAt ?? undefined,
       prismaContact.updatedAt ?? undefined,
+      prismaContact.ownerId ?? undefined,
+      (prismaContact.documentType as DocumentType | null) ?? undefined,
+      prismaContact.documentNumber ?? undefined,
     );
   }
 
@@ -44,6 +56,9 @@ export class Contact {
     email?: string;
     phone?: string;
     companyId?: string;
+    ownerId?: string;
+    documentType?: DocumentType;
+    documentNumber?: string;
   }): Contact {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -57,6 +72,9 @@ export class Contact {
       props.companyId,
       now,
       now,
+      props.ownerId,
+      props.documentType,
+      props.documentNumber,
     );
   }
 }

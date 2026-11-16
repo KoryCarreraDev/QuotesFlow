@@ -1,3 +1,5 @@
+import { Action } from '../../application/policies/authorizationPolicy.js';
+import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { ContactMapper } from '../../application/mappers/ContactMapper.js';
 import { CreateContactUseCase } from '../../application/use-case/contacts/createContactUseCase.js';
@@ -40,6 +42,7 @@ export class ContactModule {
       this.dependencies.tenantContext,
       this.createCompanyContactRepository(),
       this.createAuditLogger(),
+      new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
     );
   }
 
@@ -50,6 +53,7 @@ export class ContactModule {
       this.dependencies.tenantContext,
       this.createCompanyContactRepository(),
       this.createAuditLogger(),
+      new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
     );
   }
 
@@ -58,6 +62,9 @@ export class ContactModule {
   }
 
   getListFilteredContactsUseCase(): ListFilteredContactsUseCase {
-    return new GenericListFilteredUseCase(this.createContactRepository(), this.contactMapper, contactFilterConfig);
+    return new GenericListFilteredUseCase(this.createContactRepository(), this.contactMapper, contactFilterConfig, {
+      action: Action.CONTACT_LIST,
+      ownerField: 'ownerId',
+    });
   }
 }

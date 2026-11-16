@@ -30,7 +30,10 @@ export class companyContactController {
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const companyContacts = await this.getCompanyContactsUseCase.execute();
+      const companyContacts = await this.getCompanyContactsUseCase.execute({
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(200).json(companyContacts);
     } catch (error) {
       next(error);
@@ -39,7 +42,10 @@ export class companyContactController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const companyContact = await this.createCompanyContactUseCase.execute(req.body);
+      const companyContact = await this.createCompanyContactUseCase.execute(req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(201).json(companyContact);
     } catch (error) {
       next(error);
@@ -49,7 +55,10 @@ export class companyContactController {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const companyContactId = req.params.id as string;
-      const companyContact = await this.updateCompanyContactUseCase.execute(companyContactId, req.body);
+      const companyContact = await this.updateCompanyContactUseCase.execute(companyContactId, req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(200).json(companyContact);
     } catch (error) {
       next(error);

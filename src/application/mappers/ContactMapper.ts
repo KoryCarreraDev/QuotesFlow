@@ -11,6 +11,9 @@ export class ContactMapper implements IContactMapper {
       email: contact.email,
       phone: contact.phone,
       companyId: contact.companyId,
+      ownerId: contact.ownerId,
+      documentType: contact.documentType,
+      documentNumber: contact.documentNumber,
     };
   }
 }

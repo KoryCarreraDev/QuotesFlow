@@ -30,7 +30,10 @@ export class contactController {
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const contacts = await this.getContactsUseCase.execute();
+      const contacts = await this.getContactsUseCase.execute({
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(200).json(contacts);
     } catch (error) {
       next(error);
@@ -39,7 +42,10 @@ export class contactController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const contact = await this.createContactUseCase.execute(req.body);
+      const contact = await this.createContactUseCase.execute(req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(201).json(contact);
     } catch (error) {
       next(error);
@@ -49,7 +55,10 @@ export class contactController {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const contactId = req.params.id as string;
-      const contact = await this.updateContactUseCase.execute(contactId, req.body);
+      const contact = await this.updateContactUseCase.execute(contactId, req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
       res.status(200).json(contact);
     } catch (error) {
       next(error);

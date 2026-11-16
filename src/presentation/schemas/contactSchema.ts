@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { DocumentType } from '../../domain/enums/DocumentType.js';
+
+const MAXIMUM_DOCUMENT_LENGTH = 30;
 
 export const createContactSchema = z.object({
   firstName: z.string(),
@@ -6,6 +9,9 @@ export const createContactSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   companyId: z.string().uuid().optional(),
+  ownerId: z.uuid().optional(),
+  documentType: z.enum(DocumentType).optional(),
+  documentNumber: z.string().min(1).max(MAXIMUM_DOCUMENT_LENGTH).optional(),
 });
 
 export const updateContactSchema = z.object({
@@ -14,4 +20,7 @@ export const updateContactSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   companyId: z.string().uuid().optional(),
+  ownerId: z.uuid().optional(),
+  documentType: z.enum(DocumentType).optional(),
+  documentNumber: z.string().min(1).max(MAXIMUM_DOCUMENT_LENGTH).optional(),
 });

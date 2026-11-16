@@ -1,3 +1,4 @@
+import { DocumentType } from '@/domain/enums/DocumentType.js';
 import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 // Constructores de entidades de dominio para tests unitarios.
 // Cada uno devuelve una entidad válida con datos por defecto; el test solo declara lo que le importa.
@@ -192,6 +193,9 @@ export interface ContactBuilderProps {
   companyId?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  ownerId?: string;
+  documentType?: DocumentType;
+  documentNumber?: string;
 }
 
 export function buildContact(overrides: Partial<ContactBuilderProps> = {}): Contact {
@@ -217,6 +221,9 @@ export function buildContact(overrides: Partial<ContactBuilderProps> = {}): Cont
     props.companyId,
     props.createdAt,
     props.updatedAt,
+    props.ownerId,
+    props.documentType,
+    props.documentNumber,
   );
 }
 
@@ -235,6 +242,8 @@ export interface CompanyContactBuilderProps {
   country?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  ownerId?: string;
+  documentNumber?: string;
 }
 
 export function buildCompanyContact(overrides: Partial<CompanyContactBuilderProps> = {}): CompanyContact {
@@ -271,5 +280,7 @@ export function buildCompanyContact(overrides: Partial<CompanyContactBuilderProp
     props.country,
     props.createdAt,
     props.updatedAt,
+    props.ownerId,
+    props.documentNumber,
   );
 }

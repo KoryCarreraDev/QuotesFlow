@@ -19,18 +19,24 @@ import {
   NON_EXISTENT_ID,
   buildCompanyContact,
   buildContact,
+  buildUser,
 } from '@tests/support/builders/entityBuilders.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { InMemoryCompanyContactRepository } from '@tests/support/doubles/InMemoryCompanyContactRepository.js';
 import { InMemoryContactRepository } from '@tests/support/doubles/InMemoryContactRepository.js';
+import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
+const managementUser = buildUser({ id: '22222222-2222-4222-8222-222222222222', role: Role.OWNER });
+const managementActor = { role: Role.OWNER, userId: managementUser.id };
 
 function setupContactUseCases() {
   const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
   const contactRepository = new InMemoryContactRepository(tenantContext);
   const companyContactRepository = new InMemoryCompanyContactRepository(tenantContext);
+  const userRepository = new InMemoryUserRepository(tenantContext);
+  userRepository.seed(managementUser);
   const contactMapper = new ContactMapper();
   // Desde F1-T16 el `companyId` de un contacto tiene que ser una empresa cliente de la misma empresa.
   companyContactRepository.seed(
@@ -48,6 +54,7 @@ function setupContactUseCases() {
       tenantContext,
       companyContactRepository,
       new RecordingAuditLogger(),
+      userRepository,
     ),
     updateContactUseCase: new UpdateContactUseCase(
       contactRepository,
@@ -55,6 +62,7 @@ function setupContactUseCases() {
       tenantContext,
       companyContactRepository,
       new RecordingAuditLogger(),
+      userRepository,
     ),
     deleteContactUseCase: new DeleteContactUseCase(contactRepository, new RecordingAuditLogger()),
   };
@@ -63,6 +71,8 @@ function setupContactUseCases() {
 function setupCompanyContactUseCases() {
   const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
   const companyContactRepository = new InMemoryCompanyContactRepository(tenantContext);
+  const userRepository = new InMemoryUserRepository(tenantContext);
+  userRepository.seed(managementUser);
   const companyContactMapper = new CompanyContactMapper();
 
   const contactRepository = new InMemoryContactRepository(tenantContext);
@@ -81,12 +91,14 @@ function setupCompanyContactUseCases() {
       companyContactMapper,
       tenantContext,
       new RecordingAuditLogger(),
+      userRepository,
     ),
     updateCompanyContactUseCase: new UpdateCompanyContactUseCase(
       companyContactRepository,
       companyContactMapper,
       tenantContext,
       new RecordingAuditLogger(),
+      userRepository,
     ),
   };
 }
@@ -97,7 +109,7 @@ describe('GetContactsUseCase', () => {
     const ownContact = buildContact();
     contactRepository.seed(ownContact, buildContact({ tenantId: OTHER_TENANT_ID }));
 
-    const contacts = await getContactsUseCase.execute();
+    const contacts = await getContactsUseCase.execute(managementActor);
 
     expect(contacts.map((contact) => contact.id)).toEqual([ownContact.id]);
   });
@@ -107,13 +119,16 @@ describe('CreateContactUseCase', () => {
   it('guarda el contacto en la empresa del usuario y devuelve su DTO', async () => {
     const { createContactUseCase, contactRepository } = setupContactUseCases();
 
-    const createdContact = await createContactUseCase.execute({
-      firstName: 'Laura',
-      lastName: 'Martínez',
-      email: 'laura@example.com',
-      phone: '3109876543',
-      companyId: 'company-id',
-    });
+    const createdContact = await createContactUseCase.execute(
+      {
+        firstName: 'Laura',
+        lastName: 'Martínez',
+        email: 'laura@example.com',
+        phone: '3109876543',
+        companyId: 'company-id',
+      },
+      managementActor,
+    );
 
     expect(createdContact).toMatchObject({
       firstName: 'Laura',
@@ -132,7 +147,11 @@ describe('UpdateContactUseCase', () => {
     const contact = buildContact({ firstName: 'Laura', lastName: 'Martínez', phone: '3109876543' });
     contactRepository.seed(contact);
 
-    const updatedContact = await updateContactUseCase.execute(contact.id, { lastName: 'Martínez Ruiz' });
+    const updatedContact = await updateContactUseCase.execute(
+      contact.id,
+      { lastName: 'Martínez Ruiz' },
+      managementActor,
+    );
 
     expect(updatedContact).toMatchObject({ firstName: 'Laura', lastName: 'Martínez Ruiz', phone: '3109876543' });
     expect(contactRepository.findStoredById(contact.id)?.lastName).toBe('Martínez Ruiz');
@@ -150,7 +169,7 @@ describe('UpdateContactUseCase', () => {
       companyId: 'another-company-id',
     };
 
-    const updatedContact = await updateContactUseCase.execute(contact.id, allFieldsUpdate);
+    const updatedContact = await updateContactUseCase.execute(contact.id, allFieldsUpdate, managementActor);
 
     expect(updatedContact).toEqual({ id: contact.id, ...allFieldsUpdate });
   });
@@ -158,13 +177,15 @@ describe('UpdateContactUseCase', () => {
   it('falla si falta el id del contacto', async () => {
     const { updateContactUseCase } = setupContactUseCases();
 
-    await expect(updateContactUseCase.execute('', { lastName: 'Ruiz' })).rejects.toThrow('All information is required');
+    await expect(updateContactUseCase.execute('', { lastName: 'Ruiz' }, managementActor)).rejects.toThrow(
+      'All information is required',
+    );
   });
 
   it('falla si el contacto no existe', async () => {
     const { updateContactUseCase } = setupContactUseCases();
 
-    await expect(updateContactUseCase.execute(NON_EXISTENT_ID, { lastName: 'Ruiz' })).rejects.toThrow(
+    await expect(updateContactUseCase.execute(NON_EXISTENT_ID, { lastName: 'Ruiz' }, managementActor)).rejects.toThrow(
       'Contact not found',
     );
   });
@@ -174,9 +195,9 @@ describe('UpdateContactUseCase', () => {
     const foreignContact = buildContact({ tenantId: OTHER_TENANT_ID, lastName: 'Martínez' });
     contactRepository.seed(foreignContact);
 
-    await expect(updateContactUseCase.execute(foreignContact.id, { lastName: 'Ruiz' })).rejects.toThrow(
-      'Contact not found',
-    );
+    await expect(
+      updateContactUseCase.execute(foreignContact.id, { lastName: 'Ruiz' }, managementActor),
+    ).rejects.toThrow('Contact not found');
     expect(contactRepository.findStoredById(foreignContact.id)?.lastName).toBe('Martínez');
   });
 });
@@ -187,7 +208,7 @@ describe('GetCompanyContactsUseCase', () => {
     const ownCompanyContact = buildCompanyContact();
     companyContactRepository.seed(ownCompanyContact, buildCompanyContact({ tenantId: OTHER_TENANT_ID }));
 
-    const companyContacts = await getCompanyContactsUseCase.execute();
+    const companyContacts = await getCompanyContactsUseCase.execute(managementActor);
 
     expect(companyContacts.map((companyContact) => companyContact.id)).toEqual([ownCompanyContact.id]);
   });
@@ -197,18 +218,21 @@ describe('CreateCompanyContactUseCase', () => {
   it('guarda la empresa cliente en el tenant del usuario y devuelve su DTO', async () => {
     const { createCompanyContactUseCase, companyContactRepository } = setupCompanyContactUseCases();
 
-    const createdCompanyContact = await createCompanyContactUseCase.execute({
-      name: 'Constructora El Roble',
-      industry: 'Construcción',
-      taxNumber: '900123456',
-      phone: '6015551234',
-      email: 'compras@elroble.example.com',
-      address: 'Calle 10 # 20-30',
-      city: 'Bogotá',
-      state: 'Cundinamarca',
-      zip: '110111',
-      country: 'Colombia',
-    });
+    const createdCompanyContact = await createCompanyContactUseCase.execute(
+      {
+        name: 'Constructora El Roble',
+        industry: 'Construcción',
+        taxNumber: '900123456',
+        phone: '6015551234',
+        email: 'compras@elroble.example.com',
+        address: 'Calle 10 # 20-30',
+        city: 'Bogotá',
+        state: 'Cundinamarca',
+        zip: '110111',
+        country: 'Colombia',
+      },
+      managementActor,
+    );
 
     expect(createdCompanyContact).toMatchObject({
       name: 'Constructora El Roble',
@@ -232,7 +256,11 @@ describe('UpdateCompanyContactUseCase', () => {
     const companyContact = buildCompanyContact({ name: 'Constructora El Roble', city: 'Bogotá' });
     companyContactRepository.seed(companyContact);
 
-    const updatedCompanyContact = await updateCompanyContactUseCase.execute(companyContact.id, { city: 'Medellín' });
+    const updatedCompanyContact = await updateCompanyContactUseCase.execute(
+      companyContact.id,
+      { city: 'Medellín' },
+      managementActor,
+    );
 
     expect(updatedCompanyContact).toMatchObject({ name: 'Constructora El Roble', city: 'Medellín' });
     expect(companyContactRepository.findStoredById(companyContact.id)?.city).toBe('Medellín');
@@ -255,15 +283,20 @@ describe('UpdateCompanyContactUseCase', () => {
       country: 'Colombia',
     };
 
-    const updatedCompanyContact = await updateCompanyContactUseCase.execute(companyContact.id, allFieldsUpdate);
+    const updatedCompanyContact = await updateCompanyContactUseCase.execute(
+      companyContact.id,
+      allFieldsUpdate,
+      managementActor,
+    );
 
-    expect(updatedCompanyContact).toEqual({ id: companyContact.id, ...allFieldsUpdate });
+    // Desde F1-T17 el NIT se guarda además normalizado en documentNumber (D-19).
+    expect(updatedCompanyContact).toEqual({ id: companyContact.id, ...allFieldsUpdate, documentNumber: '901999888' });
   });
 
   it('falla si falta el id de la empresa cliente', async () => {
     const { updateCompanyContactUseCase } = setupCompanyContactUseCases();
 
-    await expect(updateCompanyContactUseCase.execute('', { city: 'Medellín' })).rejects.toThrow(
+    await expect(updateCompanyContactUseCase.execute('', { city: 'Medellín' }, managementActor)).rejects.toThrow(
       'All information is required',
     );
   });
@@ -271,9 +304,9 @@ describe('UpdateCompanyContactUseCase', () => {
   it('falla si la empresa cliente no existe', async () => {
     const { updateCompanyContactUseCase } = setupCompanyContactUseCases();
 
-    await expect(updateCompanyContactUseCase.execute(NON_EXISTENT_ID, { city: 'Medellín' })).rejects.toThrow(
-      'Company contact not found',
-    );
+    await expect(
+      updateCompanyContactUseCase.execute(NON_EXISTENT_ID, { city: 'Medellín' }, managementActor),
+    ).rejects.toThrow('Company contact not found');
   });
 
   it('trata como inexistente una empresa cliente de otro tenant y no la modifica', async () => {
@@ -281,14 +314,13 @@ describe('UpdateCompanyContactUseCase', () => {
     const foreignCompanyContact = buildCompanyContact({ tenantId: OTHER_TENANT_ID, city: 'Bogotá' });
     companyContactRepository.seed(foreignCompanyContact);
 
-    await expect(updateCompanyContactUseCase.execute(foreignCompanyContact.id, { city: 'Medellín' })).rejects.toThrow(
-      'Company contact not found',
-    );
+    await expect(
+      updateCompanyContactUseCase.execute(foreignCompanyContact.id, { city: 'Medellín' }, managementActor),
+    ).rejects.toThrow('Company contact not found');
     expect(companyContactRepository.findStoredById(foreignCompanyContact.id)?.city).toBe('Bogotá');
   });
 });
 
-const managementActor = { role: Role.OWNER, userId: '22222222-2222-4222-8222-222222222222' };
 const salesRepActor = { role: Role.SALES_REP, userId: '33333333-3333-4333-8333-333333333333' };
 
 // Regresión de H9: un contacto aceptaba como `companyId` una empresa cliente de otro tenant.
@@ -299,7 +331,10 @@ describe('empresa cliente de un contacto (H9)', () => {
     companyContactRepository.seed(foreignCompanyContact);
 
     await expect(
-      createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez', companyId: foreignCompanyContact.id }),
+      createContactUseCase.execute(
+        { firstName: 'Laura', lastName: 'Martínez', companyId: foreignCompanyContact.id },
+        managementActor,
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_COMPANY_CONTACT });
     expect(contactRepository.listStored()).toEqual([]);
   });
@@ -308,7 +343,10 @@ describe('empresa cliente de un contacto (H9)', () => {
     const { createContactUseCase } = setupContactUseCases();
 
     await expect(
-      createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez', companyId: NON_EXISTENT_ID }),
+      createContactUseCase.execute(
+        { firstName: 'Laura', lastName: 'Martínez', companyId: NON_EXISTENT_ID },
+        managementActor,
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_COMPANY_CONTACT });
   });
 
@@ -320,7 +358,7 @@ describe('empresa cliente de un contacto (H9)', () => {
     contactRepository.seed(contact);
 
     await expect(
-      updateContactUseCase.execute(contact.id, { companyId: foreignCompanyContact.id }),
+      updateContactUseCase.execute(contact.id, { companyId: foreignCompanyContact.id }, managementActor),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_COMPANY_CONTACT });
     expect(contactRepository.findStoredById(contact.id)?.companyId).toBe('company-id');
   });
@@ -332,7 +370,10 @@ describe('empresa cliente de un contacto (H9)', () => {
     await companyContactRepository.delete(deletedCompanyContact.id);
 
     await expect(
-      createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez', companyId: deletedCompanyContact.id }),
+      createContactUseCase.execute(
+        { firstName: 'Laura', lastName: 'Martínez', companyId: deletedCompanyContact.id },
+        managementActor,
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_COMPANY_CONTACT });
   });
 });
@@ -378,7 +419,9 @@ describe('DeleteContactUseCase (F1-T16)', () => {
     contactRepository.seed(contact);
     await deleteContactUseCase.execute(contact.id, managementActor);
 
-    await expect(updateContactUseCase.execute(contact.id, { lastName: 'Ruiz' })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      updateContactUseCase.execute(contact.id, { lastName: 'Ruiz' }, managementActor),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

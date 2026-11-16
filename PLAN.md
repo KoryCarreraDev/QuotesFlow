@@ -159,7 +159,7 @@ Leads y estados:
 
 Contactos y empresas:
 - F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Quién borra y qué pasa con los contactos de una empresa borrada: Q-012.
-- F1-T17 `[O]` Migración: `ownerId` (comercial responsable) en `Contact` y `CompanyContact`; `documentType` y `documentNumber` en `Contact`; documento normalizado en ambos (solo dígitos, sin dígito de verificación). Visibilidad por rol según D-18, unicidad según D-19. Es la base de la cartera.
+- F1-T17 `[O]` Migración: `ownerId` (comercial responsable) en `Contact` y `CompanyContact`; `documentType` y `documentNumber` en `Contact`; documento normalizado en ambos (solo dígitos, sin dígito de verificación). Visibilidad por rol según D-18, unicidad según D-19. Es la base de la cartera. **Hecha el 2026-11-16, pendiente de PR, revisión humana, firma de la matriz y migración en producción (R6).** La unicidad del documento la comprueba la aplicación (sin índice único parcial).
 
 ### F2 — Identidad, sesiones y usuarios
 Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.

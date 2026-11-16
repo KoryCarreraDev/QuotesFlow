@@ -19,6 +19,8 @@ import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMem
 
 // Regresión de F1-T15: `records.map(this.mapper.toDTO)` pasaba el método sin su objeto, así que un
 // mapper que usara `this` fallaba. Los mappers actuales no lo usan; este mapper sí, a propósito.
+const ownerActor = { role: Role.OWNER, userId: '22222222-2222-4222-8222-222222222222' };
+
 class MapperThatUsesThis {
   private readonly prefix = 'mapped';
 
@@ -45,7 +47,9 @@ describe('los casos de uso de listado llaman al mapper con su objeto', () => {
     const contact = buildContact();
     contactRepository.seed(contact);
 
-    const contacts = await new GetContactsUseCase(contactRepository, new MapperThatUsesThis() as never).execute();
+    const contacts = await new GetContactsUseCase(contactRepository, new MapperThatUsesThis() as never).execute(
+      ownerActor,
+    );
 
     expect(contacts).toEqual([{ id: contact.id, label: `mapped:${contact.id}` }]);
   });
@@ -58,7 +62,7 @@ describe('los casos de uso de listado llaman al mapper con su objeto', () => {
     const companyContacts = await new GetCompanyContactsUseCase(
       companyContactRepository,
       new MapperThatUsesThis() as never,
-    ).execute();
+    ).execute(ownerActor);
 
     expect(companyContacts).toEqual([{ id: companyContact.id, label: `mapped:${companyContact.id}` }]);
   });

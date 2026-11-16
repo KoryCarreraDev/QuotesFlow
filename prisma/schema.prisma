@@ -84,6 +84,8 @@ model User {
   createdQuotes       Quote[]
   leadStatusChanges   LeadStatusHistory[]
   auditLogs           AuditLog[]
+  ownedContacts        Contact[]        @relation("ContactOwner")
+  ownedCompanyContacts CompanyContact[] @relation("CompanyContactOwner")
 
   @@index([tenantId])
   @@index([email])
@@ -142,6 +144,16 @@ model LeadStatusConfig {
 }
 
 
+// Tipos de documento de identidad de un cliente persona (y NIT para empresas).
+enum DocumentType {
+  CC
+  CE
+  TI
+  PASSPORT
+  PPT
+  NIT
+}
+
 enum LeadStatusType {
   OPEN
   WON
@@ -181,6 +193,12 @@ model Contact {
   phone     String?
   companyId String?
   company   CompanyContact? @relation(fields: [companyId], references: [id])
+  // F1-T17: comercial responsable (D-18). Null en los clientes previos hasta que gestión los asigne (Q-005).
+  ownerId   String?
+  owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  documentType   DocumentType?
+  // Normalizado: solo dígitos (letras y dígitos en pasaportes). Único entre clientes activos (D-19).
+  documentNumber String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deleted   DeletedState @default(INUSE)
@@ -188,6 +206,8 @@ model Contact {
   quotes Quote[]
 
   @@index([tenantId])
+  @@index([ownerId])
+  @@index([tenantId, documentNumber])
 }
 
 //Contacto del tipo empresa (Mas extenso y complejo pero necesario para facturación)
@@ -199,6 +219,10 @@ model CompanyContact {
   industry  String?
   contacts  Contact[]
   taxNumber String?
+  // F1-T17: NIT normalizado (solo dígitos, sin dígito de verificación) para unicidad (D-19) y Siigo (F6).
+  documentNumber String?
+  ownerId   String?
+  owner     User?    @relation("CompanyContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   phone     String?
   email     String?
   address   String?
@@ -211,6 +235,8 @@ model CompanyContact {
   deleted   DeletedState @default(INUSE)
 
   @@index([tenantId])
+  @@index([ownerId])
+  @@index([tenantId, documentNumber])
 }
 
 //Modelo para la gestión de fórmulas matemáticas 

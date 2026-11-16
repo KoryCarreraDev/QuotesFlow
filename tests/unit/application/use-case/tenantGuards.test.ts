@@ -162,9 +162,15 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez' })).rejects.toThrow();
+    await expect(
+      createContactUseCase.execute(
+        { firstName: 'Laura', lastName: 'Martínez' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(contactRepository.listStored()).toHaveLength(1);
   });
 
@@ -176,9 +182,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' })).rejects.toThrow();
+    await expect(
+      updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' }, { role: Role.OWNER, userId: randomUUID() }),
+    ).rejects.toThrow();
     expect(contactRepository.findStoredById(storedContact.id)?.lastName).toBe('Martínez');
   });
 
@@ -189,9 +198,15 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new CompanyContactMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(createCompanyContactUseCase.execute({ name: 'Constructora El Roble' })).rejects.toThrow();
+    await expect(
+      createCompanyContactUseCase.execute(
+        { name: 'Constructora El Roble' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(companyContactRepository.listStored()).toHaveLength(1);
   });
 
@@ -202,9 +217,16 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new CompanyContactMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(updateCompanyContactUseCase.execute(storedCompanyContact.id, { city: 'Medellín' })).rejects.toThrow();
+    await expect(
+      updateCompanyContactUseCase.execute(
+        storedCompanyContact.id,
+        { city: 'Medellín' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(companyContactRepository.findStoredById(storedCompanyContact.id)?.city).toBe('Bogotá');
   });
 });

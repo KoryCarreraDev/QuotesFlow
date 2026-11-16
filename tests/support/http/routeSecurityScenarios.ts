@@ -125,7 +125,7 @@ let nextStatusOrder = FIRST_FREE_STATUS_ORDER;
 /**
  * Crea un recurso del tipo indicado en la empresa y devuelve su id.
  *
- * @param ownerUserId Responsable del recurso. Solo los leads tienen responsable (`assignedToId`).
+ * @param ownerUserId Responsable del recurso: `assignedToId` en leads, `ownerId` en clientes. Los estados no tienen.
  */
 export async function persistScenarioResource(
   resource: ScenarioResource,
@@ -140,8 +140,8 @@ export async function persistScenarioResource(
     nextStatusOrder += 1;
     return (await persistLeadStatus(tenantId, { name: `Estado ${nextStatusOrder}`, order: nextStatusOrder })).id;
   }
-  if (resource === 'contact') return (await persistContact(tenantId)).id;
-  return (await persistCompanyContact(tenantId)).id;
+  if (resource === 'contact') return (await persistContact(tenantId, { ownerId: ownerUserId })).id;
+  return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
 /** Cuerpo válido para crear el recurso. */

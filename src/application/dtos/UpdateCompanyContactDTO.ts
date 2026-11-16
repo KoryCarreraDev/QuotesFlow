@@ -9,4 +9,6 @@ export interface UpdateCompanyContactDTO {
   state?: string;
   zip?: string;
   country?: string;
+  /** Solo gestión puede indicar otro responsable. */
+  ownerId?: string;
 }
