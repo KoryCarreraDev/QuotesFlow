@@ -15,5 +15,6 @@
 /eslint.config.js @KoryCarreraDev
 /eslint-rules/ @KoryCarreraDev
 /eslint-suppressions.json @KoryCarreraDev
+/.dependency-cruiser.cjs @KoryCarreraDev
 /docs/security/ @KoryCarreraDev
 /docs/audits/ @KoryCarreraDev

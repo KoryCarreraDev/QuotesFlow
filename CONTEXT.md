@@ -68,7 +68,7 @@ cross-cutting/   container.ts (DI), tenantContext.ts (AsyncLocalStorage)
 config/          env.ts, database.ts
 ```
 
-Regla: capas internas nunca importan las externas (`domain` y `application` no conocen Express ni Prisma).
+Regla: capas internas nunca importan las externas (`domain` y `application` no conocen Express ni Prisma). La comprueba `pnpm arch:check` (`dependency-cruiser` 18.7.2, `.dependency-cruiser.cjs`, F0-T04): `domain` solo `domain` y módulos nativos; `application` solo `application` y `domain`; `infrastructure` no importa `presentation`; `presentation` no importa `infrastructure/persistence`; sin ciclos; `src/` sin `devDependencies`. El código actual cumple todas (119 módulos). Excepción tolerada: `infrastructure/web/middleware/createTenantMiddleware.ts` importa `cross-cutting/container.ts` para crear el `ScopedContainer` por petición.
 
 ### Mapa de archivos (por módulo)
 ```
@@ -264,6 +264,7 @@ pnpm test:coverage  # todos + cobertura; falla bajo 80 % global o 90 % en domain
 pnpm test:build     # compila como producción y arranca el servidor compilado (sin Docker)
 pnpm typecheck      # src/ y tests/
 pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format corrigen)
+pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
@@ -294,3 +295,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T07 | pendiente | Build de producción reparado (H20): `paths` sin `baseUrl`, conversión de `settings` a JSON de Prisma en `PrismaTenantRepository`, `tsc-alias` en `pnpm build`. Script `pnpm typecheck`. Proyecto de tests `build` (2 tests). |
 | 2026-11-16 | F0-T09 | pendiente | Fuera `nodemailer`, `@types/nodemailer` (D-30), `node-cron` (D-27) y `http-status-codes` (sin uso ni plan). Actualización dentro de rangos (express 5.3.0, prisma 7.10.1, zod 4.6.7, multer 2.5.0…), `axios` fijado a 1.21.1 (D-49) y pnpm fijado a 11.28.10. `pnpm audit`: de 94 avisos a 2 moderados de desarrollo. |
 | 2026-11-16 | F0-T03 | pendiente | ESLint + Prettier. Todo el código formateado con Prettier (solo formato, commit `ebbe7e1`). 77 violaciones heredadas congeladas en `eslint-suppressions.json`. 14 tests de la regla local. Sin cambios de lógica en `src/`. |
+| 2026-11-16 | F0-T04 | pendiente | `dependency-cruiser` con las reglas de R4 (`pnpm arch:check`); `src/` sin violaciones. Fixture `tests/fixtures/architecture` y 8 tests que comprueban que cada regla detecta su violación. |
