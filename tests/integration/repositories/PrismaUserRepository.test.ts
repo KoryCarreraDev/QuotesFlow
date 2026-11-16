@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import prisma from '@/config/database.js';
 import { User } from '@/domain/entities/User.js';
 import { Role } from '@/domain/enums/Role.js';
+import { ConflictError } from '@/domain/errors/ConflictError.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { PrismaUserRepository } from '@/infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { persistTenant, persistUser } from '@tests/support/database/persistenceFactories.js';
@@ -77,5 +79,22 @@ describe('PrismaUserRepository', () => {
     });
 
     await expect(userRepository.create(duplicatedEmailUser)).rejects.toThrow();
+  });
+
+  it('un correo duplicado se traduce a ConflictError EMAIL_ALREADY_IN_USE, no a un error de Prisma', async () => {
+    await persistUser(otherTenantId, { email: 'someone@example.com' });
+    const duplicatedEmailUser = User.create({
+      email: 'someone@example.com',
+      passwordHash: 'stored-password-hash',
+      firstName: 'Marta',
+      lastName: 'Rojas',
+      role: Role.SALES_REP,
+      tenantId,
+    });
+
+    const creation = userRepository.create(duplicatedEmailUser);
+
+    await expect(creation).rejects.toBeInstanceOf(ConflictError);
+    await expect(creation).rejects.toMatchObject({ code: ErrorCode.EMAIL_ALREADY_IN_USE });
   });
 });
