@@ -1,6 +1,30 @@
+# Lo que nunca entra al contexto de build de Docker.
+# Secretos: el .env real se inyecta en tiempo de ejecución, nunca se copia a una imagen.
+.env
+.env.*
+!.env.example
+
+# Generados o locales
 node_modules
 dist
-.git
-.env
+coverage
 *.log
+.git
+.github
+.vscode
+.aider*
+Claude outputs
+
+# No los necesita ninguna imagen
+docs
+tests
+*.md
+lefthook.yml
+eslint.config.js
+eslint-rules
+eslint-suppressions.json
+.dependency-cruiser.cjs
+.prettierrc.json
+.prettierignore
+vitest.config.ts
 prisma/migrations/*/migration_lock.toml

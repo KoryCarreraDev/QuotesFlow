@@ -45,7 +45,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 ## 3. Stack
 
-TypeScript (ESM, imports terminan en `.js`) · Node 20 en el `Dockerfile` (Node 24 LTS según D-04, F0-T08) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors · compression · express-rate-limit (100 req/15 min global) · pnpm · Docker Compose · tsx + nodemon en dev.
+TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `package.json`, `.nvmrc` = 24.18.0, imagen `node:24.18.0-slim` fijada por digest) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors · compression · express-rate-limit (100 req/15 min global) · pnpm · Docker Compose · tsx + nodemon en dev.
 
 **Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
 
@@ -269,8 +269,12 @@ pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format c
 pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
-docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
+docker-compose up   # DESARROLLO (Dockerfile.dev): db (host 3363), backend (4000), prisma-studio (3364)
+docker build -t quotesflow-api .                        # imagen de PRODUCCIÓN (Dockerfile, etapa runtime)
+docker build --target migrator -t quotesflow-migrator . # `prisma migrate deploy`; en producción lo lanza Operaciones (R6)
 ```
+
+**Imágenes Docker (F0-T08).** `Dockerfile` es multi-etapa: `build` instala con `--frozen-lockfile`, genera Prisma, compila y poda a producción; `runtime` lleva solo `dist/`, `package.json` y las dependencias de producción, sin pnpm, como usuario `node` (uid 1000), con `HEALTHCHECK` sobre `/health` (unos 570 MB, 180 MB de `node_modules`); `migrator` lleva el CLI de Prisma y las migraciones. pnpm 11.28.10 fijado en todas. Ejecutar la API con `--init` (o `init: true`): sin manejador de SIGTERM hasta F1-T08. La API no aplica migraciones al arrancar. `Dockerfile.dev` + `docker-compose.yml` son solo de desarrollo; el compose exige `JWT_SECRET` en `.env` (sin valor por defecto).
 Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
 
 ---
@@ -299,3 +303,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T03 | pendiente | ESLint + Prettier. Todo el código formateado con Prettier (solo formato, commit `ebbe7e1`). 77 violaciones heredadas congeladas en `eslint-suppressions.json`. 14 tests de la regla local. Sin cambios de lógica en `src/`. |
 | 2026-11-16 | F0-T04 | pendiente | `dependency-cruiser` con las reglas de R4 (`pnpm arch:check`); `src/` sin violaciones. Fixture `tests/fixtures/architecture` y 8 tests que comprueban que cada regla detecta su violación. |
 | 2026-11-16 | F0-T05 | pendiente | Hooks de git con lefthook: pre-commit (ESLint + Prettier), pre-push (typecheck, arquitectura, tests unitarios). `allowBuilds` permite el `postinstall` de lefthook. |
+| 2026-11-16 | F0-T08 | pendiente | `Dockerfile` de producción multi-etapa (Node 24.18.0 por digest, no root, pnpm fijado, `--frozen-lockfile`, healthcheck, etapa `migrator`) y `Dockerfile.dev` + compose de desarrollo. Probado de extremo a extremo: migraciones, registro (201) y lectura autenticada (200) contra la imagen. H16 y H17 resueltos. |
