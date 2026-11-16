@@ -1,13 +1,12 @@
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
-import { afterAll, describe, it } from 'vitest';
+import { describe, it } from 'vitest';
 
 import noCommentedOutCode from '../../../eslint-rules/no-commented-out-code.js';
 
 // RuleTester usa las funciones globales de Mocha si no se le dan las de Vitest.
 RuleTester.describe = describe;
 RuleTester.it = it;
-RuleTester.afterAll = afterAll;
 
 const ruleTester = new RuleTester({
   languageOptions: { parser: tseslint.parser, ecmaVersion: 'latest', sourceType: 'module' },

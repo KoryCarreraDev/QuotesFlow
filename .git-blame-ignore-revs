@@ -1,0 +1,5 @@
+# Commits de solo formato que `git blame` debe saltar.
+# Uso local: git config blame.ignoreRevsFile .git-blame-ignore-revs (GitHub lo aplica solo).
+
+# style/ F0-T03 formato de todo el código con Prettier
+ebbe7e124007a46ab27f76f2096752ee9dc76144
