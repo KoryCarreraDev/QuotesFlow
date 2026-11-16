@@ -1,0 +1,13 @@
+# Responsables de revisión (sección 2 de PLAN.md).
+# Todo cambio requiere la aprobación del revisor técnico humano.
+* @KoryCarreraDev
+
+# Zonas sensibles: además del revisor técnico, las revisa el responsable de seguridad.
+# Hoy ambos roles los ocupa la misma persona; al separarlos, añadir aquí su usuario.
+/src/infrastructure/services/ @KoryCarreraDev
+/src/infrastructure/web/middleware/ @KoryCarreraDev
+/src/config/ @KoryCarreraDev
+/prisma/ @KoryCarreraDev
+/.github/ @KoryCarreraDev
+/docs/security/ @KoryCarreraDev
+/docs/audits/ @KoryCarreraDev

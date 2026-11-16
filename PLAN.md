@@ -1,6 +1,6 @@
 # PLAN.md — QuotesFlow: de base actual a MVP
 
-> **Estado: planeación.** La ejecución no ha empezado.
+> **Estado: ejecución de F0 en curso.** Las tareas hechas se marcan aquí y quedan pendientes de PR y revisión humana hasta su merge.
 > Este archivo es la fuente de verdad del trabajo pendiente. `CONTEXT.md` es la fuente de verdad de lo ya hecho. `QUESTION.md` recoge las dudas de los modelos.
 
 ## 0. Contexto
@@ -114,7 +114,7 @@ Riesgos de lo que viene, a diseñar desde el inicio: inyección en fórmulas con
 ### F0 — Fundaciones (sin esto no se escribe funcionalidad)
 Bloqueada por: D-01 a D-05.
 
-- F0-T01 `[S]` Crear `docs/audits/`, `docs/security/`, `docs/modulos/`, plantilla de PR con lista de verificación (R1 a R15) y `CODEOWNERS`.
+- F0-T01 `[S]` Crear `docs/audits/`, `docs/security/`, `docs/modulos/`, plantilla de PR con lista de verificación (R1 a R15) y `CODEOWNERS`. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `docs/README.md`, `.github/pull_request_template.md`, `.github/CODEOWNERS`.
 - F0-T11 `[S]` `docs/guia-de-codigo.md`: convenciones de idioma, nombres, comentarios y JSDoc con ejemplos buenos y malos tomados del código actual (R11 a R13).
 - F0-T02 `[O]` Framework de tests, estructura `tests/unit`, `tests/integration`, `tests/api`, dobles en memoria de los puertos, base de datos de test efímera, fábricas de datos. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Guía: `tests/README.md`.
 - F0-T03 `[S]` ESLint (typescript-eslint, reglas de seguridad, prohibición de tests deshabilitados o enfocados, convención de nombres, sin `any`, sin números mágicos, sin código comentado) y Prettier.
