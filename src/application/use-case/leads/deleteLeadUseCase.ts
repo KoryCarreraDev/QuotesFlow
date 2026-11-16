@@ -1,3 +1,4 @@
+import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
@@ -24,7 +25,7 @@ export class DeleteLeadUseCase {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
-    if (role === Role.SALES_REP && existingRepo.assignedToId !== userId) {
+    if (!can({ role, userId }, Action.LEAD_DELETE, { ownerUserId: existingRepo.assignedToId })) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You do not have the necessary permissions.');
     }
 

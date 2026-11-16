@@ -1,3 +1,4 @@
+import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -33,7 +34,7 @@ export class UpdateLeadStatusConfigUseCase {
       throw new NotFoundError(ErrorCode.LEAD_STATUS_NOT_FOUND, 'Status Lead not found');
     }
 
-    if (role === Role.SALES_REP) {
+    if (!can({ role, userId }, Action.LEAD_STATUS_UPDATE)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 

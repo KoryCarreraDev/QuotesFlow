@@ -1,3 +1,4 @@
+import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
@@ -35,9 +36,12 @@ export class UpdateLeadUseCase {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'This lead is deleted');
     }
 
-    if (role === Role.SALES_REP && leadProperty.assignedToId !== userId) {
+    const actor = { role: role as Role, userId };
+    const lead = { ownerUserId: leadProperty.assignedToId };
+    if (!can(actor, Action.LEAD_UPDATE, lead)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You can only update your own leads');
     }
+    const mayReassign = can(actor, Action.LEAD_REASSIGN, lead);
 
     const updatedLead = new Lead(
       leadProperty.id,
@@ -48,11 +52,7 @@ export class UpdateLeadUseCase {
       updateLead.phone !== undefined ? updateLead.phone : leadProperty.phone,
       leadProperty.statusId,
       updateLead.source !== undefined ? updateLead.source : leadProperty.source,
-      role === Role.SALES_REP
-        ? leadProperty.assignedToId
-        : updateLead.assignedToId !== undefined
-          ? updateLead.assignedToId
-          : leadProperty.assignedToId,
+      mayReassign && updateLead.assignedToId !== undefined ? updateLead.assignedToId : leadProperty.assignedToId,
       updateLead.estimatedValue !== undefined ? updateLead.estimatedValue : leadProperty.estimatedValue,
       updateLead.expectedCloseDate !== undefined ? updateLead.expectedCloseDate : leadProperty.expectedCloseDate,
       updateLead.notes !== undefined ? updateLead.notes : leadProperty.notes,

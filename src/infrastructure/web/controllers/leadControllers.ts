@@ -1,3 +1,5 @@
+import { Action, scopeFor } from '@/application/policies/authorizationPolicy.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { Request, Response, NextFunction } from 'express';
@@ -78,17 +80,15 @@ export class leadController {
         limit: limit ? Number(limit) : undefined,
       };
 
-      //SALES_REP solo ve sus leads asignados
-      if (req.user?.role === Role.SALES_REP) {
-        //Elimina cualquier filtro que intente modificar assignedToId
-        filters = filters?.filter((f) => f.field !== 'assignedToId');
-
-        //Forzar el filtro por su propio userId
-        filters.push({
-          field: 'assignedToId',
-          operator: 'equals',
-          value: req.user!.userId,
-        });
+      // Alcance del listado según la política (H12). F1-T12 lo lleva del controller al caso de uso.
+      const scope = scopeFor({ role: req.user?.role as Role, userId: req.user?.userId }, Action.LEAD_LIST);
+      if (scope.kind === 'none') {
+        return next(new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions'));
+      }
+      if (scope.kind === 'own') {
+        // Se descarta cualquier filtro por responsable que envíe el cliente y se fuerza el suyo.
+        filters = filters.filter((f) => f.field !== 'assignedToId');
+        filters.push({ field: 'assignedToId', operator: 'equals', value: scope.userId });
         criteria.filters = filters;
       }
 

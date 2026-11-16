@@ -1,3 +1,4 @@
+import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { CreateLeadStatusConfigDTO } from '@/application/dtos/CreateLeadStatusConfigDTO.js';
@@ -21,7 +22,7 @@ export class CreateLeadStatusConfigUseCase {
       throw new Error('Tenant not found');
     }
 
-    if (role === Role.SALES_REP) {
+    if (!can({ role: role as Role }, Action.LEAD_STATUS_CREATE)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
