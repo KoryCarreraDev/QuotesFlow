@@ -9,6 +9,7 @@ export class LeadStatusConfigMapper implements ILeadStatusConfigMapper {
       name: leadStatus.name!,
       order: leadStatus.order!,
       isDefault: leadStatus.isDefault!,
+      type: leadStatus.type,
       color: leadStatus.color!,
       deleted: leadStatus.deleted,
     };

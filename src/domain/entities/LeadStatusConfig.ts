@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { LeadStatusType } from '../enums/LeadStatusType.js';
 
 export class LeadStatusConfig {
   constructor(
@@ -11,6 +12,7 @@ export class LeadStatusConfig {
     public readonly color?: string,
     public readonly tenantId?: string,
     public readonly deleted?: string,
+    public readonly type: LeadStatusType = LeadStatusType.OPEN,
   ) {}
 
   static fromPrisma(prismaLead: {
@@ -23,6 +25,7 @@ export class LeadStatusConfig {
     updatedAt: Date;
     color: string | null;
     deleted: string | null;
+    type?: string;
   }): LeadStatusConfig {
     return new LeadStatusConfig(
       prismaLead.id,
@@ -34,6 +37,7 @@ export class LeadStatusConfig {
       prismaLead.color ?? undefined,
       prismaLead.tenantId,
       prismaLead.deleted ?? undefined,
+      (prismaLead.type as LeadStatusType | undefined) ?? LeadStatusType.OPEN,
     );
   }
 
@@ -44,6 +48,7 @@ export class LeadStatusConfig {
     tenantId?: string;
     color?: string;
     deleted?: string;
+    type?: LeadStatusType;
   }): LeadStatusConfig {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -57,6 +62,7 @@ export class LeadStatusConfig {
       props.color,
       props.tenantId,
       props.deleted,
+      props.type ?? LeadStatusType.OPEN,
     );
   }
 }

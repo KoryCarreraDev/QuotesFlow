@@ -24,6 +24,7 @@ export enum Action {
   LEAD_STATUS_LIST = 'lead-status:list',
   LEAD_STATUS_CREATE = 'lead-status:create',
   LEAD_STATUS_UPDATE = 'lead-status:update',
+  LEAD_STATUS_DELETE = 'lead-status:delete',
   CONTACT_LIST = 'contact:list',
   CONTACT_CREATE = 'contact:create',
   CONTACT_UPDATE = 'contact:update',
@@ -84,6 +85,7 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.LEAD_STATUS_LIST]: everyone,
   [Action.LEAD_STATUS_CREATE]: managementOnly,
   [Action.LEAD_STATUS_UPDATE]: managementOnly,
+  [Action.LEAD_STATUS_DELETE]: managementOnly,
   // Contactos y empresas cliente aún no tienen responsable: la visibilidad por rol (D-18) llega con F1-T17.
   [Action.CONTACT_LIST]: everyone,
   [Action.CONTACT_CREATE]: everyone,

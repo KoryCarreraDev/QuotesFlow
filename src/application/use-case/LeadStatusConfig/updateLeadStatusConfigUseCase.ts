@@ -1,3 +1,5 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
+import { ensureDefaultStatusIsOpen } from './leadStatusRules.js';
 import {
   AuditAction,
   AuditEntity,
@@ -24,6 +26,7 @@ export class UpdateLeadStatusConfigUseCase {
     private readonly statusMap: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(statusId: string, statusUpdate: UpdateLeadStatusConfigDTO, role: Role, userId: string) {
@@ -45,52 +48,60 @@ export class UpdateLeadStatusConfigUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
-    const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+    const resultingType = statusUpdate.type ?? statusProperty.type;
+    ensureDefaultStatusIsOpen(statusUpdate.isDefault ?? statusProperty.isDefault, resultingType);
 
-    if (defaultStatus?.id === statusId && statusUpdate.isDefault === false) {
-      throw new ConflictError(
-        ErrorCode.DEFAULT_LEAD_STATUS_REQUIRED,
-        'You cannot disable a default state without first having another one',
-      );
-    }
+    // Todo o nada: el cambio de predeterminado y la modificación se confirman juntos.
+    return this.transactionManager.runInTransaction(async () => {
+      const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
 
-    if (statusUpdate.isDefault === true) {
-      if (defaultStatus && defaultStatus?.id !== statusId) {
-        const oldDefaultStatus = new LeadStatusConfig(
-          defaultStatus!.id,
-          defaultStatus!.name,
-          defaultStatus!.order,
-          false,
-          new Date(),
-          defaultStatus!.createdAt,
-          defaultStatus!.color,
-          tenantId,
-          defaultStatus!.deleted,
+      if (defaultStatus?.id === statusId && statusUpdate.isDefault === false) {
+        throw new ConflictError(
+          ErrorCode.DEFAULT_LEAD_STATUS_REQUIRED,
+          'You cannot disable a default state without first having another one',
         );
-        await this.statusRepo.update(oldDefaultStatus.id, oldDefaultStatus);
       }
-    }
 
-    const updateStatus = new LeadStatusConfig(
-      statusProperty.id,
-      statusUpdate.name !== undefined ? statusUpdate.name : statusProperty.name,
-      statusUpdate.order !== undefined ? statusUpdate.order : statusProperty.order,
-      statusUpdate.isDefault !== undefined ? statusUpdate.isDefault : statusProperty.isDefault,
-      new Date(),
-      statusProperty.createdAt,
-      statusUpdate.color !== undefined ? statusUpdate.color : statusProperty.color,
-      tenantId,
-      statusProperty.deleted,
-    );
+      if (statusUpdate.isDefault === true) {
+        if (defaultStatus && defaultStatus?.id !== statusId) {
+          const oldDefaultStatus = new LeadStatusConfig(
+            defaultStatus!.id,
+            defaultStatus!.name,
+            defaultStatus!.order,
+            false,
+            new Date(),
+            defaultStatus!.createdAt,
+            defaultStatus!.color,
+            tenantId,
+            defaultStatus!.deleted,
+            defaultStatus!.type,
+          );
+          await this.statusRepo.update(oldDefaultStatus.id, oldDefaultStatus);
+        }
+      }
 
-    await this.statusRepo.update(statusProperty.id, updateStatus);
-    await this.auditLogger.record({
-      action: AuditAction.LEAD_STATUS_CONFIG_UPDATED,
-      entity: AuditEntity.LEAD_STATUS_CONFIG,
-      entityId: statusProperty.id,
-      metadata: { changedFields: changedFieldNames(statusUpdate) },
+      const updateStatus = new LeadStatusConfig(
+        statusProperty.id,
+        statusUpdate.name !== undefined ? statusUpdate.name : statusProperty.name,
+        statusUpdate.order !== undefined ? statusUpdate.order : statusProperty.order,
+        statusUpdate.isDefault !== undefined ? statusUpdate.isDefault : statusProperty.isDefault,
+        new Date(),
+        statusProperty.createdAt,
+        statusUpdate.color !== undefined ? statusUpdate.color : statusProperty.color,
+        tenantId,
+        statusProperty.deleted,
+        resultingType,
+      );
+
+      await this.statusRepo.update(statusProperty.id, updateStatus);
+      await this.auditLogger.record({
+        action: AuditAction.LEAD_STATUS_CONFIG_UPDATED,
+        entity: AuditEntity.LEAD_STATUS_CONFIG,
+        entityId: statusProperty.id,
+        metadata: { changedFields: changedFieldNames(statusUpdate) },
+      });
+
+      return this.statusMap.toDTO(updateStatus);
     });
-
-    return this.statusMap.toDTO(updateStatus);
   }
 }

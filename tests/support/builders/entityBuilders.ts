@@ -1,3 +1,4 @@
+import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 // Constructores de entidades de dominio para tests unitarios.
 // Cada uno devuelve una entidad válida con datos por defecto; el test solo declara lo que le importa.
 
@@ -84,6 +85,7 @@ export interface LeadStatusConfigBuilderProps {
   createdAt?: Date;
   updatedAt?: Date;
   deleted?: string;
+  type?: LeadStatusType;
 }
 
 export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilderProps> = {}): LeadStatusConfig {
@@ -110,6 +112,7 @@ export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilder
     props.color,
     props.tenantId,
     props.deleted,
+    props.type,
   );
 }
 

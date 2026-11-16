@@ -33,6 +33,7 @@ import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepos
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 
 const MISSING_TENANT_ID = '';
 
@@ -128,6 +129,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -143,6 +145,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(

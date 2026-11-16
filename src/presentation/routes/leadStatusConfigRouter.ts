@@ -6,17 +6,21 @@ import { validateBody } from '../../infrastructure/web/middleware/validateBody.j
 import { Request } from 'express';
 import { leadStatusConfigControllers } from '@/infrastructure/web/controllers/leadStatusConfigControllers.js';
 import { createLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
-import { updateLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
+import { reorderLeadStatusConfigsSchema, updateLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
 
 function getLeadStatusConfigController(req: Request): leadStatusConfigControllers {
   const getLeadsStatusUseCase = req.container!.leadStatuses.getGetLeadStatusConfigUseCase();
   const createLeadStatusConfigUseCase = req.container!.leadStatuses.getCreateLeadStatusConfigUseCase();
   const updateLeadStatusConfigUseCase = req.container!.leadStatuses.getUpdateLeadStatusConfigUseCase();
+  const deleteLeadStatusConfigUseCase = req.container!.leadStatuses.getDeleteLeadStatusConfigUseCase();
+  const reorderLeadStatusConfigsUseCase = req.container!.leadStatuses.getReorderLeadStatusConfigsUseCase();
 
   return new leadStatusConfigControllers(
     getLeadsStatusUseCase,
     createLeadStatusConfigUseCase,
     updateLeadStatusConfigUseCase,
+    deleteLeadStatusConfigUseCase,
+    reorderLeadStatusConfigsUseCase,
   );
 }
 
@@ -46,6 +50,20 @@ export function leadStatusConfigRouter(jwtService: IAuthTokenService): Router {
     validateBody(updateLeadStatusConfigSchema),
     (req, res, next) => {
       getLeadStatusConfigController(req).update(req, res, next);
+    },
+  );
+
+  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getLeadStatusConfigController(req).delete(req, res, next);
+  });
+
+  router.patch(
+    '/reorder',
+    authMiddleware,
+    tenantMiddleware,
+    validateBody(reorderLeadStatusConfigsSchema),
+    (req, res, next) => {
+      getLeadStatusConfigController(req).reorder(req, res, next);
     },
   );
 

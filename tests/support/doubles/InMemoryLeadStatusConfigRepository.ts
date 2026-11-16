@@ -60,7 +60,43 @@ export class InMemoryLeadStatusConfigRepository implements ILeadStatusConfigRepo
         data.color ?? storedStatus.color,
         storedStatus.tenantId,
         storedStatus.deleted,
+        data.type ?? storedStatus.type,
       ),
+    );
+  }
+
+  async delete(statusId: string): Promise<void> {
+    const storedStatus = this.statusesById.get(statusId);
+    if (!storedStatus || storedStatus.tenantId !== this.tenantContext.getTenantId()) {
+      throw new Error('Record to delete not found');
+    }
+    const tenantOrders = this.listStored()
+      .filter((status) => status.tenantId === storedStatus.tenantId)
+      .map((status) => status.order ?? ORDER_WHEN_MISSING);
+    const freedOrder = Math.min(...tenantOrders, ORDER_WHEN_MISSING) - 1;
+    this.statusesById.set(statusId, this.copyWith(storedStatus, { order: freedOrder, deleted: DeletedState.Inactive }));
+  }
+
+  async reorder(statusIdsInOrder: string[]): Promise<void> {
+    statusIdsInOrder.forEach((statusId, index) => {
+      const storedStatus = this.statusesById.get(statusId);
+      if (!storedStatus) throw new Error('Record to update not found');
+      this.statusesById.set(statusId, this.copyWith(storedStatus, { order: index + 1 }));
+    });
+  }
+
+  private copyWith(status: LeadStatusConfig, changes: { order?: number; deleted?: string }): LeadStatusConfig {
+    return new LeadStatusConfig(
+      status.id,
+      status.name,
+      changes.order ?? status.order,
+      status.isDefault,
+      status.updateAt,
+      status.createdAt,
+      status.color,
+      status.tenantId,
+      changes.deleted ?? status.deleted,
+      status.type,
     );
   }
 

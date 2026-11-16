@@ -1,3 +1,6 @@
+import { DeleteLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/deleteLeadStatusConfigUseCase.js';
+import { ReorderLeadStatusConfigsUseCase } from '@/application/use-case/LeadStatusConfig/reorderLeadStatusConfigsUseCase.js';
+import { HttpStatus } from '@/infrastructure/web/errors/errorResponse.js';
 import { Request, Response, NextFunction } from 'express';
 import { GetLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js';
 import { CreateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js';
@@ -9,7 +12,29 @@ export class leadStatusConfigControllers {
     private readonly getLeadStatusUseCase: GetLeadStatusConfigUseCase,
     private readonly createLeadStatusUseCase: CreateLeadStatusConfigUseCase,
     private readonly updateLeadStatusUseCase: UpdateLeadStatusConfigUseCase,
+    private readonly deleteLeadStatusUseCase: DeleteLeadStatusConfigUseCase,
+    private readonly reorderLeadStatusesUseCase: ReorderLeadStatusConfigsUseCase,
   ) {}
+
+  delete = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const actor = { role: req.user?.role as Role, userId: req.user?.userId };
+      await this.deleteLeadStatusUseCase.execute(req.params.id as string, actor);
+      res.status(HttpStatus.OK).json({ message: 'Deleted successfully' });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  reorder = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const actor = { role: req.user?.role as Role, userId: req.user?.userId };
+      const statuses = await this.reorderLeadStatusesUseCase.execute(req.body.statusIds, actor);
+      res.status(HttpStatus.OK).json(statuses);
+    } catch (err) {
+      next(err);
+    }
+  };
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {

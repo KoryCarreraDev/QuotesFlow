@@ -42,6 +42,8 @@ export const apiPaths = {
     getAll: `${LEAD_STATUS_CONFIG_BASE_PATH}/getAll`,
     create: `${LEAD_STATUS_CONFIG_BASE_PATH}/create`,
     update: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/update/${statusId}`,
+    delete: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/delete/${statusId}`,
+    reorder: `${LEAD_STATUS_CONFIG_BASE_PATH}/reorder`,
   },
   contacts: {
     getAll: `${CONTACT_BASE_PATH}/getAll`,
@@ -75,6 +77,8 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.leadStatusConfigs.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leadStatusConfigs.create, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leadStatusConfigs.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.leadStatusConfigs.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.leadStatusConfigs.reorder, access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.contacts.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.contacts.create, access: 'authenticated' },

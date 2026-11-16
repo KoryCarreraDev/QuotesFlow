@@ -6,7 +6,6 @@ import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { type TenantWithTeam, persistTenantWithTeam } from '@tests/support/database/persistenceFactories.js';
 import { sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -95,18 +94,14 @@ describe('API de estados de lead', () => {
       expect(response.status).toBe(HTTP_BAD_REQUEST);
     });
 
-    itKnownDefect(
-      'F1-T14',
-      'si falla la creación de un estado predeterminado, la empresa conserva su predeterminado anterior',
-      async () => {
-        await request(app)
-          .post(apiPaths.leadStatusConfigs.create)
-          .set('Cookie', ownerCookie)
-          .send({ name: 'Duplicado', order: company.defaultLeadStatus.order, isDefault: true });
+    it('si falla la creación de un estado predeterminado, la empresa conserva su predeterminado anterior', async () => {
+      await request(app)
+        .post(apiPaths.leadStatusConfigs.create)
+        .set('Cookie', ownerCookie)
+        .send({ name: 'Duplicado', order: company.defaultLeadStatus.order, isDefault: true });
 
-        await expect(listDefaultStatusNames()).resolves.toEqual(['Nuevo']);
-      },
-    );
+      await expect(listDefaultStatusNames()).resolves.toEqual(['Nuevo']);
+    });
   });
 
   describe('PATCH /api/leadStatusConfig/update/:id', () => {

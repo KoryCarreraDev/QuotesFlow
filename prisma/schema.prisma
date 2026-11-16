@@ -127,6 +127,8 @@ model LeadStatusConfig {
   color     String?   // Hex color para UI
   order     Int
   isDefault Boolean  @default(false) // Estado inicial para nuevos leads
+  // D-51 (F1-T14): las analíticas distinguen leads abiertos, ganados y perdidos por el tipo del estado.
+  type      LeadStatusType @default(OPEN)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deleted   DeletedState @default(INUSE)
@@ -139,6 +141,12 @@ model LeadStatusConfig {
   @@index([tenantId])
 }
 
+
+enum LeadStatusType {
+  OPEN
+  WON
+  LOST
+}
 
 //Modelo para el historial de cambios de estado de leads (Auditorias)
 model LeadStatusHistory {

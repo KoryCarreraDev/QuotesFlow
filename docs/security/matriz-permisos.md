@@ -20,7 +20,8 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `lead:delete` | Borrar (suave) un lead | Sí | Sí | Sí | Solo los suyos |
 | `lead-status:list` | Listar los estados de lead | Sí | Sí | Sí | Sí |
 | `lead-status:create` | Crear un estado de lead | Sí | Sí | Sí | No |
-| `lead-status:update` | Modificar un estado de lead | Sí | Sí | Sí | No |
+| `lead-status:update` | Modificar o reordenar los estados de lead | Sí | Sí | Sí | No |
+| `lead-status:delete` | Borrar (suave) un estado que no es el predeterminado ni tiene leads | Sí | Sí | Sí | No |
 | `contact:list` | Listar contactos | Sí | Sí | Sí | Sí |
 | `contact:create` | Crear un contacto | Sí | Sí | Sí | Sí |
 | `contact:update` | Modificar un contacto | Sí | Sí | Sí | Sí |

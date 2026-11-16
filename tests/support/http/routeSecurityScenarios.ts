@@ -19,7 +19,8 @@ import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/suppor
 export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
-export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete';
+/** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
+export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate';
 
 export interface RouteSecurityScenario {
   /** Acción de `permissionMatrix` que autoriza la ruta. */
@@ -57,6 +58,20 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [
     `PATCH ${apiPaths.leadStatusConfigs.update(':id')}`,
     { action: Action.LEAD_STATUS_UPDATE, resource: 'leadStatus', operation: 'update' },
+  ],
+
+  [
+    `POST ${apiPaths.leadStatusConfigs.delete(':id')}`,
+    { action: Action.LEAD_STATUS_DELETE, resource: 'leadStatus', operation: 'delete' },
+  ],
+  [
+    `PATCH ${apiPaths.leadStatusConfigs.reorder}`,
+    {
+      action: Action.LEAD_STATUS_UPDATE,
+      resource: 'leadStatus',
+      operation: 'bulkUpdate',
+      updateBody: (company) => ({ statusIds: [...company.leadStatuses].reverse().map((status) => status.id) }),
+    },
   ],
 
   [`GET ${apiPaths.contacts.getAll}`, { action: Action.CONTACT_LIST, resource: 'contact', operation: 'list' }],

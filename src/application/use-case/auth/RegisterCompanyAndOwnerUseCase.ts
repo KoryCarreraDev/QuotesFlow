@@ -53,6 +53,7 @@ export class RegisterCompanyAndOwnerUseCase {
           isDefault: statusData.isDefault,
           tenantId: tenant.id,
           color: statusData.color,
+          type: statusData.type,
           deleted: 'INUSE',
         });
         await this.statusRepo.create(status);

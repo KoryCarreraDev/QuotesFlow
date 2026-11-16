@@ -1,3 +1,6 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
+import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
+import { ensureDefaultStatusIsOpen } from './leadStatusRules.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -15,6 +18,7 @@ export class CreateLeadStatusConfigUseCase {
     private readonly statusMap: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(createLeadStatus: CreateLeadStatusConfigDTO, role: string) {
@@ -28,39 +32,47 @@ export class CreateLeadStatusConfigUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
-    const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+    const statusType = createLeadStatus.type ?? LeadStatusType.OPEN;
+    ensureDefaultStatusIsOpen(createLeadStatus.isDefault, statusType);
 
-    if (createLeadStatus.isDefault === true) {
-      if (defaultStatus) {
-        const oldDefaultLeadStatus = new LeadStatusConfig(
-          defaultStatus.id,
-          defaultStatus.name,
-          defaultStatus.order,
-          false,
-          new Date(),
-          defaultStatus.createdAt,
-          defaultStatus.color,
-          tenantId,
-          defaultStatus.deleted,
-        );
-        await this.statusRepo.update(oldDefaultLeadStatus.id, oldDefaultLeadStatus);
+    // Todo o nada (F1-T14): si la creación falla (orden repetido), el predeterminado anterior se conserva.
+    return this.transactionManager.runInTransaction(async () => {
+      const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+
+      if (createLeadStatus.isDefault === true) {
+        if (defaultStatus) {
+          const oldDefaultLeadStatus = new LeadStatusConfig(
+            defaultStatus.id,
+            defaultStatus.name,
+            defaultStatus.order,
+            false,
+            new Date(),
+            defaultStatus.createdAt,
+            defaultStatus.color,
+            tenantId,
+            defaultStatus.deleted,
+            defaultStatus.type,
+          );
+          await this.statusRepo.update(oldDefaultLeadStatus.id, oldDefaultLeadStatus);
+        }
       }
-    }
 
-    const leadStatusEntity = LeadStatusConfig.create({
-      name: createLeadStatus.name,
-      order: createLeadStatus.order,
-      isDefault: createLeadStatus.isDefault,
-      tenantId: tenantId,
-      color: createLeadStatus.color,
-    });
+      const leadStatusEntity = LeadStatusConfig.create({
+        name: createLeadStatus.name,
+        order: createLeadStatus.order,
+        isDefault: createLeadStatus.isDefault,
+        tenantId: tenantId,
+        color: createLeadStatus.color,
+        type: statusType,
+      });
 
-    await this.statusRepo.create(leadStatusEntity);
-    await this.auditLogger.record({
-      action: AuditAction.LEAD_STATUS_CONFIG_CREATED,
-      entity: AuditEntity.LEAD_STATUS_CONFIG,
-      entityId: leadStatusEntity.id,
+      await this.statusRepo.create(leadStatusEntity);
+      await this.auditLogger.record({
+        action: AuditAction.LEAD_STATUS_CONFIG_CREATED,
+        entity: AuditEntity.LEAD_STATUS_CONFIG,
+        entityId: leadStatusEntity.id,
+      });
+      return this.statusMap.toDTO(leadStatusEntity);
     });
-    return this.statusMap.toDTO(leadStatusEntity);
   }
 }
