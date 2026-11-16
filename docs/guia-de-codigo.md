@@ -211,6 +211,9 @@ export interface ILeadRepository extends IFilterableRepository<Lead> {
 | `presentation/` | `infrastructure/web`, `application/`, `domain/` |
 | `cross-cutting/` | Todas (es la composición) |
 
+Además, `infrastructure/` no importa `presentation/`, `presentation/` no importa `infrastructure/persistence/`, no hay ciclos de imports y `src/` no importa `devDependencies`.
+Lo comprueba `pnpm arch:check` (`dependency-cruiser`, reglas en `.dependency-cruiser.cjs`).
+
 Toda librería o servicio externo entra por un puerto en `application/ports` con su adaptador en `infrastructure/`.
 Imports con el alias `@/` (`@/domain/entities/Lead.js`) en vez de rutas relativas largas (`../../../domain/...`). Terminan siempre en `.js` (ESM).
 

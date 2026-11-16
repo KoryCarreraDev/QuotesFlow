@@ -37,7 +37,9 @@ tests/
     database/                  fábricas que escriben en la base de datos y utilidades de limpieza
     http/                      rutas de la API, cookie de sesión, inventario de rutas
     knownDefect.ts             `itKnownDefect`: defectos conocidos pendientes de corregir
+  fixtures/architecture/       mini proyecto con violaciones de capas a propósito (lo usa unit/tooling)
   unit/                        dominio, casos de uso, mappers, esquemas Zod, middleware, motor de filtrado
+    tooling/                   reglas propias de calidad: lint (código comentado) y arquitectura (R4)
   integration/                 repositorios Prisma y esquema, contra PostgreSQL real
   build/                       build de producción y arranque del servidor compilado
   api/                         endpoints de extremo a extremo

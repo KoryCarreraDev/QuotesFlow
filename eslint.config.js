@@ -127,7 +127,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ['eslint.config.js', 'eslint-rules/**/*.js'],
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { ...globals.node, ...globals.commonjs } },
+  },
+  {
+    files: ['eslint.config.js', 'eslint-rules/**/*.js', '**/*.cjs'],
     rules: {
       // La configuración de herramientas sigue los nombres que imponen ESLint y sus plugins.
       '@typescript-eslint/naming-convention': 'off',
