@@ -79,7 +79,7 @@ En cualquier paso: si surge una duda, se anota en `QUESTION.md` (R14).
 
 ## 4. Auditoría inicial (hallazgos sobre el código actual)
 
-Leída del código, no ejecutada. Se formaliza en `docs/audits/00-linea-base.md` (tarea F0-T10).
+Formalizada en `docs/audits/00-linea-base.md` (F0-T10), con severidad, estado y evidencia de cada hallazgo. H22 a H26 salieron de esa auditoría.
 
 | # | Hallazgo | Archivo | OWASP 2025 | Fase |
 |---|---|---|---|---|
@@ -104,6 +104,11 @@ Leída del código, no ejecutada. Se formaliza en `docs/audits/00-linea-base.md`
 | H19 | Dependencias instaladas sin uso (axios, nodemailer, multer, node-cron, mathjs, pdf-lib, winston, http-status-codes) | `package.json` | A03 | F0 |
 | H20 | `pnpm build` roto (verificado 2026-11-16): `TS5101` por `baseUrl` obsoleto en TypeScript 6 y, detrás, `TS2322` en `PrismaTenantRepository.ts`. Falta verificar además que `tsc` reescriba el alias `@/` | `tsconfig.json` | — | F0 |
 | H21 | Dinero convertido a `number` (`Number(estimatedValue)`) | `src/domain/entities/Lead.ts` | A06 | F3 |
+| H22 | El login no ejecuta bcrypt si el correo no existe: el tiempo de respuesta revela qué correos están registrados (F0-T10) | `src/application/use-case/auth/LoginUseCase.ts` | A07 | F2 |
+| H23 | La cookie `accessToken` caduca siempre a los 7 días (`maxAge` fijo), aunque `JWT_EXPIRATION` diga otra cosa (F0-T10) | `src/infrastructure/web/controllers/AuthControllers.ts` | A07 | F2 |
+| H24 | `validateBody` usa `error: any`; un error que no es de Zod responde 400 con `{ errors: undefined }` (F0-T10) | `src/infrastructure/web/middleware/validateBody.ts` | A10 | F1 |
+| H25 | Con `NODE_ENV=development` Prisma registra todas las consultas (F0-T10) | `src/config/database.ts` | A09 | F1 |
+| H26 | Riesgo aceptado: 2 avisos moderados solo de desarrollo (`glob`, `minimatch` vía testcontainers). Revisar al actualizar testcontainers (F0-T10) | `pnpm-lock.yaml` | A03 | — |
 
 Riesgos de lo que viene, a diseñar desde el inicio: inyección en fórmulas con mathjs (A05), inyección de fórmulas en Excel/CSV (A05), credenciales de Siigo en reposo (A04), consumo inseguro de API externa (API10), panel admin como objetivo de alto valor (A01, A07).
 
@@ -124,7 +129,7 @@ Bloqueada por: D-01 a D-05.
 - F0-T07 `[S]` Verificar y corregir H20 (build de producción con alias). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Se confirmó que `tsc` no reescribe `@/`: se añadió `tsc-alias`. Regresión en `tests/build/`.
 - F0-T08 `[S]` Dockerfile multi-etapa de producción (no root, pnpm fijado, `--frozen-lockfile`), Node LTS vigente; compose de desarrollo aparte. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Node 24.18.0 (D-04); la CI construye y prueba la imagen (F0-T06).
 - F0-T09 `[S]` Limpiar dependencias sin uso que no entren en fases próximas (según decisiones). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Fuera `nodemailer` (D-30), `node-cron` (D-27) y `http-status-codes`; `axios` fijado (D-49); dependencias actualizadas; pnpm fijado a 11.28.10.
-- F0-T10 `[O]` `docs/audits/00-linea-base.md` con los hallazgos de la sección 4, severidad y tarea asignada.
+- F0-T10 `[O]` `docs/audits/00-linea-base.md` con los hallazgos de la sección 4, severidad y tarea asignada. **Hecha el 2026-11-16, pendiente de PR y firma humana.** Añade H22 a H26.
 - **Humano:** protección de ramas `develop` y `main` (checks obligatorios + 1 aprobación), Dependabot o Renovate.
 
 ### F1 — Endurecimiento y mejora de lo existente
@@ -132,12 +137,12 @@ Bloqueada por: D-06, D-07, D-15 a D-19.
 
 Transversal:
 - F1-T01 `[O]` Variables de entorno validadas con Zod al arrancar; sin valores por defecto para secretos (H1).
-- F1-T02 `[O]` Jerarquía de errores (`NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`) en dominio/aplicación + manejador global en infraestructura con formato único y sin stack trace (H5). Sustituir los `throw new Error` existentes.
+- F1-T02 `[O]` Jerarquía de errores (`NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`) en dominio/aplicación + manejador global en infraestructura con formato único y sin stack trace (H5). Sustituir los `throw new Error` existentes. `validateBody` pasa al manejador los errores que no sean de Zod (H24).
 - F1-T03 `[O]` Puerto `ITransactionManager` (adaptador Prisma `$transaction`) y registro atómico (H8).
 - F1-T04 `[O]` Políticas de autorización centralizadas en `application/policies` (`can(usuario, acción, recurso)`); retirar los `if (role …)` dispersos (H12). Generar `docs/security/matriz-permisos.md`.
 - F1-T05 `[O]` Suite de aislamiento por tenant y suite de roles que recorren el inventario de rutas; CI falla si una ruta no está cubierta (R5).
 - F1-T06 `[S]` CORS con lista blanca y credenciales, `trust proxy`, límite de cuerpo 100 kb, límites de tasa por ruta (H4, H6, H14).
-- F1-T07 `[O]` Logger estructurado detrás de puerto `ILogger` (winston), id de petición, redacción de datos sensibles; puerto `IAuditLogger` que escribe `AuditLog` en toda mutación, evento de auth y descarga (H13).
+- F1-T07 `[O]` Logger estructurado detrás de puerto `ILogger` (winston), id de petición, redacción de datos sensibles; puerto `IAuditLogger` que escribe `AuditLog` en toda mutación, evento de auth y descarga (H13). El log de consultas de Prisma solo en local y sin datos (H25).
 - F1-T08 `[S]` `/health` (vida) y `/ready` (BD), apagado ordenado.
 - F1-T09 `[S]` Dividir `cross-cutting/container.ts` por módulo.
 - F1-T10 `[S]` Migración: `tenantId` en `QuoteItem` y `LeadStatusHistory` (H15).
@@ -160,8 +165,8 @@ Contactos y empresas:
 Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
 
 - F2-T01 `[S]` Puerto `IEmailService` + adaptador Resend + registro de envíos (`EmailLog`) + plantillas base.
-- F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2).
-- F2-T03 `[O]` Política de contraseñas, límite por cuenta e IP, bloqueo progresivo, respuestas genéricas (H7).
+- F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2). La caducidad de la cookie sale de la del token (H23).
+- F2-T03 `[O]` Política de contraseñas, límite por cuenta e IP, bloqueo progresivo, respuestas genéricas (H7). El login tarda lo mismo exista o no el correo (H22).
 - F2-T04 `[O]` Verificación de correo y recuperación de contraseña (tokens de un solo uso, con hash y caducidad).
 - F2-T05 `[O]` Usuarios del tenant: invitar por correo, aceptar invitación, listar, cambiar rol, desactivar (revoca sesiones). Reglas según D-16 y D-17.
 - F2-T06 `[S]` Perfil del tenant y `TenantSettings` (nombre, logo, zona horaria; por defecto `America/Bogota`).
