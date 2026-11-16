@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loginSchema, registerSchema } from '@/presentation/schemas/authSchema.js';
-import {
-  createCompanyContactSchema,
-  updateCompanyContactSchema,
-} from '@/presentation/schemas/companyContactSchema.js';
+import { createCompanyContactSchema, updateCompanyContactSchema } from '@/presentation/schemas/companyContactSchema.js';
 import { createContactSchema, updateContactSchema } from '@/presentation/schemas/contactSchema.js';
 import { createLeadSchema, updateLeadSchema } from '@/presentation/schemas/leadSchema.js';
 import {
@@ -248,9 +245,9 @@ describe('createCompanyContactSchema', () => {
   });
 
   it('rechaza un correo con formato inválido', () => {
-    expect(
-      createCompanyContactSchema.safeParse({ name: 'Constructora El Roble', email: 'not-an-email' }).success,
-    ).toBe(false);
+    expect(createCompanyContactSchema.safeParse({ name: 'Constructora El Roble', email: 'not-an-email' }).success).toBe(
+      false,
+    );
   });
 
   it('descarta los campos que solo decide el servidor', () => {

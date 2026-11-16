@@ -127,19 +127,22 @@ describe('Permisos por rol', () => {
       expect(filteredResponse.body.total).toBe(expectedLeadIds.length);
     });
 
-    it.each(managementMembers)('$member puede actualizar, reasignar y borrar el lead de un comercial', async ({ member }) => {
-      const updateResponse = await request(app)
-        .patch(apiPaths.leads.update(leadOfOtherSalesRep))
-        .set('Cookie', cookieOf(member))
-        .send({ assignedToId: company.salesRep.id });
-      const deleteResponse = await request(app)
-        .post(apiPaths.leads.delete(leadOfOtherSalesRep))
-        .set('Cookie', cookieOf(member));
+    it.each(managementMembers)(
+      '$member puede actualizar, reasignar y borrar el lead de un comercial',
+      async ({ member }) => {
+        const updateResponse = await request(app)
+          .patch(apiPaths.leads.update(leadOfOtherSalesRep))
+          .set('Cookie', cookieOf(member))
+          .send({ assignedToId: company.salesRep.id });
+        const deleteResponse = await request(app)
+          .post(apiPaths.leads.delete(leadOfOtherSalesRep))
+          .set('Cookie', cookieOf(member));
 
-      expect(updateResponse.status).toBe(HTTP_OK);
-      expect(updateResponse.body.assignedToId).toBe(company.salesRep.id);
-      expect(deleteResponse.status).toBe(HTTP_OK);
-    });
+        expect(updateResponse.status).toBe(HTTP_OK);
+        expect(updateResponse.body.assignedToId).toBe(company.salesRep.id);
+        expect(deleteResponse.status).toBe(HTTP_OK);
+      },
+    );
 
     it('salesRep solo ve sus leads, en el listado y en el filtrado', async () => {
       const listResponse = await request(app).get(apiPaths.leads.getAll).set('Cookie', cookieOf('salesRep'));

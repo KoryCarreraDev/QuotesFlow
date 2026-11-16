@@ -5,121 +5,110 @@ import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 
 export class PrismaLeadRepository extends BasePrismaRepository implements ILeadRepository {
-
-    async findByTenant(assignedTo?: string): Promise<Lead[]> {
-
-        if (!assignedTo) {
-        const record = await this.prisma.lead.findMany({
-            where: this.tenantWhere(),
-            include: {
-                assignedTo: true,
-                status: true,
-            },
-        });
-        return record.map(Lead.fromPrisma);
-        }
-
-        const record = await this.prisma.lead.findMany({
-            where: {
-                AND: [
-                    this.tenantWhere(),
-                    { assignedToId: assignedTo }
-                ]
-            },
-            include: {
-                assignedTo: true,
-                status: true,
-            },
-        });
-        return record.map(Lead.fromPrisma);
-    };
-
-    async create(lead: Lead): Promise<void> {
-        const record = await this.prisma.lead.create({
-            data: {
-                id: lead.id,
-                companyName: lead.companyName,
-                contactName: lead.contactName,
-                email: lead.email,
-                phone: lead.phone,
-                statusId: lead.statusId,
-                source: lead.source,
-                assignedToId: lead.assignedToId,
-                estimatedValue: lead.estimatedValue,
-                expectedCloseDate: lead.expectedCloseDate,
-                notes: lead.notes,
-                tenantId: lead.tenantId,
-                createdAt: lead.createdAt,
-                updatedAt: lead.updatedAt,
-            }
-        });
-    };
-
-    async findById(id: string): Promise<Lead | null> {
-        const record = await this.prisma.lead.findFirst({
-            where: {
-                id: id,
-                deleted: 'INUSE',
-                tenantId: this.tenantId,
-            },
-            include: {
-                assignedTo: true,
-                status: true,
-            },
-        });
-
-        return record ? Lead.fromPrisma(record) : null;
+  async findByTenant(assignedTo?: string): Promise<Lead[]> {
+    if (!assignedTo) {
+      const record = await this.prisma.lead.findMany({
+        where: this.tenantWhere(),
+        include: {
+          assignedTo: true,
+          status: true,
+        },
+      });
+      return record.map(Lead.fromPrisma);
     }
 
-    async update(leadId: string, data: Lead): Promise<void> {
-        await this.prisma.lead.update({
-            where: {
-                id: leadId,
-                tenantId: this.tenantId,
-            },
-            data: {
-                companyName: data.companyName,
-                contactName: data.contactName,
-                email: data.email,
-                phone: data.phone,
-                source: data.source,
-                assignedToId: data.assignedToId,
-                estimatedValue: data.estimatedValue,
-                expectedCloseDate: data.expectedCloseDate,
-                notes: data.notes,
-            },
-        });
-    }
-    
-    async findFiltered (
-        criteria: FilterCriteriaDTO,
-        config: IFilterFieldConfig
-    ): Promise<Lead[]> {
-        const where = this.buildFilterWhere(criteria, config);
-        const { skip, take } = this.buildPagination(criteria);
+    const record = await this.prisma.lead.findMany({
+      where: {
+        AND: [this.tenantWhere(), { assignedToId: assignedTo }],
+      },
+      include: {
+        assignedTo: true,
+        status: true,
+      },
+    });
+    return record.map(Lead.fromPrisma);
+  }
 
-        const records = await this.prisma.lead.findMany({
-            where,
-            skip,
-            take,
-            include: {
-                assignedTo: true,
-                status: true,
-            },
-        });
+  async create(lead: Lead): Promise<void> {
+    const record = await this.prisma.lead.create({
+      data: {
+        id: lead.id,
+        companyName: lead.companyName,
+        contactName: lead.contactName,
+        email: lead.email,
+        phone: lead.phone,
+        statusId: lead.statusId,
+        source: lead.source,
+        assignedToId: lead.assignedToId,
+        estimatedValue: lead.estimatedValue,
+        expectedCloseDate: lead.expectedCloseDate,
+        notes: lead.notes,
+        tenantId: lead.tenantId,
+        createdAt: lead.createdAt,
+        updatedAt: lead.updatedAt,
+      },
+    });
+  }
 
-        return records.map(Lead.fromPrisma);
-    };
+  async findById(id: string): Promise<Lead | null> {
+    const record = await this.prisma.lead.findFirst({
+      where: {
+        id: id,
+        deleted: 'INUSE',
+        tenantId: this.tenantId,
+      },
+      include: {
+        assignedTo: true,
+        status: true,
+      },
+    });
 
-    async countFiltered(
-        criteria: FilterCriteriaDTO,
-        config: IFilterFieldConfig
-    ): Promise<number> {
-        const where = this.buildFilterWhere(criteria, config);
-        return this.prisma.lead.count({ where });
-    };
+    return record ? Lead.fromPrisma(record) : null;
+  }
 
-    async delete(id: string){
-        await this.softDeleteRegister(this.prisma.lead, id);
-    }
+  async update(leadId: string, data: Lead): Promise<void> {
+    await this.prisma.lead.update({
+      where: {
+        id: leadId,
+        tenantId: this.tenantId,
+      },
+      data: {
+        companyName: data.companyName,
+        contactName: data.contactName,
+        email: data.email,
+        phone: data.phone,
+        source: data.source,
+        assignedToId: data.assignedToId,
+        estimatedValue: data.estimatedValue,
+        expectedCloseDate: data.expectedCloseDate,
+        notes: data.notes,
+      },
+    });
+  }
+
+  async findFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<Lead[]> {
+    const where = this.buildFilterWhere(criteria, config);
+    const { skip, take } = this.buildPagination(criteria);
+
+    const records = await this.prisma.lead.findMany({
+      where,
+      skip,
+      take,
+      include: {
+        assignedTo: true,
+        status: true,
+      },
+    });
+
+    return records.map(Lead.fromPrisma);
+  }
+
+  async countFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<number> {
+    const where = this.buildFilterWhere(criteria, config);
+    return this.prisma.lead.count({ where });
+  }
+
+  async delete(id: string) {
+    await this.softDeleteRegister(this.prisma.lead, id);
+  }
 }

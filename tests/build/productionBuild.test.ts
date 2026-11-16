@@ -20,7 +20,10 @@ const tsconfigPath = path.join(projectRoot, 'tsconfig.json');
 const buildOutputDirectory = path.join(projectRoot, 'node_modules', '.cache', 'production-build-test');
 
 const typescriptCompilerPath = requireFromTests.resolve('typescript/bin/tsc');
-const aliasRewriterPath = path.join(path.dirname(requireFromTests.resolve('tsc-alias/package.json')), 'dist/bin/index.js');
+const aliasRewriterPath = path.join(
+  path.dirname(requireFromTests.resolve('tsc-alias/package.json')),
+  'dist/bin/index.js',
+);
 
 const UNRESOLVED_ALIAS_PATTERN = /from\s+['"]@\//;
 const SERVER_START_TIMEOUT_MS = 15_000;

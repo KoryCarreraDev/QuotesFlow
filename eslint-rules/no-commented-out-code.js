@@ -8,7 +8,8 @@
 import tseslint from 'typescript-eslint';
 
 const JSDOC_MARKER = '*';
-const TOOLING_DIRECTIVE_PATTERN = /^\s*(eslint|eslint-disable|eslint-enable|global|globals|exported|@ts-|prettier-ignore|istanbul|c8|v8)\b/;
+const TOOLING_DIRECTIVE_PATTERN =
+  /^\s*(eslint|eslint-disable|eslint-enable|global|globals|exported|@ts-|prettier-ignore|istanbul|c8|v8)\b/;
 const NEXT_LINE_DISTANCE = 1;
 
 /**
@@ -29,7 +30,10 @@ function isBareWordOrLiteral(statement) {
  */
 function looksLikeCode(commentText) {
   try {
-    const { ast: program } = tseslint.parser.parseForESLint(commentText, { ecmaVersion: 'latest', sourceType: 'module' });
+    const { ast: program } = tseslint.parser.parseForESLint(commentText, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    });
     return program.body.length > 0 && !program.body.every(isBareWordOrLiteral);
   } catch {
     return false;

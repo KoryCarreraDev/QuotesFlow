@@ -45,9 +45,9 @@ describe('LoginUseCase', () => {
   it('rechaza una contraseña incorrecta y no emite token', async () => {
     const { loginUseCase, authTokenService } = await setupLogin();
 
-    await expect(
-      loginUseCase.execute({ email: 'owner@example.com', password: 'wrong-password' }),
-    ).rejects.toThrow('Invalid Credentials');
+    await expect(loginUseCase.execute({ email: 'owner@example.com', password: 'wrong-password' })).rejects.toThrow(
+      'Invalid Credentials',
+    );
     expect(authTokenService.issuedPayloads).toHaveLength(0);
   });
 
@@ -55,9 +55,9 @@ describe('LoginUseCase', () => {
     const { loginUseCase, authTokenService } = await setupLogin();
 
     // Mismo mensaje en ambos casos: el login no debe revelar si un correo está registrado.
-    await expect(
-      loginUseCase.execute({ email: 'unknown@example.com', password: PLAIN_PASSWORD }),
-    ).rejects.toThrow('Invalid Credentials');
+    await expect(loginUseCase.execute({ email: 'unknown@example.com', password: PLAIN_PASSWORD })).rejects.toThrow(
+      'Invalid Credentials',
+    );
     expect(authTokenService.issuedPayloads).toHaveLength(0);
   });
 });

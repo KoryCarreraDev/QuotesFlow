@@ -230,9 +230,7 @@ describe('PrismaLeadRepository', () => {
 
       const leads = await leadRepository.findFiltered(
         {
-          filters: [
-            { field: 'assignedToId', operator: 'in', value: [company.salesRep.id, company.otherSalesRep.id] },
-          ],
+          filters: [{ field: 'assignedToId', operator: 'in', value: [company.salesRep.id, company.otherSalesRep.id] }],
         },
         leadFilterConfig,
       );

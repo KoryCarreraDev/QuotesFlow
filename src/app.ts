@@ -10,7 +10,7 @@ import { leadRouter } from './presentation/routes/leadRoutes.js';
 import { contactRouter } from './presentation/routes/contactRoutes.js';
 import { companyContactRouter } from './presentation/routes/companyContactRoutes.js';
 import { JwTokenService } from './infrastructure/services/JwtTokenService.js';
-import { IAuthTokenService } from "./application/ports/services/IAuthTokenService.js";
+import { IAuthTokenService } from './application/ports/services/IAuthTokenService.js';
 import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRouter.js';
 
 const jwtService: IAuthTokenService = new JwTokenService();

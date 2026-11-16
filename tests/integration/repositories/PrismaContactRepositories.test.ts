@@ -8,11 +8,7 @@ import { contactFilterConfig } from '@/infrastructure/persistence/filters/contac
 import { PrismaCompanyContactRepository } from '@/infrastructure/persistence/repositories/PrismaCompanyContactRepository.js';
 import { PrismaContactRepository } from '@/infrastructure/persistence/repositories/PrismaContactRepository.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
-import {
-  persistCompanyContact,
-  persistContact,
-  persistTenant,
-} from '@tests/support/database/persistenceFactories.js';
+import { persistCompanyContact, persistContact, persistTenant } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { itKnownDefect } from '@tests/support/knownDefect.js';
 
@@ -235,7 +231,10 @@ describe('PrismaCompanyContactRepository', () => {
 
     const criteria = { filters: [{ field: 'name', operator: 'contains', value: 'roble' }] };
     const companyContacts = await companyContactRepository.findFiltered(criteria, companyContactFilterConfig);
-    const firstPage = await companyContactRepository.findFiltered({ ...criteria, limit: 1 }, companyContactFilterConfig);
+    const firstPage = await companyContactRepository.findFiltered(
+      { ...criteria, limit: 1 },
+      companyContactFilterConfig,
+    );
     const total = await companyContactRepository.countFiltered(criteria, companyContactFilterConfig);
 
     expect(idsOf(companyContacts)).toEqual([firstMatch.id, secondMatch.id].sort());
