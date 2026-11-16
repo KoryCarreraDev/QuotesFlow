@@ -1,3 +1,5 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { UnauthorizedError } from '@/domain/errors/UnauthorizedError.js';
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
 import { IHashService } from '../../ports/services/IHashService.js';
 import { IAuthTokenService } from '../../ports/services/IAuthTokenService.js';
@@ -14,13 +16,13 @@ export class LoginUseCase {
     const user = await this.userRepo.findByEmail(dto.email);
 
     if (!user) {
-      throw new Error('Invalid Credentials');
+      throw new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials');
     }
 
     const isPasswordValid = await this.hashService.compare(dto.password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new Error('Invalid Credentials');
+      throw new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials');
     }
 
     const token = this.authTokenService.generateToken({

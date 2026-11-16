@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T01-env-validation` (sobre las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T02-error-handling` (sobre F1-T01 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,11 +27,11 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 502 tests (unit, integración con PostgreSQL efímero, API, build). 30 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 541 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
-- La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22), la cookie de sesión caduca siempre a los 7 días (H23) y `validateBody` puede responder `{ errors: undefined }` (H24).
-- **No hay middleware global de errores.** Los use cases lanzan `Error` con mensaje en inglés y los controllers hacen `next(error)` → Express responde 500 (incluso para "Lead not found" o permisos). Solo `validateBody` (400) y el parseo de `filters` devuelven códigos propios. Un `errorHandler` con clases de error tipadas es mejora pendiente.
+- La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
+- **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
 - `UpdateLeadUseCase` **ignora `statusId`**: el estado no se puede cambiar por PATCH (aunque el schema Zod lo acepta). El cambio de estado y su historial (`LeadStatusHistory`) no existen.
 - `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
 - `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
@@ -94,6 +94,7 @@ src/
   cross-cutting/             container.ts (ScopedContainer), tenantContext.ts
   domain/entities/           Tenant, User, Lead, LeadStatusConfig, Contact, CompanyContact
   domain/enums/              Role, DeletedState
+  domain/errors/             ApplicationError + NotFound/Forbidden/Conflict/Validation/UnauthorizedError, ErrorCode
   domain/value-objects/      (vacío)
   application/constants/     defaultLeadStatuses.ts
   application/dtos/          [Entidad]DTO, Create…DTO, Update…DTO, FilterCriteriaDTO, PaginatedResultDTO, LoginDTO, RegisterCompanyDTO
@@ -105,7 +106,8 @@ src/
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
   infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
   infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
-  infrastructure/web/middleware/                              validateBody, createAuthValidateCookie, createTenantMiddleware
+  infrastructure/web/middleware/                              validateBody, createAuthValidateCookie, createTenantMiddleware, errorHandler (manejador global + 404 de ruta)
+  infrastructure/web/errors/                                  errorResponse.ts: clase de error -> HTTP y formato único
   presentation/routes/                                        authRoutes, leadRoutes, leadStatusConfigRouter, contactRoutes, companyContactRoutes
   presentation/schemas/                                       auth, lead, leadStatusConfig, contact, companyContact
   types/express.d.ts                                          req.user, req.container
@@ -211,10 +213,26 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`). Rate l
 | GET/POST/PATCH | `/api/contact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ firstName, lastName, email?, phone?, companyId? }` |
 | GET/POST/PATCH | `/api/companyContact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` |
 
+### Errores (F1-T02)
+
+Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto técnico en inglés>", "details"?: [{ "path": [...], "message": "..." }] } }`. Sin trazas.
+
+| HTTP | Códigos |
+|---|---|
+| 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED` |
+| 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `INVALID_SESSION` (token inválido, caducado o sin tenant) |
+| 403 | `INSUFFICIENT_PERMISSIONS` |
+| 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
+| 409 | `EMAIL_ALREADY_IN_USE`, `DEFAULT_LEAD_STATUS_MISSING`, `DEFAULT_LEAD_STATUS_REQUIRED` |
+| 413 | `PAYLOAD_TOO_LARGE` |
+| 500 | `INTERNAL_ERROR` (mensaje genérico; el detalle se registra con `console.error` hasta F1-T07) |
+
+Un recurso de otro tenant responde igual que uno inexistente (404).
+
 ### Motor de filtrado genérico
 `GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20`
 - `search`: OR `contains` (insensible a mayúsculas) sobre campos con `searchable:true`.
-- `filters`: JSON array. Campo u operador fuera del `filterConfig` → `Error` (hoy 500, ver deuda).
+- `filters`: JSON array. Campo u operador fuera del `filterConfig` → 400 `FILTER_FIELD_NOT_ALLOWED` / `FILTER_OPERATOR_NOT_ALLOWED`; `filters` que no es JSON → 400 `INVALID_FILTERS_FORMAT`. El tipo del valor aún no se valida (H11, F1-T12).
 - `page` default 1; `limit` default 20, máx 100 (valores inválidos caen al default).
 - Respuesta: `{ data, total, page, limit }`.
 - Operadores: `contains`, `equals`, `in`, `gt`, `gte`, `lt`, `lte`.
@@ -246,7 +264,7 @@ Checklist (`[E]` = Entidad PascalCase, `[e]` = camelCase):
 11. `presentation/schemas/[e]Schema.ts` (Zod) y `presentation/routes/[e]Routes.ts` (patrón de `leadRoutes.ts`).
 12. `app.ts` — `app.use('/api/[e]', [e]Router(jwtService))`.
 
-Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) o se aplican en el controller para filtrados; todo repositorio filtra por tenant y `deleted:'INUSE'`; errores como `throw new Error(...)`.
+Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) o se aplican en el controller para filtrados; todo repositorio filtra por tenant y `deleted:'INUSE'`; errores con las clases de `src/domain/errors/` y un `ErrorCode` (`docs/guia-de-codigo.md`, sección 10).
 
 ---
 
@@ -311,7 +329,7 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts`. Todo endpoint nuevo añade ahí sus casos.
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 30 (H2, H3, H4, H5, H7, H9, H10, H11, H14, H15 y F1-T14), listados en `tests/README.md`.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 16 (H2, H3, H4, H7, H9, H10, H11, H14, H15 y F1-T14), listados en `tests/README.md`. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02.
 - **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones.
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
@@ -330,3 +348,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T08 | pendiente | `Dockerfile` de producción multi-etapa (Node 24.18.0 por digest, no root, pnpm fijado, `--frozen-lockfile`, healthcheck, etapa `migrator`) y `Dockerfile.dev` + compose de desarrollo. Probado de extremo a extremo: migraciones, registro (201) y lectura autenticada (200) contra la imagen. H16 y H17 resueltos. |
 | 2026-11-16 | F0-T06 | pendiente | CI en GitHub Actions: calidad, tests con cobertura, auditoría de dependencias, gitleaks, comprobación de R3 y prueba de la imagen Docker. Script `pnpm check:context` con 6 tests. Validado con actionlint; aún no se ha ejecutado en GitHub. |
 | 2026-11-16 | F1-T01 | pendiente | Variables de entorno validadas con Zod al arrancar (`parseEnvironment`, `InvalidEnvironmentError`). `JWT_SECRET` obligatorio de 32 caracteres o más, sin valor por defecto (H1); `NODE_ENV` y `DATABASE_URL` obligatorias; formato de `JWT_EXPIRATION` y `PORT` comprobado. Fuera el `any` de `JwtTokenService` (una supresión menos). 18 tests unitarios y 1 de build (el servidor compilado no arranca sin `JWT_SECRET`). |
+| 2026-11-16 | F1-T02 | pendiente | Jerarquía de errores en `src/domain/errors/` (`ApplicationError`, `NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`, `ErrorCode`) y manejador global con formato único `{ error: { code, message, details? } }`, sin trazas, más 404 JSON para rutas inexistentes (H5). `validateBody` pasa al manejador los errores que no son de Zod (H24). Filtros con campo u operador no permitido responden 400. Mensajes de error en inglés (R11). 13 tests de H5 y 1 de H11 pasan a regresión; 39 tests nuevos. Cambian 2 aserciones existentes por el formato nuevo (`body.errors` pasa a `body.error.details`). |

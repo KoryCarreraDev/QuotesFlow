@@ -95,7 +95,7 @@ describe('Permisos por rol', () => {
       expect(response.body).toHaveLength(company.leadStatuses.length);
     });
 
-    itKnownDefect('H5', 'salesRep recibe 403 al intentar crear un estado', async () => {
+    it('salesRep recibe 403 al intentar crear un estado', async () => {
       const response = await request(app)
         .post(apiPaths.leadStatusConfigs.create)
         .set('Cookie', cookieOf('salesRep'))
@@ -183,7 +183,7 @@ describe('Permisos por rol', () => {
       }
     });
 
-    itKnownDefect('H5', 'salesRep recibe 403 al intentar actualizar el lead de otro comercial', async () => {
+    it('salesRep recibe 403 al intentar actualizar el lead de otro comercial', async () => {
       const response = await request(app)
         .patch(apiPaths.leads.update(leadOfOtherSalesRep))
         .set('Cookie', cookieOf('salesRep'))

@@ -12,6 +12,7 @@ import { companyContactRouter } from './presentation/routes/companyContactRoutes
 import { JwTokenService } from './infrastructure/services/JwtTokenService.js';
 import { IAuthTokenService } from './application/ports/services/IAuthTokenService.js';
 import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRouter.js';
+import { createErrorHandler, createRouteNotFoundHandler } from './infrastructure/web/middleware/errorHandler.js';
 
 const jwtService: IAuthTokenService = new JwTokenService();
 const app: Express = express();
@@ -48,5 +49,9 @@ app.use('/api/lead', leadRouter(jwtService));
 app.use('/api/contact', contactRouter(jwtService));
 app.use('/api/companyContact', companyContactRouter(jwtService));
 app.use('/api/leadStatusConfig', leadStatusConfigRouter(jwtService));
+
+// Errores: siempre al final, después de todas las rutas (H5).
+app.use(createRouteNotFoundHandler());
+app.use(createErrorHandler());
 
 export default app;

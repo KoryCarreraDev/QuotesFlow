@@ -1,3 +1,5 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { Request, Response, NextFunction } from 'express';
 import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
@@ -63,7 +65,9 @@ export class leadController {
           const parsed = JSON.parse(filtersRaw);
           filters = Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-          return res.status(400).json({ error: 'Invalid filters format' });
+          return next(
+            new ValidationError(ErrorCode.INVALID_FILTERS_FORMAT, 'Invalid filters format', [], { cause: error }),
+          );
         }
       }
 

@@ -90,7 +90,7 @@ describe('Autenticación de las rutas protegidas', () => {
     expect(response.status).toBe(HTTP_OK);
   });
 
-  itKnownDefect('H5', 'un token falsificado recibe 401, no un error interno', async () => {
+  it('un token falsificado recibe 401, no un error interno', async () => {
     const forgedToken = jwt.sign(
       { sub: NON_EXISTENT_ID, tenantId: NON_EXISTENT_ID, role: Role.OWNER },
       'secret-that-is-not-the-server-secret',

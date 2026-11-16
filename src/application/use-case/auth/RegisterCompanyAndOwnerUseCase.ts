@@ -1,3 +1,5 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ITenantRepository } from '../../ports/repositories/ITenantRepository.js';
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
 import { IHashService } from '../../ports/services/IHashService.js';
@@ -20,7 +22,7 @@ export class RegisterCompanyAndOwnerUseCase {
   async execute(dto: RegisterCompanyDTO) {
     const existingUser = await this.userRepo.findByEmail(dto.ownerEmail);
     if (existingUser) {
-      throw new Error('Email already in use');
+      throw new ConflictError(ErrorCode.EMAIL_ALREADY_IN_USE, 'Email already in use');
     }
 
     const tenant = Tenant.create({ name: dto.companyName });

@@ -1,3 +1,8 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ConflictError } from '@/domain/errors/ConflictError.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { UpdateLeadStatusConfigDTO } from '@/application/dtos/UpdateLeadStatusConfigDTO.js';
 import { ILeadStatusConfigMapper } from '@/application/ports/mappers/ILeadStatusConfigMapper.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
@@ -15,7 +20,7 @@ export class UpdateLeadStatusConfigUseCase {
 
   async execute(statusId: string, statusUpdate: UpdateLeadStatusConfigDTO, role: Role, userId: string) {
     if (!statusId || !statusUpdate || !role || !userId) {
-      throw new Error('All information is required');
+      throw new ValidationError(ErrorCode.MISSING_REQUIRED_DATA, 'All information is required');
     }
 
     const tenantId = this.tenantContext.getTenantId();
@@ -25,17 +30,20 @@ export class UpdateLeadStatusConfigUseCase {
 
     const statusProperty = await this.statusRepo.findById(statusId);
     if (!statusProperty) {
-      throw new Error('Status Lead not found');
+      throw new NotFoundError(ErrorCode.LEAD_STATUS_NOT_FOUND, 'Status Lead not found');
     }
 
     if (role === Role.SALES_REP) {
-      throw new Error('Insufficient permissions');
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
     const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
 
     if (defaultStatus?.id === statusId && statusUpdate.isDefault === false) {
-      throw new Error('You cannot disable a default state without first having another one');
+      throw new ConflictError(
+        ErrorCode.DEFAULT_LEAD_STATUS_REQUIRED,
+        'You cannot disable a default state without first having another one',
+      );
     }
 
     if (statusUpdate.isDefault === true) {

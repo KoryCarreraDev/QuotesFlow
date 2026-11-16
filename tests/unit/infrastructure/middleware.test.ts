@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Role } from '@/domain/enums/Role.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { createAuthValidateCookie } from '@/infrastructure/web/middleware/createAuthValidateCookie.js';
 import { validateBody } from '@/infrastructure/web/middleware/validateBody.js';
 import { FakeAuthTokenService } from '@tests/support/doubles/FakeAuthTokenService.js';
@@ -55,9 +56,38 @@ describe('validateBody', () => {
     validateBody(schema)(request, asResponse(response), next);
 
     expect(response.status).toHaveBeenCalledWith(HTTP_BAD_REQUEST);
-    const [responseBody] = response.json.mock.calls[0] as [{ errors: Array<{ path: string[] }> }];
-    expect(responseBody.errors.map((issue) => issue.path[0]).sort()).toEqual(['name', 'quantity']);
+    const [responseBody] = response.json.mock.calls[0] as [{ error: { details: Array<{ path: string[] }> } }];
+    expect(responseBody.error.details.map((issue) => issue.path[0]).sort()).toEqual(['name', 'quantity']);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('responde con el formato único de error: código VALIDATION_FAILED y detalle por campo', () => {
+    const response = createResponseDouble();
+
+    validateBody(schema)(asRequest({ body: { name: 'Vidrio templado' } }), asResponse(response), vi.fn());
+
+    expect(response.json).toHaveBeenCalledWith({
+      error: {
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Request body is invalid',
+        details: [{ path: ['quantity'], message: expect.any(String) }],
+      },
+    });
+  });
+
+  // Regresión de H24: `catch (error: any)` respondía 400 con `{ errors: undefined }` a cualquier error.
+  it('un error que no es de validación pasa al manejador de errores en lugar de responder 400', () => {
+    const unexpectedError = new Error('schema exploded');
+    const explodingSchema = z.object({}).transform(() => {
+      throw unexpectedError;
+    });
+    const response = createResponseDouble();
+    const next = vi.fn();
+
+    validateBody(explodingSchema)(asRequest({ body: {} }), asResponse(response), next);
+
+    expect(next).toHaveBeenCalledWith(unexpectedError);
+    expect(response.status).not.toHaveBeenCalled();
   });
 
   it('responde 400 si la petición no trae cuerpo', () => {

@@ -191,7 +191,7 @@ describe('API de leads', () => {
       expect(response.status).toBe(HTTP_BAD_REQUEST);
     });
 
-    itKnownDefect('H5', 'responde 404 si el lead no existe', async () => {
+    it('responde 404 si el lead no existe', async () => {
       const response = await request(app)
         .patch(apiPaths.leads.update(NON_EXISTENT_ID))
         .set('Cookie', ownerCookie)
@@ -343,7 +343,7 @@ describe('API de leads', () => {
       expect(response.body.data).toBeUndefined();
     });
 
-    itKnownDefect('H11', 'responde 400 al filtrar por un campo fuera de la lista blanca', async () => {
+    it('responde 400 al filtrar por un campo fuera de la lista blanca', async () => {
       const response = await request(app)
         .get(apiPaths.leads.filtered)
         .query({ filters: serializeFilters([{ field: 'tenantId', operator: 'equals', value: company.tenant.id }]) })

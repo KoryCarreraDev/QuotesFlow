@@ -8,7 +8,7 @@ export class TenantContext implements ITenantContext {
   getTenantId(): string {
     const store = als.getStore();
     if (!store?.tenantId) {
-      throw new Error('Contexto Tenant no valido');
+      throw new Error('Tenant context is not available');
     }
     return store.tenantId;
   }

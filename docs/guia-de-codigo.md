@@ -22,9 +22,9 @@ Malo (mezcla de idiomas en errores; `BasePrismaRepository.ts`):
 ```ts
 throw new Error(`Campo no permitido para el filtro: ${filter.field}`)
 ```
-Bueno (código estable y mensaje técnico en inglés; F1-T02 introduce las clases de error):
+Bueno (código estable y mensaje técnico en inglés; así quedó en F1-T02):
 ```ts
-throw new ValidationError('FILTER_FIELD_NOT_ALLOWED', `Field not allowed in filter: ${filter.field}`);
+throw new ValidationError(ErrorCode.FILTER_FIELD_NOT_ALLOWED, `Field is not allowed in filters: ${filter.field}`);
 ```
 
 ---
@@ -233,7 +233,24 @@ Imports con el alias `@/` (`@/domain/entities/Lead.js`) en vez de rutas relativa
 
 ## 10. Errores
 
-Hasta F1-T02 los casos de uso lanzan `Error`. Desde F1-T02, solo las clases tipadas (`NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`) con un código estable en inglés en `UPPER_SNAKE_CASE` (Q-003): `LEAD_NOT_FOUND`, `INSUFFICIENT_PERMISSIONS`.
+Desde F1-T02 un error esperado (regla de negocio, permiso, entrada inválida) se lanza con una clase de `src/domain/errors/` y un código de `ErrorCode`. El manejador global (`infrastructure/web/middleware/errorHandler.ts`) lo traduce a HTTP:
+
+| Clase | HTTP | Cuándo |
+|---|---|---|
+| `ValidationError` | 400 | La entrada no es válida. Puede llevar `details` (`path` y `message` por campo) |
+| `UnauthorizedError` | 401 | Sin sesión válida o credenciales incorrectas |
+| `ForbiddenError` | 403 | El rol no permite la acción |
+| `NotFoundError` | 404 | No existe **o es de otro tenant**: misma respuesta para no revelar cuál |
+| `ConflictError` | 409 | Choca con el estado de los datos (correo ya registrado, quedarse sin estado predeterminado) |
+
+Toda respuesta de error tiene la forma `{ "error": { "code": "LEAD_NOT_FOUND", "message": "Lead not found" } }` (Q-003: el frontend traduce el código).
+
+Reglas:
+- Los códigos de `ErrorCode` son contrato con el frontend: no se renombran ni se reutilizan. Cada valor es igual a su nombre (lo comprueba un test).
+- El mensaje puede llegar al cliente: nunca lleva datos internos, valores recibidos ni secretos.
+- Un `Error` normal significa un fallo de programación (por ejemplo, un caso de uso sin tenant en el contexto, que el middleware ya impide). Responde 500 genérico, `INTERNAL_ERROR`, y el detalle solo se registra en el servidor.
+- El controller no escribe respuestas de error a mano: lanza el error o lo pasa a `next(error)`.
+- Para conservar el error original se pasa como `cause` (`{ cause: error }`); no se copia su mensaje.
 
 ---
 

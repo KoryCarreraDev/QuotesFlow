@@ -1,3 +1,6 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ILeadRepository } from '@/application/ports/repositories/ILeadRepository.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Role } from '@/domain/enums/Role.js';
@@ -18,11 +21,11 @@ export class DeleteLeadUseCase {
     const existingRepo = await this.leadRepo.findById(leadId);
 
     if (!existingRepo) {
-      throw new Error('Lead not found');
+      throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
     if (role === Role.SALES_REP && existingRepo.assignedToId !== userId) {
-      throw new Error('You do not have the necessary permissions.');
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You do not have the necessary permissions.');
     }
 
     await this.leadRepo.delete(leadId);

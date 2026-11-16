@@ -16,7 +16,6 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { serializeFilters, sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
@@ -178,7 +177,7 @@ describe('Aislamiento por tenant', () => {
   });
 
   describe('respuesta: un recurso de otra empresa se trata como inexistente (404)', () => {
-    itKnownDefect('H5', 'PATCH /api/lead/update/:id responde 404', async () => {
+    it('PATCH /api/lead/update/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.leads.update(victimLeadId))
         .set('Cookie', intruderCookie)
@@ -187,13 +186,13 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    itKnownDefect('H5', 'POST /api/lead/delete/:id responde 404', async () => {
+    it('POST /api/lead/delete/:id responde 404', async () => {
       const response = await request(app).post(apiPaths.leads.delete(victimLeadId)).set('Cookie', intruderCookie);
 
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    itKnownDefect('H5', 'PATCH /api/contact/update/:id responde 404', async () => {
+    it('PATCH /api/contact/update/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.contacts.update(victimContactId))
         .set('Cookie', intruderCookie)
@@ -202,7 +201,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    itKnownDefect('H5', 'PATCH /api/companyContact/update/:id responde 404', async () => {
+    it('PATCH /api/companyContact/update/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.companyContacts.update(victimCompanyContactId))
         .set('Cookie', intruderCookie)
@@ -211,7 +210,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    itKnownDefect('H5', 'PATCH /api/leadStatusConfig/update/:id responde 404', async () => {
+    it('PATCH /api/leadStatusConfig/update/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.leadStatusConfigs.update(victimLeadStatusId))
         .set('Cookie', intruderCookie)

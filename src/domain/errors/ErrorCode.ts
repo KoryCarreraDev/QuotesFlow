@@ -1,0 +1,43 @@
+/**
+ * Códigos de error estables que la API devuelve en `error.code` (Q-003).
+ *
+ * Son parte del contrato con el frontend, que traduce cada código al mensaje que ve el usuario:
+ * no se renombran ni se reutilizan para otro significado. Cada valor es igual a su nombre.
+ */
+export enum ErrorCode {
+  // Autenticación
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  SESSION_REQUIRED = 'SESSION_REQUIRED',
+  INVALID_SESSION = 'INVALID_SESSION',
+
+  // Permisos
+  INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
+
+  // Recursos inexistentes, o de otro tenant: se responde igual para no revelar que existen.
+  LEAD_NOT_FOUND = 'LEAD_NOT_FOUND',
+  LEAD_STATUS_NOT_FOUND = 'LEAD_STATUS_NOT_FOUND',
+  CONTACT_NOT_FOUND = 'CONTACT_NOT_FOUND',
+  COMPANY_CONTACT_NOT_FOUND = 'COMPANY_CONTACT_NOT_FOUND',
+  RECORD_NOT_FOUND = 'RECORD_NOT_FOUND',
+  ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
+
+  // Conflictos con el estado actual de los datos
+  EMAIL_ALREADY_IN_USE = 'EMAIL_ALREADY_IN_USE',
+  DEFAULT_LEAD_STATUS_MISSING = 'DEFAULT_LEAD_STATUS_MISSING',
+  DEFAULT_LEAD_STATUS_REQUIRED = 'DEFAULT_LEAD_STATUS_REQUIRED',
+
+  // Entrada inválida
+  VALIDATION_FAILED = 'VALIDATION_FAILED',
+  MISSING_REQUIRED_DATA = 'MISSING_REQUIRED_DATA',
+  MALFORMED_JSON = 'MALFORMED_JSON',
+  INVALID_REQUEST_BODY = 'INVALID_REQUEST_BODY',
+  PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
+  INVALID_LEAD_STATUS = 'INVALID_LEAD_STATUS',
+  ASSIGNED_USER_NOT_FOUND = 'ASSIGNED_USER_NOT_FOUND',
+  INVALID_FILTERS_FORMAT = 'INVALID_FILTERS_FORMAT',
+  FILTER_FIELD_NOT_ALLOWED = 'FILTER_FIELD_NOT_ALLOWED',
+  FILTER_OPERATOR_NOT_ALLOWED = 'FILTER_OPERATOR_NOT_ALLOWED',
+
+  // Fallo no previsto: el detalle solo queda en el servidor.
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+}
