@@ -1,0 +1,20 @@
+# Hooks de git (F0-T05). Se instalan solos con `pnpm install`; a mano: `pnpm exec lefthook install`.
+# Prohibido saltarlos con `--no-verify` (R2). La CI repite todas estas comprobaciones y más.
+
+pre-commit:
+  parallel: true
+  commands:
+    eslint:
+      glob: '*.{ts,js,cjs}'
+      run: pnpm exec eslint --no-warn-ignored {staged_files}
+    prettier:
+      run: pnpm exec prettier --check --ignore-unknown {staged_files}
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck
+    architecture:
+      run: pnpm arch:check
+    unit-tests:
+      run: pnpm test:unit

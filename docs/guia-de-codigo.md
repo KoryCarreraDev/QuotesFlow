@@ -276,4 +276,5 @@ En `src/` un `// eslint-disable-next-line <regla> -- motivo` solo se admite con 
   Por qué: H3, un usuario desactivado seguía pudiendo iniciar sesión.
   Para qué: que desactivar a un usuario le quite el acceso de inmediato.
   ```
-- Nunca `--no-verify`.
+- Hooks de git (`lefthook.yml`, se instalan con `pnpm install`): el **pre-commit** pasa ESLint y Prettier sobre los archivos preparados; el **pre-push** ejecuta `pnpm typecheck`, `pnpm arch:check` y `pnpm test:unit`.
+- Nunca `--no-verify` (R2). Si un hook falla, se corrige la causa.
