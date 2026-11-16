@@ -18,6 +18,7 @@ Claude outputs
 # No los necesita ninguna imagen
 docs
 tests
+scripts
 *.md
 lefthook.yml
 eslint.config.js

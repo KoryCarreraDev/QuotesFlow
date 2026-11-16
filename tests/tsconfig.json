@@ -15,5 +15,5 @@
       "@tests/*": ["./*"]
     }
   },
-  "include": ["./**/*.ts", "../src/**/*.ts", "../vitest.config.ts"]
+  "include": ["./**/*.ts", "../src/**/*.ts", "../scripts/**/*.ts", "../vitest.config.ts"]
 }

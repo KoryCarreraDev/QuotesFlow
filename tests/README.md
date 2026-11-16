@@ -39,7 +39,7 @@ tests/
     knownDefect.ts             `itKnownDefect`: defectos conocidos pendientes de corregir
   fixtures/architecture/       mini proyecto con violaciones de capas a propósito (lo usa unit/tooling)
   unit/                        dominio, casos de uso, mappers, esquemas Zod, middleware, motor de filtrado
-    tooling/                   reglas propias de calidad: lint (código comentado) y arquitectura (R4)
+    tooling/                   reglas propias de calidad: lint (código comentado), arquitectura (R4) y comprobación de R3 de la CI
   integration/                 repositorios Prisma y esquema, contra PostgreSQL real
   build/                       build de producción y arranque del servidor compilado
   api/                         endpoints de extremo a extremo
