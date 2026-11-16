@@ -18,46 +18,48 @@ export interface RouteInventoryEntry {
 
 const ROUTE_ID_PARAMETER = ':id';
 
-const LEAD_BASE_PATH = '/api/lead';
-const LEAD_STATUS_CONFIG_BASE_PATH = '/api/leadStatusConfig';
-const CONTACT_BASE_PATH = '/api/contact';
-const COMPANY_CONTACT_BASE_PATH = '/api/companyContact';
+// D-06 (F1-T11): recursos REST bajo /api/v1. Las sondas /health y /ready quedan en la raíz.
+const API_BASE_PATH = '/api/v1';
+const LEAD_BASE_PATH = `${API_BASE_PATH}/leads`;
+const LEAD_STATUS_CONFIG_BASE_PATH = `${API_BASE_PATH}/lead-statuses`;
+const CONTACT_BASE_PATH = `${API_BASE_PATH}/contacts`;
+const COMPANY_CONTACT_BASE_PATH = `${API_BASE_PATH}/company-contacts`;
 
 export const apiPaths = {
   health: '/health',
   ready: '/ready',
   auth: {
-    register: '/api/auth/register',
-    login: '/api/auth/login',
+    register: `${API_BASE_PATH}/auth/register`,
+    login: `${API_BASE_PATH}/auth/login`,
   },
   leads: {
-    getAll: `${LEAD_BASE_PATH}/getAll`,
-    create: `${LEAD_BASE_PATH}/create`,
-    filtered: `${LEAD_BASE_PATH}/filtered`,
-    update: (leadId: string) => `${LEAD_BASE_PATH}/update/${leadId}`,
-    delete: (leadId: string) => `${LEAD_BASE_PATH}/delete/${leadId}`,
-    changeStatus: (leadId: string) => `${LEAD_BASE_PATH}/status/${leadId}`,
+    getAll: LEAD_BASE_PATH,
+    create: LEAD_BASE_PATH,
+    filtered: `${LEAD_BASE_PATH}/search`,
+    update: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}`,
+    delete: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}`,
+    changeStatus: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}/status`,
   },
   leadStatusConfigs: {
-    getAll: `${LEAD_STATUS_CONFIG_BASE_PATH}/getAll`,
-    create: `${LEAD_STATUS_CONFIG_BASE_PATH}/create`,
-    update: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/update/${statusId}`,
-    delete: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/delete/${statusId}`,
-    reorder: `${LEAD_STATUS_CONFIG_BASE_PATH}/reorder`,
+    getAll: LEAD_STATUS_CONFIG_BASE_PATH,
+    create: LEAD_STATUS_CONFIG_BASE_PATH,
+    update: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/${statusId}`,
+    delete: (statusId: string) => `${LEAD_STATUS_CONFIG_BASE_PATH}/${statusId}`,
+    reorder: `${LEAD_STATUS_CONFIG_BASE_PATH}/order`,
   },
   contacts: {
-    getAll: `${CONTACT_BASE_PATH}/getAll`,
-    create: `${CONTACT_BASE_PATH}/create`,
-    filtered: `${CONTACT_BASE_PATH}/filtered`,
-    update: (contactId: string) => `${CONTACT_BASE_PATH}/update/${contactId}`,
-    delete: (contactId: string) => `${CONTACT_BASE_PATH}/delete/${contactId}`,
+    getAll: CONTACT_BASE_PATH,
+    create: CONTACT_BASE_PATH,
+    filtered: `${CONTACT_BASE_PATH}/search`,
+    update: (contactId: string) => `${CONTACT_BASE_PATH}/${contactId}`,
+    delete: (contactId: string) => `${CONTACT_BASE_PATH}/${contactId}`,
   },
   companyContacts: {
-    getAll: `${COMPANY_CONTACT_BASE_PATH}/getAll`,
-    create: `${COMPANY_CONTACT_BASE_PATH}/create`,
-    filtered: `${COMPANY_CONTACT_BASE_PATH}/filtered`,
-    update: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/update/${companyContactId}`,
-    delete: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/delete/${companyContactId}`,
+    getAll: COMPANY_CONTACT_BASE_PATH,
+    create: COMPANY_CONTACT_BASE_PATH,
+    filtered: `${COMPANY_CONTACT_BASE_PATH}/search`,
+    update: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/${companyContactId}`,
+    delete: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/${companyContactId}`,
   },
 } as const;
 
@@ -71,26 +73,26 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.leads.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.leads.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leads.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
-  { method: 'POST', pattern: apiPaths.leads.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.leads.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leads.changeStatus(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.leadStatusConfigs.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leadStatusConfigs.create, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leadStatusConfigs.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
-  { method: 'POST', pattern: apiPaths.leadStatusConfigs.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.leadStatusConfigs.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leadStatusConfigs.reorder, access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.contacts.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.contacts.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.contacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.contacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
-  { method: 'POST', pattern: apiPaths.contacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.contacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.companyContacts.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.companyContacts.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.companyContacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.companyContacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
-  { method: 'POST', pattern: apiPaths.companyContacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.companyContacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
 ];
 
 export const authenticatedRoutes = routeInventory.filter((route) => route.access === 'authenticated');

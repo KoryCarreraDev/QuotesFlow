@@ -29,7 +29,7 @@ describe('API de estados de lead', () => {
     ownerCookie = sessionCookieFor(company.owner);
   });
 
-  describe('GET /api/leadStatusConfig/getAll', () => {
+  describe('GET /api/v1/lead-statuses', () => {
     it('devuelve los estados de la empresa ordenados por su orden', async () => {
       const response = await request(app).get(apiPaths.leadStatusConfigs.getAll).set('Cookie', ownerCookie);
 
@@ -50,7 +50,7 @@ describe('API de estados de lead', () => {
     });
   });
 
-  describe('POST /api/leadStatusConfig/create', () => {
+  describe('POST /api/v1/lead-statuses', () => {
     it('crea el estado en la empresa del usuario y responde 201', async () => {
       const response = await request(app)
         .post(apiPaths.leadStatusConfigs.create)
@@ -104,7 +104,7 @@ describe('API de estados de lead', () => {
     });
   });
 
-  describe('PATCH /api/leadStatusConfig/update/:id', () => {
+  describe('PATCH /api/v1/lead-statuses/:id', () => {
     it('actualiza los campos enviados y conserva el resto', async () => {
       const [, contactedStatus] = company.leadStatuses;
 

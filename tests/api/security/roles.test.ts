@@ -135,7 +135,7 @@ describe('Permisos por rol', () => {
           .set('Cookie', cookieOf(member))
           .send({ assignedToId: company.salesRep.id });
         const deleteResponse = await request(app)
-          .post(apiPaths.leads.delete(leadOfOtherSalesRep))
+          .delete(apiPaths.leads.delete(leadOfOtherSalesRep))
           .set('Cookie', cookieOf(member));
 
         expect(updateResponse.status).toBe(HTTP_OK);
@@ -158,7 +158,7 @@ describe('Permisos por rol', () => {
         .set('Cookie', cookieOf('salesRep'))
         .send({ notes: 'Cliente interesado' });
       const deleteResponse = await request(app)
-        .post(apiPaths.leads.delete(leadOfSalesRep))
+        .delete(apiPaths.leads.delete(leadOfSalesRep))
         .set('Cookie', cookieOf('salesRep'));
 
       expect(updateResponse.status).toBe(HTTP_OK);
@@ -172,7 +172,7 @@ describe('Permisos por rol', () => {
           .set('Cookie', cookieOf('salesRep'))
           .send({ notes: 'Nota ajena' });
         const deleteResponse = await request(app)
-          .post(apiPaths.leads.delete(foreignLeadId))
+          .delete(apiPaths.leads.delete(foreignLeadId))
           .set('Cookie', cookieOf('salesRep'));
 
         expect(updateResponse.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);

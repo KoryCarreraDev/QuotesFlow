@@ -14,24 +14,24 @@ Registrar y seguir las oportunidades comerciales de la empresa: quién es el cli
 
 - Sin `statusId`, un lead nuevo toma el estado predeterminado de la empresa (409 `DEFAULT_LEAD_STATUS_MISSING` si no hay). Un `statusId` de otra empresa responde 400 `INVALID_LEAD_STATUS`.
 - Un responsable que no es un usuario activo de la empresa responde 400 `ASSIGNED_USER_NOT_FOUND` (H9).
-- El estado solo cambia por `PATCH /api/lead/status/:id`, que actualiza el lead y escribe `LeadStatusHistory` (estado anterior, nuevo, quién y nota) en una transacción. Pedir el estado que ya tiene no escribe nada. `PATCH /update/:id` no acepta `statusId`.
+- El estado solo cambia por `PATCH /api/v1/leads/:id/status`, que actualiza el lead y escribe `LeadStatusHistory` (estado anterior, nuevo, quién y nota) en una transacción. Pedir el estado que ya tiene no escribe nada. `PATCH /api/v1/leads/:id` no acepta `statusId`.
 - Un lead borrado deja de listarse y no se puede modificar (404); la fila se conserva.
 
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/lead/getAll` | Todos (alcance por rol) | Leads visibles para el usuario |
-| GET | `/api/lead/filtered` | Todos (alcance por rol) | Listado filtrado y paginado ([filtrado](filtrado.md)) |
-| POST | `/api/lead/create` | Todos | Crea un lead |
-| PATCH | `/api/lead/update/:id` | Todos (comercial: solo los suyos) | Modifica datos del lead |
-| PATCH | `/api/lead/status/:id` | Todos (comercial: solo los suyos) | Cambia el estado y lo registra en el historial |
-| POST | `/api/lead/delete/:id` | Todos (comercial: solo los suyos) | Borrado suave |
+| GET | `/api/v1/leads` | Todos (alcance por rol) | Leads visibles para el usuario |
+| GET | `/api/v1/leads/search` | Todos (alcance por rol) | Listado filtrado y paginado ([filtrado](filtrado.md)) |
+| POST | `/api/v1/leads` | Todos | Crea un lead |
+| PATCH | `/api/v1/leads/:id` | Todos (comercial: solo los suyos) | Modifica datos del lead |
+| PATCH | `/api/v1/leads/:id/status` | Todos (comercial: solo los suyos) | Cambia el estado y lo registra en el historial |
+| DELETE | `/api/v1/leads/:id` | Todos (comercial: solo los suyos) | Borrado suave |
 
 ## Ejemplos
 ### Crear un lead
 Petición:
 ```http
-POST /api/lead/create
+POST /api/v1/leads
 Content-Type: application/json
 
 {
@@ -60,7 +60,7 @@ Errores: `400 VALIDATION_FAILED`, `400 INVALID_LEAD_STATUS`, `400 ASSIGNED_USER_
 ### Cambiar el estado
 Petición:
 ```http
-PATCH /api/lead/status/5b0e2f4c-…
+PATCH /api/v1/leads/5b0e2f4c-…/status
 Content-Type: application/json
 
 { "statusId": "id-de-contactado", "note": "Pidió una cotización" }

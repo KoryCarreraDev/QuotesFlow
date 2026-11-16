@@ -15,17 +15,17 @@ Cada empresa define las etapas por las que pasan sus leads (su embudo de ventas)
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/leadStatusConfig/getAll` | Todos | Estados de la empresa, por orden |
-| POST | `/api/leadStatusConfig/create` | Gestión | Crea un estado |
-| PATCH | `/api/leadStatusConfig/update/:id` | Gestión | Modifica un estado |
-| PATCH | `/api/leadStatusConfig/reorder` | Gestión | Reordena todos los estados |
-| POST | `/api/leadStatusConfig/delete/:id` | Gestión | Borrado suave |
+| GET | `/api/v1/lead-statuses` | Todos | Estados de la empresa, por orden |
+| POST | `/api/v1/lead-statuses` | Gestión | Crea un estado |
+| PATCH | `/api/v1/lead-statuses/:id` | Gestión | Modifica un estado |
+| PATCH | `/api/v1/lead-statuses/order` | Gestión | Reordena todos los estados |
+| DELETE | `/api/v1/lead-statuses/:id` | Gestión | Borrado suave |
 
 ## Ejemplos
 ### Crear un estado
 Petición:
 ```http
-POST /api/leadStatusConfig/create
+POST /api/v1/lead-statuses
 Content-Type: application/json
 
 { "name": "Negociación", "order": 6, "color": "#F97316", "type": "OPEN" }
@@ -39,7 +39,7 @@ Errores: `400 VALIDATION_FAILED`, `400 DEFAULT_LEAD_STATUS_MUST_BE_OPEN`, `403 I
 ### Reordenar
 Petición:
 ```http
-PATCH /api/leadStatusConfig/reorder
+PATCH /api/v1/lead-statuses/order
 Content-Type: application/json
 
 { "statusIds": ["id-calificado", "id-nuevo", "id-contactado", "id-ganado", "id-perdido"] }

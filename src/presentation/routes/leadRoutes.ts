@@ -30,28 +30,28 @@ export function leadRouter(jwtService: IAuthTokenService): Router {
   const authMiddleware = createAuthValidateCookie(jwtService);
   const tenantMiddleware = createTenantMiddleware();
 
-  router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadController(req).getAll(req, res, next);
   });
 
-  router.post('/create', authMiddleware, tenantMiddleware, validateBody(createLeadSchema), (req, res, next) => {
+  router.post('/', authMiddleware, tenantMiddleware, validateBody(createLeadSchema), (req, res, next) => {
     getLeadController(req).create(req, res, next);
   });
 
-  router.patch('/update/:id', authMiddleware, tenantMiddleware, validateBody(updateLeadSchema), (req, res, next) => {
+  router.patch('/:id', authMiddleware, tenantMiddleware, validateBody(updateLeadSchema), (req, res, next) => {
     getLeadController(req).update(req, res, next);
   });
 
-  router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/search', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadController(req).getFiltered(req, res, next);
   });
 
-  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.delete('/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadController(req).delete(req, res, next);
   });
 
   router.patch(
-    '/status/:id',
+    '/:id/status',
     authMiddleware,
     tenantMiddleware,
     validateBody(changeLeadStatusSchema),

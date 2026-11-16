@@ -81,7 +81,7 @@ describe('respuestas de error', () => {
 
   describe('recursos y permisos', () => {
     it('un lead que no existe responde 404 LEAD_NOT_FOUND', async () => {
-      const response = await request(app).post(apiPaths.leads.delete(NON_EXISTENT_ID)).set('Cookie', ownerCookie);
+      const response = await request(app).delete(apiPaths.leads.delete(NON_EXISTENT_ID)).set('Cookie', ownerCookie);
 
       expectErrorResponse(response, HTTP_NOT_FOUND, ErrorCode.LEAD_NOT_FOUND);
     });

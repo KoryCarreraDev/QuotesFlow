@@ -146,7 +146,7 @@ Transversal:
 - F1-T08 `[S]` `/health` (vida) y `/ready` (BD), apagado ordenado. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Resuelve F0-S4. Las sondas cuentan para el límite global de peticiones: el orquestador no debe sondear más de una vez cada 10 s por instancia.
 - F1-T09 `[S]` Dividir `cross-cutting/container.ts` por módulo. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `src/cross-cutting/modules/`.
 - F1-T10 `[S]` Migración: `tenantId` en `QuoteItem` y `LeadStatusHistory` (H15). **Hecha el 2026-11-16, pendiente de PR, revisión humana y aplicación en producción por Operaciones (R6).**
-- F1-T11 `[S]` Si D-06 = Sí: rutas REST bajo `/api/v1`. Si D-07 = Sí: OpenAPI generado desde los esquemas Zod.
+- F1-T11 `[S]` Si D-06 = Sí: rutas REST bajo `/api/v1`. Si D-07 = Sí: OpenAPI generado desde los esquemas Zod. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Contrato en `docs/openapi.json`; cambia todas las rutas, así que el frontend tiene que usar las nuevas.
 
 Motor de filtrado:
 - F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `src/infrastructure/web/filters/parseFilterQuery.ts`.

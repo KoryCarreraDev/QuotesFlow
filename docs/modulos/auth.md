@@ -13,14 +13,14 @@ Registrar una empresa nueva con su dueño y abrir sesión. Es la puerta de entra
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| POST | `/api/auth/register` | Público | Registra empresa, dueño y estados por defecto |
-| POST | `/api/auth/login` | Público | Inicia sesión y deja la cookie `accessToken` |
+| POST | `/api/v1/auth/register` | Público | Registra empresa, dueño y estados por defecto |
+| POST | `/api/v1/auth/login` | Público | Inicia sesión y deja la cookie `accessToken` |
 
 ## Ejemplos
 ### Registro
 Petición:
 ```http
-POST /api/auth/register
+POST /api/v1/auth/register
 Content-Type: application/json
 
 {
@@ -40,7 +40,7 @@ Errores: `400 VALIDATION_FAILED` (campos inválidos), `409 EMAIL_ALREADY_IN_USE`
 ### Login
 Petición:
 ```http
-POST /api/auth/login
+POST /api/v1/auth/login
 Content-Type: application/json
 
 { "email": "carlos@aluminiosandinos.co", "password": "una-contraseña-larga" }
@@ -52,6 +52,6 @@ Respuesta `200` con cabecera `Set-Cookie: accessToken=…; HttpOnly; SameSite=St
 Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_REQUESTS`.
 
 ## Seguridad
-- Límite propio de 10 peticiones por IP cada 15 minutos en `/api/auth` (`RATE_LIMIT_AUTH_MAX_REQUESTS`), además del global (H6). El bloqueo por cuenta llega en F2-T03.
+- Límite propio de 10 peticiones por IP cada 15 minutos en `/api/v1/auth` (`RATE_LIMIT_AUTH_MAX_REQUESTS`), además del global (H6). El bloqueo por cuenta llega en F2-T03.
 - Se auditan el registro (`COMPANY_REGISTERED`), el login correcto (`LOGIN_SUCCEEDED`) y la contraseña incorrecta de una cuenta existente (`LOGIN_FAILED`). Un correo inexistente no se audita.
 - Pendiente en F2: contraseña mínima de 12 caracteres (H7), tiempo de respuesta igual exista o no el correo (H22), sesión corta con refresh (H2, D-09) y caducidad real de la cookie (H23).

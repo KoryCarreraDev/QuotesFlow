@@ -99,6 +99,7 @@ export function describeRolePermissionCoverage(groupName: keyof typeof ROLE_COVE
       if (route.method === 'PATCH') {
         return request(app).patch(path).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
       }
+      if (route.method === 'DELETE') return request(app).delete(path).set('Cookie', cookie);
       const body = scenario.operation === 'create' ? creationBody(scenario.resource) : undefined;
       return request(app).post(path).set('Cookie', cookie).send(body);
     }

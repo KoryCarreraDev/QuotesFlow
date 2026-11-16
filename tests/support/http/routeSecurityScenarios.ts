@@ -36,7 +36,7 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`GET ${apiPaths.leads.filtered}`, { action: Action.LEAD_LIST, resource: 'lead', operation: 'list' }],
   [`POST ${apiPaths.leads.create}`, { action: Action.LEAD_CREATE, resource: 'lead', operation: 'create' }],
   [`PATCH ${apiPaths.leads.update(':id')}`, { action: Action.LEAD_UPDATE, resource: 'lead', operation: 'update' }],
-  [`POST ${apiPaths.leads.delete(':id')}`, { action: Action.LEAD_DELETE, resource: 'lead', operation: 'delete' }],
+  [`DELETE ${apiPaths.leads.delete(':id')}`, { action: Action.LEAD_DELETE, resource: 'lead', operation: 'delete' }],
   [
     `PATCH ${apiPaths.leads.changeStatus(':id')}`,
     {
@@ -61,7 +61,7 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   ],
 
   [
-    `POST ${apiPaths.leadStatusConfigs.delete(':id')}`,
+    `DELETE ${apiPaths.leadStatusConfigs.delete(':id')}`,
     { action: Action.LEAD_STATUS_DELETE, resource: 'leadStatus', operation: 'delete' },
   ],
   [
@@ -83,12 +83,12 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   ],
 
   [
-    `POST ${apiPaths.contacts.delete(':id')}`,
+    `DELETE ${apiPaths.contacts.delete(':id')}`,
     { action: Action.CONTACT_DELETE, resource: 'contact', operation: 'delete' },
   ],
 
   [
-    `POST ${apiPaths.companyContacts.delete(':id')}`,
+    `DELETE ${apiPaths.companyContacts.delete(':id')}`,
     { action: Action.COMPANY_CONTACT_DELETE, resource: 'companyContact', operation: 'delete' },
   ],
   [

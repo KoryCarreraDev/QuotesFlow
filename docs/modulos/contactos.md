@@ -14,22 +14,22 @@ La cartera de clientes de la empresa: personas (contactos) y empresas cliente, c
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/contact/getAll` | Todos (comercial: los suyos) | Contactos visibles |
-| GET | `/api/contact/filtered` | Todos (comercial: los suyos) | Listado filtrado y paginado ([filtrado](filtrado.md)) |
-| POST | `/api/contact/create` | Todos | Crea un contacto |
-| PATCH | `/api/contact/update/:id` | Todos (comercial: los suyos) | Modifica un contacto |
-| POST | `/api/contact/delete/:id` | Gestión | Borrado suave |
-| GET | `/api/companyContact/getAll` | Todos (comercial: las suyas) | Empresas cliente visibles |
-| GET | `/api/companyContact/filtered` | Todos (comercial: las suyas) | Listado filtrado y paginado |
-| POST | `/api/companyContact/create` | Todos | Crea una empresa cliente |
-| PATCH | `/api/companyContact/update/:id` | Todos (comercial: las suyas) | Modifica una empresa cliente |
-| POST | `/api/companyContact/delete/:id` | Gestión | Borrado suave, sin contactos activos |
+| GET | `/api/v1/contacts` | Todos (comercial: los suyos) | Contactos visibles |
+| GET | `/api/v1/contacts/search` | Todos (comercial: los suyos) | Listado filtrado y paginado ([filtrado](filtrado.md)) |
+| POST | `/api/v1/contacts` | Todos | Crea un contacto |
+| PATCH | `/api/v1/contacts/:id` | Todos (comercial: los suyos) | Modifica un contacto |
+| DELETE | `/api/v1/contacts/:id` | Gestión | Borrado suave |
+| GET | `/api/v1/company-contacts` | Todos (comercial: las suyas) | Empresas cliente visibles |
+| GET | `/api/v1/company-contacts/search` | Todos (comercial: las suyas) | Listado filtrado y paginado |
+| POST | `/api/v1/company-contacts` | Todos | Crea una empresa cliente |
+| PATCH | `/api/v1/company-contacts/:id` | Todos (comercial: las suyas) | Modifica una empresa cliente |
+| DELETE | `/api/v1/company-contacts/:id` | Gestión | Borrado suave, sin contactos activos |
 
 ## Ejemplos
 ### Crear un contacto
 Petición:
 ```http
-POST /api/contact/create
+POST /api/v1/contacts
 Content-Type: application/json
 
 {
@@ -59,7 +59,7 @@ Errores: `400 VALIDATION_FAILED`, `400 INVALID_COMPANY_CONTACT`, `400 OWNER_NOT_
 ### Crear una empresa cliente
 Petición:
 ```http
-POST /api/companyContact/create
+POST /api/v1/company-contacts
 Content-Type: application/json
 
 { "name": "Constructora El Roble SAS", "taxNumber": "900.123.456-7", "city": "Medellín" }

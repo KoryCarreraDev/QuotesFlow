@@ -57,7 +57,7 @@ describe('Rastro de auditoría', () => {
         response =
           route.method === 'PATCH'
             ? await request(app).patch(path).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
-            : await request(app).post(path).set('Cookie', ownerCookie);
+            : await request(app).delete(path).set('Cookie', ownerCookie);
       }
 
       expect(response.status).toBeLessThan(FIRST_NON_SUCCESS_STATUS);

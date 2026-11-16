@@ -5,7 +5,7 @@ import { Role } from '../../src/domain/enums/Role.js';
 // El documento es lo que firma el responsable de seguridad, así que nunca se edita a mano.
 
 const actionDescriptions: Record<Action, string> = {
-  [Action.LEAD_LIST]: 'Listar leads (`getAll`, `filtered`)',
+  [Action.LEAD_LIST]: 'Listar leads (`GET /leads`, `GET /leads/search`)',
   [Action.LEAD_CREATE]: 'Crear un lead',
   [Action.LEAD_ASSIGN_TO_OTHERS]: 'Al crear, asignar el lead a otro usuario de la empresa',
   [Action.LEAD_UPDATE]: 'Modificar un lead',
@@ -70,7 +70,7 @@ export function renderPermissionMatrixDocument(): string {
     '',
     '- Un `SALES_REP` que crea un lead queda como su responsable aunque envíe otro `assignedToId`.',
     '- Un `SALES_REP` que modifica su lead no puede cambiar el responsable: el `assignedToId` que envíe se ignora.',
-    '- En `GET /api/lead/filtered`, a un `SALES_REP` se le descarta cualquier filtro por `assignedToId` y se le fuerza el suyo; en los listados de contactos y empresas cliente, lo mismo con `ownerId`.',
+    '- En `GET /api/v1/leads/search`, a un `SALES_REP` se le descarta cualquier filtro por `assignedToId` y se le fuerza el suyo; en los listados de contactos y empresas cliente, lo mismo con `ownerId`.',
     '- Un `SALES_REP` que crea un contacto o una empresa cliente queda como su responsable; solo puede vincular un contacto a una empresa cliente de la que es responsable.',
     '- Los clientes sin responsable (anteriores a F1-T17) solo los ven los roles de gestión hasta que se asignen (Q-005).',
     '',

@@ -32,7 +32,7 @@ describe('API de leads', () => {
     salesRepCookie = sessionCookieFor(company.salesRep);
   });
 
-  describe('POST /api/lead/create', () => {
+  describe('POST /api/v1/leads', () => {
     it('crea el lead en la empresa del usuario con el estado predeterminado y responde 201', async () => {
       const response = await request(app).post(apiPaths.leads.create).set('Cookie', ownerCookie).send({
         contactName: 'Ana Gómez',
@@ -108,7 +108,7 @@ describe('API de leads', () => {
     });
   });
 
-  describe('GET /api/lead/getAll', () => {
+  describe('GET /api/v1/leads', () => {
     it('un dueño ve todos los leads activos de su empresa', async () => {
       const assignedLead = await persistLead(company.tenant.id, { assignedToId: company.salesRep.id });
       const unassignedLead = await persistLead(company.tenant.id);
@@ -131,7 +131,7 @@ describe('API de leads', () => {
     });
   });
 
-  describe('PATCH /api/lead/update/:id', () => {
+  describe('PATCH /api/v1/leads/:id', () => {
     it('actualiza los campos enviados y conserva el resto', async () => {
       const lead = await persistLead(company.tenant.id, { contactName: 'Ana Gómez', phone: '3001234567' });
 
@@ -213,11 +213,11 @@ describe('API de leads', () => {
     });
   });
 
-  describe('POST /api/lead/delete/:id', () => {
+  describe('DELETE /api/v1/leads/:id', () => {
     it('borra de forma suave: responde 200, el lead deja de listarse y la fila se conserva', async () => {
       const lead = await persistLead(company.tenant.id);
 
-      const deleteResponse = await request(app).post(apiPaths.leads.delete(lead.id)).set('Cookie', ownerCookie);
+      const deleteResponse = await request(app).delete(apiPaths.leads.delete(lead.id)).set('Cookie', ownerCookie);
       const listResponse = await request(app).get(apiPaths.leads.getAll).set('Cookie', ownerCookie);
 
       expect(deleteResponse.status).toBe(HTTP_OK);
@@ -229,7 +229,7 @@ describe('API de leads', () => {
     it('un comercial no puede borrar el lead de otro comercial', async () => {
       const lead = await persistLead(company.tenant.id, { assignedToId: company.otherSalesRep.id });
 
-      const response = await request(app).post(apiPaths.leads.delete(lead.id)).set('Cookie', salesRepCookie);
+      const response = await request(app).delete(apiPaths.leads.delete(lead.id)).set('Cookie', salesRepCookie);
 
       expect(response.status).toBeGreaterThanOrEqual(HTTP_BAD_REQUEST);
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } });
@@ -242,7 +242,9 @@ describe('API de leads', () => {
         notes: 'Nota original',
       });
 
-      const deleteResponse = await request(app).post(apiPaths.leads.delete(deletedLead.id)).set('Cookie', ownerCookie);
+      const deleteResponse = await request(app)
+        .delete(apiPaths.leads.delete(deletedLead.id))
+        .set('Cookie', ownerCookie);
       const updateResponse = await request(app)
         .patch(apiPaths.leads.update(deletedLead.id))
         .set('Cookie', ownerCookie)
@@ -255,7 +257,7 @@ describe('API de leads', () => {
     });
   });
 
-  describe('GET /api/lead/filtered', () => {
+  describe('GET /api/v1/leads/search', () => {
     it('responde con datos, total, página y límite', async () => {
       await persistLead(company.tenant.id);
       await persistLead(company.tenant.id);

@@ -70,7 +70,7 @@ describe('ciclo de vida de los estados de lead', () => {
     const contacted = statusNamed('Contactado');
 
     const deletion = await request(app)
-      .post(apiPaths.leadStatusConfigs.delete(contacted.id))
+      .delete(apiPaths.leadStatusConfigs.delete(contacted.id))
       .set('Cookie', ownerCookie);
     const creation = await request(app)
       .post(apiPaths.leadStatusConfigs.create)
@@ -86,7 +86,7 @@ describe('ciclo de vida de los estados de lead', () => {
     await persistLead(company.tenant.id, { statusId: contacted.id });
 
     const response = await request(app)
-      .post(apiPaths.leadStatusConfigs.delete(contacted.id))
+      .delete(apiPaths.leadStatusConfigs.delete(contacted.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_CONFLICT);
@@ -95,7 +95,7 @@ describe('ciclo de vida de los estados de lead', () => {
 
   it('el estado predeterminado no se borra: 409', async () => {
     const response = await request(app)
-      .post(apiPaths.leadStatusConfigs.delete(company.defaultLeadStatus.id))
+      .delete(apiPaths.leadStatusConfigs.delete(company.defaultLeadStatus.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_CONFLICT);

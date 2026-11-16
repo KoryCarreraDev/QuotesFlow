@@ -22,15 +22,15 @@ Un mismo motor de búsqueda, filtros, orden y paginación para todos los listado
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/lead/filtered` | Todos (alcance por rol) | Leads |
-| GET | `/api/contact/filtered` | Todos (alcance por rol) | Contactos |
-| GET | `/api/companyContact/filtered` | Todos (alcance por rol) | Empresas cliente |
+| GET | `/api/v1/leads/search` | Todos (alcance por rol) | Leads |
+| GET | `/api/v1/contacts/search` | Todos (alcance por rol) | Contactos |
+| GET | `/api/v1/company-contacts/search` | Todos (alcance por rol) | Empresas cliente |
 
 ## Ejemplos
 ### Leads de un estado con valor mínimo, más recientes primero
 Petición (los parámetros van codificados en la URL):
 ```http
-GET /api/lead/filtered?search=vidrio&filters=[{"field":"statusId","operator":"equals","value":"id-de-contactado"},{"field":"estimatedValue","operator":"gte","value":1000000}]&page=1&limit=20&sortBy=createdAt&sortDir=desc
+GET /api/v1/leads/search?search=vidrio&filters=[{"field":"statusId","operator":"equals","value":"id-de-contactado"},{"field":"estimatedValue","operator":"gte","value":1000000}]&page=1&limit=20&sortBy=createdAt&sortDir=desc
 ```
 Respuesta `200`:
 ```json

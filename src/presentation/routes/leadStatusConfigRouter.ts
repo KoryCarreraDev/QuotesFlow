@@ -29,41 +29,36 @@ export function leadStatusConfigRouter(jwtService: IAuthTokenService): Router {
   const authMiddleware = createAuthValidateCookie(jwtService);
   const tenantMiddleware = createTenantMiddleware();
 
-  router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadStatusConfigController(req).getAll(req, res, next);
   });
 
-  router.post(
-    '/create',
-    authMiddleware,
-    tenantMiddleware,
-    validateBody(createLeadStatusConfigSchema),
-    (req, res, next) => {
-      getLeadStatusConfigController(req).create(req, res, next);
-    },
-  );
+  router.post('/', authMiddleware, tenantMiddleware, validateBody(createLeadStatusConfigSchema), (req, res, next) => {
+    getLeadStatusConfigController(req).create(req, res, next);
+  });
 
-  router.patch(
-    '/update/:id',
-    authMiddleware,
-    tenantMiddleware,
-    validateBody(updateLeadStatusConfigSchema),
-    (req, res, next) => {
-      getLeadStatusConfigController(req).update(req, res, next);
-    },
-  );
-
-  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.delete('/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadStatusConfigController(req).delete(req, res, next);
   });
 
+  // `/order` antes que `/:id`: si no, Express lo tomaría como el id de un estado.
   router.patch(
-    '/reorder',
+    '/order',
     authMiddleware,
     tenantMiddleware,
     validateBody(reorderLeadStatusConfigsSchema),
     (req, res, next) => {
       getLeadStatusConfigController(req).reorder(req, res, next);
+    },
+  );
+
+  router.patch(
+    '/:id',
+    authMiddleware,
+    tenantMiddleware,
+    validateBody(updateLeadStatusConfigSchema),
+    (req, res, next) => {
+      getLeadStatusConfigController(req).update(req, res, next);
     },
   );
 

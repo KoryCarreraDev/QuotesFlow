@@ -21,23 +21,23 @@ export function contactRouter(jwtService: IAuthTokenService): Router {
   const authMiddleware = createAuthValidateCookie(jwtService);
   const tenantMiddleware = createTenantMiddleware();
 
-  router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {
     getContactController(req).getAll(req, res, next);
   });
 
-  router.post('/create', authMiddleware, tenantMiddleware, validateBody(createContactSchema), (req, res, next) => {
+  router.post('/', authMiddleware, tenantMiddleware, validateBody(createContactSchema), (req, res, next) => {
     getContactController(req).create(req, res, next);
   });
 
-  router.patch('/update/:id', authMiddleware, tenantMiddleware, validateBody(updateContactSchema), (req, res, next) => {
+  router.patch('/:id', authMiddleware, tenantMiddleware, validateBody(updateContactSchema), (req, res, next) => {
     getContactController(req).update(req, res, next);
   });
 
-  router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/search', authMiddleware, tenantMiddleware, (req, res, next) => {
     getContactController(req).getFiltered(req, res, next);
   });
 
-  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.delete('/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
     getContactController(req).delete(req, res, next);
   });
 

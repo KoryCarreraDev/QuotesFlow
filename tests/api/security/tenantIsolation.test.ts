@@ -55,7 +55,7 @@ describe('Aislamiento por tenant', () => {
 
   describe('lectura: los listados solo contienen datos de la empresa del usuario', () => {
     it.each([
-      { routeName: 'GET /api/lead/getAll', path: apiPaths.leads.getAll },
+      { routeName: 'GET /api/v1/leads', path: apiPaths.leads.getAll },
       { routeName: 'GET /api/contact/getAll', path: apiPaths.contacts.getAll },
       { routeName: 'GET /api/companyContact/getAll', path: apiPaths.companyContacts.getAll },
     ])('$routeName no devuelve registros de otra empresa', async ({ path }) => {
@@ -66,7 +66,7 @@ describe('Aislamiento por tenant', () => {
     });
 
     it.each([
-      { routeName: 'GET /api/lead/filtered', path: apiPaths.leads.filtered },
+      { routeName: 'GET /api/v1/leads/search', path: apiPaths.leads.filtered },
       { routeName: 'GET /api/contact/filtered', path: apiPaths.contacts.filtered },
       { routeName: 'GET /api/companyContact/filtered', path: apiPaths.companyContacts.filtered },
     ])('$routeName no devuelve ni cuenta registros de otra empresa', async ({ path }) => {
@@ -77,7 +77,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.body.total).toBe(0);
     });
 
-    it('GET /api/lead/filtered no alcanza leads de otra empresa aunque se filtre por su estado o su responsable', async () => {
+    it('GET /api/v1/leads/search no alcanza leads de otra empresa aunque se filtre por su estado o su responsable', async () => {
       const response = await request(app)
         .get(apiPaths.leads.filtered)
         .query({
@@ -92,7 +92,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.body.total).toBe(0);
     });
 
-    it('GET /api/leadStatusConfig/getAll solo devuelve los estados de la empresa del usuario', async () => {
+    it('GET /api/v1/lead-statuses solo devuelve los estados de la empresa del usuario', async () => {
       const response = await request(app).get(apiPaths.leadStatusConfigs.getAll).set('Cookie', intruderCookie);
 
       const returnedStatusIds = response.body.map((status: { id: string }) => status.id).sort();
@@ -101,7 +101,7 @@ describe('Aislamiento por tenant', () => {
   });
 
   describe('escritura: no se puede modificar un recurso de otra empresa conociendo su id', () => {
-    it('PATCH /api/lead/update/:id no modifica el lead', async () => {
+    it('PATCH /api/v1/leads/:id no modifica el lead', async () => {
       const response = await request(app)
         .patch(apiPaths.leads.update(victimLeadId))
         .set('Cookie', intruderCookie)
@@ -112,15 +112,15 @@ describe('Aislamiento por tenant', () => {
       expect(storedLead.notes).toBe('Nota original');
     });
 
-    it('POST /api/lead/delete/:id no borra el lead', async () => {
-      const response = await request(app).post(apiPaths.leads.delete(victimLeadId)).set('Cookie', intruderCookie);
+    it('DELETE /api/v1/leads/:id no borra el lead', async () => {
+      const response = await request(app).delete(apiPaths.leads.delete(victimLeadId)).set('Cookie', intruderCookie);
 
       expect(response.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: victimLeadId } });
       expect(storedLead.deleted).toBe(DeletedState.ACTIVE);
     });
 
-    it('PATCH /api/contact/update/:id no modifica el contacto', async () => {
+    it('PATCH /api/v1/contacts/:id no modifica el contacto', async () => {
       const response = await request(app)
         .patch(apiPaths.contacts.update(victimContactId))
         .set('Cookie', intruderCookie)
@@ -131,7 +131,7 @@ describe('Aislamiento por tenant', () => {
       expect(storedContact.lastName).toBe('Confidencial');
     });
 
-    it('PATCH /api/companyContact/update/:id no modifica la empresa cliente', async () => {
+    it('PATCH /api/v1/company-contacts/:id no modifica la empresa cliente', async () => {
       const response = await request(app)
         .patch(apiPaths.companyContacts.update(victimCompanyContactId))
         .set('Cookie', intruderCookie)
@@ -144,7 +144,7 @@ describe('Aislamiento por tenant', () => {
       expect(storedCompanyContact.name).toBe('Cliente Confidencial');
     });
 
-    it('PATCH /api/leadStatusConfig/update/:id no modifica el estado', async () => {
+    it('PATCH /api/v1/lead-statuses/:id no modifica el estado', async () => {
       const response = await request(app)
         .patch(apiPaths.leadStatusConfigs.update(victimLeadStatusId))
         .set('Cookie', intruderCookie)
@@ -155,7 +155,7 @@ describe('Aislamiento por tenant', () => {
       expect(storedStatus).toMatchObject({ name: 'Nuevo', isDefault: true });
     });
 
-    it('POST /api/lead/create no acepta un estado de otra empresa', async () => {
+    it('POST /api/v1/leads no acepta un estado de otra empresa', async () => {
       const response = await request(app)
         .post(apiPaths.leads.create)
         .set('Cookie', intruderCookie)
@@ -165,7 +165,7 @@ describe('Aislamiento por tenant', () => {
       await expect(prisma.lead.count({ where: { tenantId: intruderCompany.tenant.id } })).resolves.toBe(0);
     });
 
-    it('POST /api/lead/create no acepta como responsable a un usuario de otra empresa', async () => {
+    it('POST /api/v1/leads no acepta como responsable a un usuario de otra empresa', async () => {
       const response = await request(app)
         .post(apiPaths.leads.create)
         .set('Cookie', intruderCookie)
@@ -177,7 +177,7 @@ describe('Aislamiento por tenant', () => {
   });
 
   describe('respuesta: un recurso de otra empresa se trata como inexistente (404)', () => {
-    it('PATCH /api/lead/update/:id responde 404', async () => {
+    it('PATCH /api/v1/leads/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.leads.update(victimLeadId))
         .set('Cookie', intruderCookie)
@@ -186,13 +186,13 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    it('POST /api/lead/delete/:id responde 404', async () => {
-      const response = await request(app).post(apiPaths.leads.delete(victimLeadId)).set('Cookie', intruderCookie);
+    it('DELETE /api/v1/leads/:id responde 404', async () => {
+      const response = await request(app).delete(apiPaths.leads.delete(victimLeadId)).set('Cookie', intruderCookie);
 
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    it('PATCH /api/contact/update/:id responde 404', async () => {
+    it('PATCH /api/v1/contacts/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.contacts.update(victimContactId))
         .set('Cookie', intruderCookie)
@@ -201,7 +201,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    it('PATCH /api/companyContact/update/:id responde 404', async () => {
+    it('PATCH /api/v1/company-contacts/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.companyContacts.update(victimCompanyContactId))
         .set('Cookie', intruderCookie)
@@ -210,7 +210,7 @@ describe('Aislamiento por tenant', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    it('PATCH /api/leadStatusConfig/update/:id responde 404', async () => {
+    it('PATCH /api/v1/lead-statuses/:id responde 404', async () => {
       const response = await request(app)
         .patch(apiPaths.leadStatusConfigs.update(victimLeadStatusId))
         .set('Cookie', intruderCookie)

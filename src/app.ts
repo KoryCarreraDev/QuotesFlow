@@ -64,11 +64,13 @@ app.get(
   createReadinessHandler(() => isDatabaseReachable(prismaClient, appLogger)),
 );
 
-app.use('/api/auth', authRateLimiter, authRouter(publicContainer));
-app.use('/api/lead', leadRouter(jwtService));
-app.use('/api/contact', contactRouter(jwtService));
-app.use('/api/companyContact', companyContactRouter(jwtService));
-app.use('/api/leadStatusConfig', leadStatusConfigRouter(jwtService));
+// API REST versionada (D-06, F1-T11). Las sondas /health y /ready quedan fuera: son del orquestador.
+const API_BASE_PATH = '/api/v1';
+app.use(`${API_BASE_PATH}/auth`, authRateLimiter, authRouter(publicContainer));
+app.use(`${API_BASE_PATH}/leads`, leadRouter(jwtService));
+app.use(`${API_BASE_PATH}/contacts`, contactRouter(jwtService));
+app.use(`${API_BASE_PATH}/company-contacts`, companyContactRouter(jwtService));
+app.use(`${API_BASE_PATH}/lead-statuses`, leadStatusConfigRouter(jwtService));
 
 // Errores: siempre al final, después de todas las rutas (H5).
 app.use(createRouteNotFoundHandler());

@@ -30,10 +30,10 @@ describe('borrado de contactos y empresas cliente', () => {
     ownerCookie = sessionCookieFor(company.owner);
   });
 
-  it('POST /api/contact/delete/:id borra de forma suave: deja de listarse y la fila se conserva', async () => {
+  it('DELETE /api/v1/contacts/:id borra de forma suave: deja de listarse y la fila se conserva', async () => {
     const contact = await persistContact(company.tenant.id);
 
-    const response = await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    const response = await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
     const listResponse = await request(app).get(apiPaths.contacts.getAll).set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_OK);
@@ -44,9 +44,9 @@ describe('borrado de contactos y empresas cliente', () => {
 
   it('borrar dos veces el mismo contacto responde 404 la segunda vez', async () => {
     const contact = await persistContact(company.tenant.id);
-    await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
 
-    const response = await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    const response = await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);
   });
@@ -55,17 +55,17 @@ describe('borrado de contactos y empresas cliente', () => {
     const contact = await persistContact(company.tenant.id);
 
     const response = await request(app)
-      .post(apiPaths.contacts.delete(contact.id))
+      .delete(apiPaths.contacts.delete(contact.id))
       .set('Cookie', sessionCookieFor(company.salesRep));
 
     expect(response.status).toBe(HTTP_FORBIDDEN);
   });
 
-  it('POST /api/companyContact/delete/:id borra una empresa cliente sin contactos', async () => {
+  it('DELETE /api/v1/company-contacts/:id borra una empresa cliente sin contactos', async () => {
     const companyContact = await persistCompanyContact(company.tenant.id);
 
     const response = await request(app)
-      .post(apiPaths.companyContacts.delete(companyContact.id))
+      .delete(apiPaths.companyContacts.delete(companyContact.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_OK);
@@ -78,7 +78,7 @@ describe('borrado de contactos y empresas cliente', () => {
     await persistContact(company.tenant.id, { companyId: companyContact.id });
 
     const response = await request(app)
-      .post(apiPaths.companyContacts.delete(companyContact.id))
+      .delete(apiPaths.companyContacts.delete(companyContact.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_CONFLICT);
