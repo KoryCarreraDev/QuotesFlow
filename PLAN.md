@@ -31,6 +31,7 @@ Alcance acordado: **solo backend** (la API entrega datos listos para graficar y 
 | R12 | **Documentación obligatoria.** Cada módulo entrega `docs/modulos/<modulo>.md` (propósito, reglas de negocio, endpoints, ejemplos de petición y respuesta) en el mismo PR. Puertos, casos de uso y entidades llevan JSDoc. Sin documentación no hay merge. |
 | R13 | **Código autodocumentado obligatorio.** Nombres completos, obvios y sin abreviaturas ni genéricos (`data`, `tmp`, `leadmap`, `rolUser`). Funciones cortas con un solo propósito y un nombre que dice qué hacen. Sin números ni cadenas mágicas: constantes con nombre o enums. Sin `any`. Los comentarios explican el porqué (regla de negocio, decisión de seguridad, caso límite), nunca repiten lo que el código ya dice. Prohibido dejar código comentado. Lo verifican lint y la revisión. |
 | R14 | **Las dudas van a `QUESTION.md`.** Un modelo con una duda o pregunta no supone ni inventa: la escribe en `QUESTION.md` con el formato de ese archivo y sigue con otra tarea si la duda bloquea. Las preguntas no se borran; se responden en las rondas de dudas. |
+| R15 | **Versionamiento con git y github.** Todos los cambios confirmados y testeados se suben a github segun su rama, se realiza un push (Todos los push son pequeños por seguridad y facilidad de validación humana), todo será revisado por humanos si y solo si pasan todos los test unitarios. (En comentario del commit agregar el por qué y para qué del codigo adjunto al commit) |
 
 ---
 
