@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T05-security-route-coverage` (apilada sobre F1-T01 a F1-T04 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T06-http-hardening` (apilada sobre F1-T01 a F1-T05 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 701 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 726 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -46,7 +46,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 ## 3. Stack
 
-TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `package.json`, `.nvmrc` = 24.18.0, imagen `node:24.18.0-slim` fijada por digest) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors · compression · express-rate-limit (100 req/15 min global) · pnpm · Docker Compose · tsx + nodemon en dev.
+TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `package.json`, `.nvmrc` = 24.18.0, imagen `node:24.18.0-slim` fijada por digest) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors (lista blanca, F1-T06) · compression · express-rate-limit (por IP cada 15 min: 100 global y 10 en `/api/auth`, configurables) · pnpm · Docker Compose · tsx + nodemon en dev.
 
 **Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
 
@@ -200,7 +200,9 @@ Migraciones: `init` (2026-07-10) y `add_deleted_to_models` (2026-09-01).
 
 ## 8. API implementada
 
-Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`). Rate limit global 100/15 min.
+Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
+
+**Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). Piezas: `src/infrastructure/web/httpSecurity.ts`.
 
 | Método | Ruta | Body / Query |
 |---|---|---|
@@ -296,6 +298,10 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `JWT_SECRET` | Al menos 32 caracteres (H1) | Ninguno: obligatoria |
 | `JWT_EXPIRATION` | Número + unidad (`ms`, `s`, `m`, `h`, `d`, `w`, `y`), p. ej. `15m` | `7d` |
 | `PORT` | Entero entre 1 y 65535 | `4000` |
+| `CORS_ALLOWED_ORIGINS` | Orígenes exactos separados por comas (`https://app.ejemplo.com`); nunca `*` | Vacío: ningún origen |
+| `TRUST_PROXY` | Número entero de proxies de confianza | `0` |
+| `RATE_LIMIT_GLOBAL_MAX_REQUESTS` | Entero positivo | `100` |
+| `RATE_LIMIT_AUTH_MAX_REQUESTS` | Entero positivo | `10` |
 
 Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
@@ -335,8 +341,8 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 16 (H2, H3, H4, H7, H9, H10, H11, H14, H15 y F1-T14), listados en `tests/README.md`. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02.
-- **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 14 (H2, H3, H7, H9, H10, H11, H15 y F1-T14), listados en `tests/README.md`. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
+- **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/auth` (los tests suben ese cupo desde 10).
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
 ---
@@ -358,3 +364,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T03 | pendiente | Puerto `ITransactionManager` y adaptador `PrismaTransactionManager` (`$transaction` interactivo + `AsyncLocalStorage`); `BasePrismaRepository.prisma` usa la transacción abierta. Registro atómico (H8): empresa, dueño y estados en una transacción, con bcrypt fuera. `PrismaUserRepository.create` traduce el correo duplicado (P2002) a 409. 12 tests nuevos (unitarios, integración contra PostgreSQL y API con fallo simulado y registros simultáneos). La construcción del caso de uso en `unit/application/use-case/auth.test.ts` recibe el nuevo parámetro. |
 | 2026-11-16 | F1-T04 | pendiente | Políticas de autorización centralizadas (H12): `permissionMatrix`, `can` y `scopeFor` en `src/application/policies/authorizationPolicy.ts`; los casos de uso de leads y estados y el filtrado de leads dejan de comparar roles. Deniega por defecto (rol desconocido, `own` sin usuario). Antes un `SALES_REP` sin `userId` habría visto todos los leads. `docs/security/matriz-permisos.md` generado con `pnpm docs:permissions` (`scripts/docs/`) y comprobado por test. 66 tests nuevos (sobre todo combinaciones rol × acción); la matriz de roles de la API pasa sin cambios. |
 | 2026-11-16 | F1-T05 | pendiente | Suites de seguridad sobre todo el inventario de rutas (R5): `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts`, con escenarios por ruta en `tests/support/http/routeSecurityScenarios.ts`. La suite falla si una ruta protegida no tiene escenario o si un escenario apunta a una ruta que ya no existe. Lo esperado por rol sale de `permissionMatrix`. 82 tests nuevos; sin cambios en `src/`. |
+| 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |

@@ -120,7 +120,7 @@ Lista obligatoria (el inventario de rutas hace fallar la suite si olvidas el pri
 1. Declarar la ruta en `apiPaths` y en `routeInventory` (`support/http/apiRoutes.ts`). Con eso entra sola en `api/security/authentication.test.ts` (401 sin sesión, token falsificado).
 2. Declarar su escenario en `support/http/routeSecurityScenarios.ts`: la acción de `permissionMatrix` que la autoriza, el recurso y la operación (`list`, `create`, `update`, `delete`). Sin escenario, `api/security/routeCoverageTenantIsolation.test.ts` falla (F1-T05). Con él, la ruta entra sola en las dos suites de cobertura: aislamiento entre empresas y permisos de cada rol según la matriz.
 3. Si tiene reglas de negocio propias por tenant o por rol (qué campos se ignoran, qué ve cada uno), añadir esos casos concretos a `api/security/tenantIsolation.test.ts` y `api/security/roles.test.ts`.
-   Cada archivo de API admite como mucho 100 peticiones (limitador global); `routeCoverageRoles.test.ts` usa 84 con 16 rutas. Si una ruta nueva lo supera, separar las rutas en dos archivos.
+   Cada archivo de API admite como mucho 100 peticiones (limitador global) y 50 a `/api/auth` (en los tests `RATE_LIMIT_AUTH_MAX_REQUESTS=50`, fijado en `setup/testEnvironment.setup.ts`); `routeCoverageRoles.test.ts` usa 84 con 16 rutas. Si una ruta nueva lo supera, separar las rutas en dos archivos.
 4. Puerto nuevo en `application/ports`: su doble en `support/doubles/`.
 5. Entidad nueva: su constructor en `entityBuilders.ts` y su fábrica en `persistenceFactories.ts`.
 6. Tests unitarios del caso de uso, de integración del repositorio y de API del endpoint (R1).
@@ -140,18 +140,16 @@ $env:SHOW_KNOWN_DEFECTS = '1'; pnpm test             # PowerShell
 
 No uses `itKnownDefect` para esquivar un test que no consigues hacer pasar. Solo vale para un hallazgo registrado en `PLAN.md` o en una auditoría, y hay que añadirlo a esta tabla.
 
-Corregidos y convertidos en regresión: H5 (13 tests, F1-T02) y la parte de H11 del campo no permitido (1 test, F1-T02).
+Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06).
 
 | Hallazgo | Comportamiento esperado | Tests | Dónde |
 |---|---|---|---|
 | H2 | Un usuario desactivado o con el rol cambiado pierde los permisos de su token ya emitido | 2 | `api/security/authentication.test.ts`, `api/security/roles.test.ts` |
 | H3 | No inicia sesión un usuario desactivado, borrado o de una empresa borrada | 3 | `api/auth.test.ts` |
-| H4 | CORS no autoriza cualquier origen | 1 | `api/security/hardening.test.ts` |
 | H7 | Contraseña mínima de 12 caracteres (D-11) | 1 | `unit/presentation/schemas.test.ts` |
 | H9 | No se asigna un lead a un usuario de otra empresa ni un contacto a una empresa cliente de otro tenant | 2 | `api/leads.test.ts`, `api/contacts.test.ts` |
 | H10 | Contactos y empresas cliente borrados no se leen ni se modifican | 3 | `integration/repositories/PrismaContactRepositories.test.ts`, `api/contacts.test.ts` |
 | H11 | Un filtro con un valor de tipo incorrecto responde 400 (el campo no permitido ya responde 400 desde F1-T02) | 1 | `api/leads.test.ts` |
-| H14 | Cuerpo mayor de 100 kb rechazado con 413 | 1 | `api/security/hardening.test.ts` |
 | H15 | Toda tabla de negocio tiene `tenantId` | 1 | `integration/schema/databaseSchema.test.ts` |
 | F1-T14 | Si falla crear un estado predeterminado (orden repetido), la empresa conserva su predeterminado anterior. Hoy se queda sin ninguno | 1 | `api/leadStatusConfig.test.ts` |
 

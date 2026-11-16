@@ -10,6 +10,10 @@ const TOO_SHORT_JWT_SECRET = 's'.repeat(MINIMUM_JWT_SECRET_LENGTH - 1);
 const DEFAULT_PORT = 4000;
 const CUSTOM_PORT = 8080;
 const PORT_ABOVE_RANGE = '70000';
+const DEFAULT_GLOBAL_RATE_LIMIT = 100;
+const DEFAULT_AUTH_RATE_LIMIT = 10;
+const TWO_PROXY_HOPS = 2;
+const CUSTOM_AUTH_RATE_LIMIT = 25;
 
 const validVariables = {
   NODE_ENV: 'production',
@@ -43,6 +47,10 @@ describe('parseEnvironment', () => {
       DATABASE_URL: validVariables.DATABASE_URL,
       JWT_SECRET: VALID_JWT_SECRET,
       JWT_EXPIRATION: '15m',
+      CORS_ALLOWED_ORIGINS: [],
+      TRUST_PROXY: 0,
+      RATE_LIMIT_GLOBAL_MAX_REQUESTS: DEFAULT_GLOBAL_RATE_LIMIT,
+      RATE_LIMIT_AUTH_MAX_REQUESTS: DEFAULT_AUTH_RATE_LIMIT,
     });
   });
 
@@ -123,6 +131,66 @@ describe('parseEnvironment', () => {
 
     it('rechaza un número sin unidad, que jsonwebtoken leería como milisegundos', () => {
       expect(invalidVariablesOf({ JWT_EXPIRATION: '3600' })).toEqual(['JWT_EXPIRATION']);
+    });
+  });
+
+  describe('CORS_ALLOWED_ORIGINS (H4)', () => {
+    it('sin definir no autoriza ningún origen', () => {
+      expect(parseEnvironment(validVariables).CORS_ALLOWED_ORIGINS).toEqual([]);
+    });
+
+    it('acepta una lista de orígenes separados por comas, ignorando espacios', () => {
+      const environment = parseEnvironment({
+        ...validVariables,
+        CORS_ALLOWED_ORIGINS: 'https://app.quotesflow.co, http://localhost:5173',
+      });
+
+      expect(environment.CORS_ALLOWED_ORIGINS).toEqual(['https://app.quotesflow.co', 'http://localhost:5173']);
+    });
+
+    it.each(['*', 'https://app.quotesflow.co/', 'https://app.quotesflow.co/login', 'app.quotesflow.co'])(
+      'rechaza %s: solo se admiten orígenes exactos (esquema y host, sin ruta)',
+      (invalidOrigin) => {
+        expect(invalidVariablesOf({ CORS_ALLOWED_ORIGINS: invalidOrigin })).toEqual(['CORS_ALLOWED_ORIGINS']);
+      },
+    );
+  });
+
+  describe('TRUST_PROXY (H6)', () => {
+    it('por defecto no confía en ningún proxy, para que X-Forwarded-For no cambie la IP del cliente', () => {
+      expect(parseEnvironment(validVariables).TRUST_PROXY).toBe(0);
+    });
+
+    it('acepta el número de proxies de confianza delante de la API', () => {
+      expect(parseEnvironment({ ...validVariables, TRUST_PROXY: String(TWO_PROXY_HOPS) }).TRUST_PROXY).toBe(
+        TWO_PROXY_HOPS,
+      );
+    });
+
+    it.each(['true', '-1', '1.5'])('rechaza %s: tiene que ser un número entero de saltos', (invalidValue) => {
+      expect(invalidVariablesOf({ TRUST_PROXY: invalidValue })).toEqual(['TRUST_PROXY']);
+    });
+  });
+
+  describe('límites de tasa (H6)', () => {
+    it('por defecto: 100 peticiones globales y 10 de autenticación por ventana', () => {
+      const environment = parseEnvironment(validVariables);
+
+      expect(environment.RATE_LIMIT_GLOBAL_MAX_REQUESTS).toBe(DEFAULT_GLOBAL_RATE_LIMIT);
+      expect(environment.RATE_LIMIT_AUTH_MAX_REQUESTS).toBe(DEFAULT_AUTH_RATE_LIMIT);
+    });
+
+    it('acepta otro valor', () => {
+      expect(
+        parseEnvironment({ ...validVariables, RATE_LIMIT_AUTH_MAX_REQUESTS: String(CUSTOM_AUTH_RATE_LIMIT) })
+          .RATE_LIMIT_AUTH_MAX_REQUESTS,
+      ).toBe(CUSTOM_AUTH_RATE_LIMIT);
+    });
+
+    it.each(['0', 'unlimited'])('rechaza %s: un límite tiene que ser un entero positivo', (invalidValue) => {
+      expect(invalidVariablesOf({ RATE_LIMIT_AUTH_MAX_REQUESTS: invalidValue })).toEqual([
+        'RATE_LIMIT_AUTH_MAX_REQUESTS',
+      ]);
     });
   });
 

@@ -97,6 +97,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-011 · Cupos de los límites de tasa
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1-T06, H6
+- **Bloquea:** No
+- **Pregunta:** ¿Qué cupos por IP y ventana de 15 minutos se usan en producción?
+- **Contexto:** F1-T06 deja un límite global y otro, más bajo, para `/api/auth` (login y registro), configurables con `RATE_LIMIT_GLOBAL_MAX_REQUESTS` y `RATE_LIMIT_AUTH_MAX_REQUESTS` (`src/config/env.ts`). Por defecto, 100 y 10. Una oficina con muchos comerciales detrás de una misma IP pública comparte cupo; el bloqueo por cuenta llega en F2-T03.
+- **Opciones:** a) 100 global y 10 en autenticación. b) Otros valores (indicar cuáles).
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas
