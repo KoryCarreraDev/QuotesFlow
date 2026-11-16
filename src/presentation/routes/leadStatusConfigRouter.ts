@@ -9,9 +9,9 @@ import { createLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.
 import { updateLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
 
 function getLeadStatusConfigController(req: Request): leadStatusConfigControllers {
-  const getLeadsStatusUseCase = req.container!.getGetLeadStatusConfigUseCase();
-  const createLeadStatusConfigUseCase = req.container!.getCreateLeadStatusConfigUseCase();
-  const updateLeadStatusConfigUseCase = req.container!.getUpdateLeadStatusConfigUseCase();
+  const getLeadsStatusUseCase = req.container!.leadStatuses.getGetLeadStatusConfigUseCase();
+  const createLeadStatusConfigUseCase = req.container!.leadStatuses.getCreateLeadStatusConfigUseCase();
+  const updateLeadStatusConfigUseCase = req.container!.leadStatuses.getUpdateLeadStatusConfigUseCase();
 
   return new leadStatusConfigControllers(
     getLeadsStatusUseCase,

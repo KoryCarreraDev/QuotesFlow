@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T08-health-and-shutdown` (apilada sobre F1-T01 a F1-T06 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T09-container-per-module` (apilada sobre F1-T01 a F1-T08 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 733 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 753 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -91,7 +91,7 @@ src/
   server.ts                  arranca app en env.PORT (default 4000) y registra el apagado ordenado (SIGTERM/SIGINT)
   app.ts                     middlewares globales + montaje de routers
   config/                    env.ts, database.ts
-  cross-cutting/             container.ts (ScopedContainer), tenantContext.ts
+  cross-cutting/             container.ts (ScopedContainer), modules/ (un módulo por área), tenantContext.ts
   domain/entities/           Tenant, User, Lead, LeadStatusConfig, Contact, CompanyContact
   domain/enums/              Role, DeletedState
   domain/errors/             ApplicationError + NotFound/Forbidden/Conflict/Validation/UnauthorizedError, ErrorCode
@@ -141,7 +141,7 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
   -> Controller -> UseCase -> Repository (extends BasePrismaRepository)
 ```
 
-- `ScopedContainer` (`cross-cutting/container.ts`): DI manual. `PrismaTransactionManager` se crea en el contenedor y se inyecta al caso de uso como `ITransactionManager`. Un método `get<X>UseCase()` por use case, que instancia repo + mapper + use case. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
+- `ScopedContainer` (`cross-cutting/container.ts`): DI manual, una instancia por petición. `PrismaTransactionManager` se crea en `AuthModule` y se inyecta al caso de uso como `ITransactionManager`. Desde F1-T09 se divide en módulos (`cross-cutting/modules/`): `container.auth`, `.leads`, `.leadStatuses`, `.contacts`, `.companyContacts`. Cada módulo tiene un método `get<X>UseCase()` por caso de uso, que instancia repositorio + mapper + caso de uso; las rutas los piden así: `req.container!.leads.getCreateLeadUseCase()`. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
 - `TenantContext` usa `AsyncLocalStorage`; `BasePrismaRepository.tenantId` lo lee.
 - **Transacciones (F1-T03).** El caso de uso envuelve sus escrituras en `ITransactionManager.runInTransaction(work)`. `PrismaTransactionManager` abre `prisma.$transaction` y guarda el cliente de la transacción en otro `AsyncLocalStorage`; `BasePrismaRepository.prisma` es un getter que devuelve ese cliente si hay transacción abierta y, si no, el raíz. Así los repositorios no reciben la transacción como parámetro. Una llamada anidada se une a la transacción exterior. Si `work` lanza, se revierte todo y se relanza el mismo error. No se hace trabajo lento dentro (bcrypt va antes).
 - `BasePrismaRepository` ofrece: `tenantWhere()` (= `{tenantId, deleted:'INUSE'}`), `buildFilterWhere()` (siempre agrega tenantId + `deleted:'INUSE'`), `buildPagination()`, `softDeleteRegister(model, id)` (update `deleted='DELETED'` + `updatedAt`, con `where {id, tenantId}`), `validateTenant()`, `withTenant()`.
@@ -270,7 +270,7 @@ Checklist (`[E]` = Entidad PascalCase, `[e]` = camelCase):
 6. `application/use-case/[e]s/` — get, create, update, (delete), listFiltered (type alias).
 7. `infrastructure/persistence/repositories/Prisma[E]Repository.ts` — extiende `BasePrismaRepository`; usa `tenantWhere()`; `findById` con `deleted:'INUSE'` y tenant; `delete` → `softDeleteRegister(this.prisma.[e], id)`.
 8. `infrastructure/persistence/filters/[e]FilterConfig.ts`.
-9. `cross-cutting/container.ts` — un `get…UseCase()` por use case.
+9. `cross-cutting/modules/[E]Module.ts` — un `get…UseCase()` por use case — y su propiedad en `cross-cutting/container.ts`.
 10. `infrastructure/web/controllers/[e]Controllers.ts` (`getAll`, `create`, `update`, `getFiltered`, …; roles se leen de `req.user`).
 11. `presentation/schemas/[e]Schema.ts` (Zod) y `presentation/routes/[e]Routes.ts` (patrón de `leadRoutes.ts`).
 12. `app.ts` — `app.use('/api/[e]', [e]Router(jwtService))`.
@@ -370,3 +370,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T05 | pendiente | Suites de seguridad sobre todo el inventario de rutas (R5): `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts`, con escenarios por ruta en `tests/support/http/routeSecurityScenarios.ts`. La suite falla si una ruta protegida no tiene escenario o si un escenario apunta a una ruta que ya no existe. Lo esperado por rol sale de `permissionMatrix`. 82 tests nuevos; sin cambios en `src/`. |
 | 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |
 | 2026-11-16 | F1-T08 | pendiente | `GET /ready` (la base de datos responde en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE` sin detalles) junto a `GET /health`, que no toca la base. Apagado ordenado en `server.ts` con `createGracefulShutdown`: deja de aceptar conexiones, termina las peticiones en curso, cierra Prisma y sale con 0; a los 10 s corta las conexiones y sale con 1. 7 tests nuevos; `/ready` añadida al inventario de rutas. |
+| 2026-11-16 | F1-T09 | pendiente | `ScopedContainer` dividido por módulo en `src/cross-cutting/modules/` (`AuthModule`, `LeadModule`, `LeadStatusModule`, `ContactModule`, `CompanyContactModule`, con `ModuleDependencies`); las rutas piden `req.container!.<módulo>.get…UseCase()`. Sin cambio de comportamiento. 20 tests nuevos del contenedor. |

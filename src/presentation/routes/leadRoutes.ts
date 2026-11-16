@@ -9,11 +9,11 @@ import { updateLeadSchema } from '../schemas/leadSchema.js';
 import { Request } from 'express';
 
 function getLeadController(req: Request): leadController {
-  const getLeadsUseCase = req.container!.getGetLeadsUseCase();
-  const listFilteredUseCase = req.container!.getListFilteredLeadsUseCase();
-  const createUseCase = req.container!.getCreateLeadUseCase();
-  const updateUseCase = req.container!.getUpdateLeadUseCase();
-  const deleteUseCase = req.container!.getDeleteLeadUseCase();
+  const getLeadsUseCase = req.container!.leads.getGetLeadsUseCase();
+  const listFilteredUseCase = req.container!.leads.getListFilteredLeadsUseCase();
+  const createUseCase = req.container!.leads.getCreateLeadUseCase();
+  const updateUseCase = req.container!.leads.getUpdateLeadUseCase();
+  const deleteUseCase = req.container!.leads.getDeleteLeadUseCase();
   return new leadController(getLeadsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
 }
 
