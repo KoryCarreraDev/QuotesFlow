@@ -1,0 +1,20 @@
+# Imagen de desarrollo (la usa docker-compose.yml). No es para producción: incluye devDependencies
+# y arranca con nodemon sobre el código montado. La de producción es `Dockerfile`.
+
+ARG NODE_IMAGE=node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
+FROM ${NODE_IMAGE}
+
+# Igual que `devEngines.packageManager` de package.json.
+ARG PNPM_VERSION=11.28.10
+# CI=true evita que lefthook intente instalar hooks dentro del contenedor.
+ENV CI=true
+RUN npm install --global pnpm@${PNPM_VERSION}
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
+COPY prisma ./prisma
+RUN pnpm install --frozen-lockfile && pnpm prisma generate
+
+EXPOSE 4000
+CMD ["pnpm", "dev"]
