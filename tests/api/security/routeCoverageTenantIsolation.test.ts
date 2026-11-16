@@ -28,6 +28,7 @@ import {
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const HTTP_NOT_FOUND = 404;
+const HTTP_BAD_REQUEST = 400;
 
 const routesWithScenario = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
@@ -100,14 +101,31 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
             .patch(path)
             .set('Cookie', intruderCookie)
             .send(scenarioUpdateBody(scenario, intruderCompany))
-        : await request(app).post(path).set('Cookie', intruderCookie);
+        : await request(app).delete(path).set('Cookie', intruderCookie);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);
     await expect(readScenarioResource(scenario.resource, victimResourceId)).resolves.toEqual(recordBefore);
   }
 
+  async function expectBulkUpdateIgnoresForeignRecords(route: RouteInventoryEntry) {
+    const ordersBefore = victimCompany.leadStatuses.map((status) => status.order);
+
+    // El intruso manda los estados de la víctima: no son los suyos, así que la lista no coincide.
+    const response = await request(app)
+      .patch(route.pattern)
+      .set('Cookie', intruderCookie)
+      .send({ statusIds: victimCompany.leadStatuses.map((status) => status.id).reverse() });
+
+    expect(response.status).toBe(HTTP_BAD_REQUEST);
+    const storedStatuses = await Promise.all(
+      victimCompany.leadStatuses.map((status) => readScenarioResource('leadStatus', status.id)),
+    );
+    expect(storedStatuses.map((status) => (status as { order: number }).order)).toEqual(ordersBefore);
+  }
+
   it.each(routesWithScenario)('$title no alcanza datos de otra empresa', async ({ route, scenario }) => {
     if (scenario.operation === 'list') await expectListExcludesForeignRecords(route, scenario);
+    else if (scenario.operation === 'bulkUpdate') await expectBulkUpdateIgnoresForeignRecords(route);
     else if (scenario.operation === 'create') await expectCreationStaysInOwnTenant(route, scenario);
     else await expectForeignRecordUntouched(route, scenario);
   });

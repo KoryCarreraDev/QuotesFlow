@@ -62,4 +62,14 @@ export const companyContactFilterConfig: IFilterFieldConfig = {
     allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'],
     searchable: false,
   },
+  ownerId: {
+    type: 'id',
+    allowedOperators: ['equals', 'in'],
+    searchable: false,
+  },
+  documentNumber: {
+    type: 'text',
+    allowedOperators: ['equals'],
+    searchable: false,
+  },
 };

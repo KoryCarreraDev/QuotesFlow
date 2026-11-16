@@ -11,6 +11,8 @@ import { GenericListFilteredUseCase } from '@/application/use-case/filter/Generi
 import { CreateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js';
 import { GetLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js';
 import { UpdateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/updateLeadStatusConfigUseCase.js';
+import { DeleteLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/deleteLeadStatusConfigUseCase.js';
+import { ReorderLeadStatusConfigsUseCase } from '@/application/use-case/LeadStatusConfig/reorderLeadStatusConfigsUseCase.js';
 import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCase.js';
 import { DeleteLeadUseCase } from '@/application/use-case/leads/deleteLeadUseCase.js';
 import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js';
@@ -64,6 +66,16 @@ describe('ScopedContainer', () => {
       'leadStatuses.getUpdateLeadStatusConfigUseCase',
       () => container.leadStatuses.getUpdateLeadStatusConfigUseCase(),
       UpdateLeadStatusConfigUseCase,
+    ],
+    [
+      'leadStatuses.getDeleteLeadStatusConfigUseCase',
+      () => container.leadStatuses.getDeleteLeadStatusConfigUseCase(),
+      DeleteLeadStatusConfigUseCase,
+    ],
+    [
+      'leadStatuses.getReorderLeadStatusConfigsUseCase',
+      () => container.leadStatuses.getReorderLeadStatusConfigsUseCase(),
+      ReorderLeadStatusConfigsUseCase,
     ],
     ['contacts.getGetContactsUseCase', () => container.contacts.getGetContactsUseCase(), GetContactsUseCase],
     ['contacts.getCreateContactUseCase', () => container.contacts.getCreateContactUseCase(), CreateContactUseCase],

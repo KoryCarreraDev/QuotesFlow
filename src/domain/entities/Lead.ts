@@ -1,5 +1,9 @@
+import { DeletedState } from '../enums/DeletedState.js';
 import crypto from 'crypto';
 
+/**
+ * Oportunidad comercial de un tenant: datos de contacto, estado, responsable (`assignedToId`) y valor estimado.
+ */
 export class Lead {
   constructor(
     public readonly id: string,
@@ -16,10 +20,10 @@ export class Lead {
     public readonly notes?: string,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
-    public readonly deleted?: string,
+    public readonly deleted?: DeletedState,
   ) {}
 
-  static fromPrisma(prismaLead: {
+  static fromPrisma(record: {
     id: string;
     tenantId: string;
     companyName?: string | null;
@@ -29,7 +33,8 @@ export class Lead {
     statusId?: string | null;
     source?: string | null;
     assignedToId?: string | null;
-    estimatedValue?: any;
+    // Prisma lo entrega como Decimal; la conversión a número exacto llega con F3-T01 (H21).
+    estimatedValue?: unknown;
     expectedCloseDate?: Date | null;
     notes?: string | null;
     createdAt?: Date;
@@ -37,21 +42,21 @@ export class Lead {
     deleted?: string;
   }): Lead {
     return new Lead(
-      prismaLead.id,
-      prismaLead.tenantId,
-      prismaLead.companyName ?? undefined,
-      prismaLead.contactName ?? undefined,
-      prismaLead.email ?? undefined,
-      prismaLead.phone ?? undefined,
-      prismaLead.statusId ?? undefined,
-      prismaLead.source ?? undefined,
-      prismaLead.assignedToId ?? undefined,
-      prismaLead.estimatedValue ? Number(prismaLead.estimatedValue) : undefined,
-      prismaLead.expectedCloseDate ?? undefined,
-      prismaLead.notes ?? undefined,
-      prismaLead.createdAt ?? undefined,
-      prismaLead.updatedAt ?? undefined,
-      prismaLead.deleted ?? undefined,
+      record.id,
+      record.tenantId,
+      record.companyName ?? undefined,
+      record.contactName ?? undefined,
+      record.email ?? undefined,
+      record.phone ?? undefined,
+      record.statusId ?? undefined,
+      record.source ?? undefined,
+      record.assignedToId ?? undefined,
+      record.estimatedValue ? Number(record.estimatedValue) : undefined,
+      record.expectedCloseDate ?? undefined,
+      record.notes ?? undefined,
+      record.createdAt ?? undefined,
+      record.updatedAt ?? undefined,
+      (record.deleted as DeletedState | null) ?? undefined,
     );
   }
 
@@ -67,7 +72,7 @@ export class Lead {
     estimatedValue?: number;
     expectedCloseDate?: Date;
     notes?: string;
-    deleted?: string;
+    deleted?: DeletedState;
   }): Lead {
     const id = crypto.randomUUID();
     const now = new Date();

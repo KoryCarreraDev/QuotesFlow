@@ -115,7 +115,7 @@ export class InMemoryLeadRepository implements ILeadRepository {
         storedLead.notes,
         storedLead.createdAt,
         new Date(),
-        DeletedState.Inactive,
+        DeletedState.INACTIVE,
       ),
     );
   }
@@ -137,6 +137,6 @@ export class InMemoryLeadRepository implements ILeadRepository {
   }
 
   private isVisible(lead: Lead): boolean {
-    return lead.tenantId === this.tenantContext.getTenantId() && lead.deleted !== DeletedState.Inactive;
+    return lead.tenantId === this.tenantContext.getTenantId() && lead.deleted !== DeletedState.INACTIVE;
   }
 }

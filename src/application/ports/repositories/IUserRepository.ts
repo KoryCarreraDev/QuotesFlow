@@ -1,5 +1,8 @@
 import { User } from '../../../domain/entities/User.js';
 
+/**
+ * Persistencia de usuarios. El correo es único en toda la plataforma; el resto de consultas se acota al tenant.
+ */
 export interface IUserRepository {
   create(user: User): Promise<void>;
 

@@ -5,7 +5,7 @@ import { Role } from '../../src/domain/enums/Role.js';
 // El documento es lo que firma el responsable de seguridad, así que nunca se edita a mano.
 
 const actionDescriptions: Record<Action, string> = {
-  [Action.LEAD_LIST]: 'Listar leads (`getAll`, `filtered`)',
+  [Action.LEAD_LIST]: 'Listar leads (`GET /leads`, `GET /leads/search`)',
   [Action.LEAD_CREATE]: 'Crear un lead',
   [Action.LEAD_ASSIGN_TO_OTHERS]: 'Al crear, asignar el lead a otro usuario de la empresa',
   [Action.LEAD_UPDATE]: 'Modificar un lead',
@@ -13,15 +13,18 @@ const actionDescriptions: Record<Action, string> = {
   [Action.LEAD_DELETE]: 'Borrar (suave) un lead',
   [Action.LEAD_STATUS_LIST]: 'Listar los estados de lead',
   [Action.LEAD_STATUS_CREATE]: 'Crear un estado de lead',
-  [Action.LEAD_STATUS_UPDATE]: 'Modificar un estado de lead',
+  [Action.LEAD_STATUS_UPDATE]: 'Modificar o reordenar los estados de lead',
+  [Action.LEAD_STATUS_DELETE]: 'Borrar (suave) un estado que no es el predeterminado ni tiene leads',
   [Action.CONTACT_LIST]: 'Listar contactos',
   [Action.CONTACT_CREATE]: 'Crear un contacto',
   [Action.CONTACT_UPDATE]: 'Modificar un contacto',
   [Action.CONTACT_DELETE]: 'Borrar (suave) un contacto',
+  [Action.CONTACT_ASSIGN_OWNER]: 'Elegir o cambiar el comercial responsable de un contacto',
   [Action.COMPANY_CONTACT_LIST]: 'Listar empresas cliente',
   [Action.COMPANY_CONTACT_CREATE]: 'Crear una empresa cliente',
   [Action.COMPANY_CONTACT_UPDATE]: 'Modificar una empresa cliente',
   [Action.COMPANY_CONTACT_DELETE]: 'Borrar (suave) una empresa cliente sin contactos activos',
+  [Action.COMPANY_CONTACT_ASSIGN_OWNER]: 'Elegir o cambiar el comercial responsable de una empresa cliente',
 };
 
 const grantLabels = new Map<Grant, string>([
@@ -67,11 +70,13 @@ export function renderPermissionMatrixDocument(): string {
     '',
     '- Un `SALES_REP` que crea un lead queda como su responsable aunque envíe otro `assignedToId`.',
     '- Un `SALES_REP` que modifica su lead no puede cambiar el responsable: el `assignedToId` que envíe se ignora.',
-    '- En `GET /api/lead/filtered`, a un `SALES_REP` se le descarta cualquier filtro por `assignedToId` y se le fuerza el suyo.',
+    '- En `GET /api/v1/leads/search`, a un `SALES_REP` se le descarta cualquier filtro por `assignedToId` y se le fuerza el suyo; en los listados de contactos y empresas cliente, lo mismo con `ownerId`.',
+    '- Un `SALES_REP` que crea un contacto o una empresa cliente queda como su responsable; solo puede vincular un contacto a una empresa cliente de la que es responsable.',
+    '- Los clientes sin responsable (anteriores a F1-T17) solo los ven los roles de gestión hasta que se asignen (Q-005).',
     '',
-    'Pendiente de decisiones ya tomadas: la visibilidad de contactos por responsable (D-18) llega con F1-T17, y la gestión de usuarios por el líder comercial (D-17) con F2.',
+    'Pendiente de decisiones ya tomadas: la gestión de usuarios por el líder comercial (D-17) llega con F2.',
     '',
-    'Limitación conocida: `contact:list`, `contact:create`, `contact:update`, sus equivalentes `company-contact:*` y `lead-status:list` todavía no consultan la política en el código, porque hoy se permiten a todos los roles. Para ellas no se cumple aún que un rol desconocido no tenga permisos. Se conectan en F1-T17, cuando la visibilidad por responsable (D-18) cambie su regla. Los borrados (`contact:delete`, `company-contact:delete`) sí consultan la política desde F1-T16.',
+    'Limitación conocida: `lead-status:list` todavía no consulta la política en el código, porque se permite a todos los roles; para esa acción no se cumple aún que un rol desconocido no tenga permisos. Contactos y empresas cliente la consultan desde F1-T17.',
     '',
     'Las pruebas de esta matriz contra la API están en `tests/api/security/roles.test.ts`.',
     '',

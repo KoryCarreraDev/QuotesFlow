@@ -1,3 +1,5 @@
+import { DocumentType } from '@/domain/enums/DocumentType.js';
+import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 // Constructores de entidades de dominio para tests unitarios.
 // Cada uno devuelve una entidad válida con datos por defecto; el test solo declara lo que le importa.
 
@@ -36,7 +38,7 @@ export interface LeadBuilderProps {
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  deleted?: string;
+  deleted?: DeletedState;
 }
 
 export function buildLead(overrides: Partial<LeadBuilderProps> = {}): Lead {
@@ -51,7 +53,7 @@ export function buildLead(overrides: Partial<LeadBuilderProps> = {}): Lead {
     estimatedValue: DEFAULT_ESTIMATED_VALUE,
     createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
-    deleted: DeletedState.Active,
+    deleted: DeletedState.ACTIVE,
     ...overrides,
   };
 
@@ -83,7 +85,8 @@ export interface LeadStatusConfigBuilderProps {
   color?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  deleted?: string;
+  deleted?: DeletedState;
+  type?: LeadStatusType;
 }
 
 export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilderProps> = {}): LeadStatusConfig {
@@ -96,7 +99,7 @@ export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilder
     color: '#3B82F6',
     createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
-    deleted: DeletedState.Active,
+    deleted: DeletedState.ACTIVE,
     ...overrides,
   };
 
@@ -110,6 +113,7 @@ export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilder
     props.color,
     props.tenantId,
     props.deleted,
+    props.type,
   );
 }
 
@@ -189,6 +193,9 @@ export interface ContactBuilderProps {
   companyId?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  ownerId?: string;
+  documentType?: DocumentType;
+  documentNumber?: string;
 }
 
 export function buildContact(overrides: Partial<ContactBuilderProps> = {}): Contact {
@@ -214,6 +221,9 @@ export function buildContact(overrides: Partial<ContactBuilderProps> = {}): Cont
     props.companyId,
     props.createdAt,
     props.updatedAt,
+    props.ownerId,
+    props.documentType,
+    props.documentNumber,
   );
 }
 
@@ -232,6 +242,8 @@ export interface CompanyContactBuilderProps {
   country?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  ownerId?: string;
+  documentNumber?: string;
 }
 
 export function buildCompanyContact(overrides: Partial<CompanyContactBuilderProps> = {}): CompanyContact {
@@ -268,5 +280,7 @@ export function buildCompanyContact(overrides: Partial<CompanyContactBuilderProp
     props.country,
     props.createdAt,
     props.updatedAt,
+    props.ownerId,
+    props.documentNumber,
   );
 }

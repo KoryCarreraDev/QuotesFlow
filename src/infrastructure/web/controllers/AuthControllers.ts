@@ -1,3 +1,9 @@
+// H23: la cookie dura siempre 7 días aunque JWT_EXPIRATION diga otra cosa; se corrige en F2-T02.
+const SESSION_COOKIE_MAX_AGE_DAYS = 7;
+const MILLISECONDS_PER_DAY = 86_400_000;
+const SESSION_COOKIE_MAX_AGE_MS = SESSION_COOKIE_MAX_AGE_DAYS * MILLISECONDS_PER_DAY;
+
+import { HttpStatus } from '@/infrastructure/web/errors/errorResponse.js';
 import { Request, Response, NextFunction } from 'express';
 import { RegisterCompanyAndOwnerUseCase } from '../../../application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { LoginUseCase } from '../../../application/use-case/auth/LoginUseCase.js';
@@ -12,7 +18,7 @@ export class AuthController {
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await this.registerUseCase.execute(req.body);
-      res.status(201).json(result);
+      res.status(HttpStatus.CREATED).json(result);
     } catch (error) {
       next(error);
     }
@@ -26,11 +32,11 @@ export class AuthController {
         httpOnly: true,
         secure: env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: SESSION_COOKIE_MAX_AGE_MS,
         path: '/',
       });
 
-      res.status(200).json({ success: true });
+      res.status(HttpStatus.OK).json({ success: true });
     } catch (error) {
       next(error);
     }

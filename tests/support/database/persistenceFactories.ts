@@ -12,6 +12,7 @@ import type {
   LeadStatusConfig as LeadStatusConfigRecord,
   Tenant as TenantRecord,
   User as UserRecord,
+  DocumentType as DocumentTypeRecord,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
@@ -140,6 +141,9 @@ export interface ContactOverrides {
   email?: string;
   phone?: string;
   companyId?: string;
+  ownerId?: string;
+  documentType?: DocumentTypeRecord;
+  documentNumber?: string;
   deleted?: DeletedStateRecord;
 }
 
@@ -168,6 +172,8 @@ export interface CompanyContactOverrides {
   state?: string;
   zip?: string;
   country?: string;
+  ownerId?: string;
+  documentNumber?: string;
   deleted?: DeletedStateRecord;
 }
 

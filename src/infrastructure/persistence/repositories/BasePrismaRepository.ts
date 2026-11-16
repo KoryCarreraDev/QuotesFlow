@@ -1,3 +1,4 @@
+import { DeletedState as StoredDeletedState } from '@prisma/client';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -6,6 +7,17 @@ import { type PrismaDatabaseClient, currentTransactionClient } from '../prisma/P
 import { ITenantContext } from '../../../application/ports/services/ITenantContext.js';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '../../../application/ports/services/IFilterFieldConfig.js';
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAXIMUM_PAGE_SIZE = 100;
+
+/** Lo que necesita el borrado suave genérico de un delegado de Prisma (`prisma.lead`, `prisma.contact`…). */
+interface SoftDeletableDelegate {
+  update(arguments_: {
+    where: { id: string; tenantId: string };
+    data: { deleted: typeof StoredDeletedState.DELETED; updatedAt: Date };
+  }): Promise<unknown>;
+}
 
 export abstract class BasePrismaRepository {
   constructor(
@@ -26,8 +38,8 @@ export abstract class BasePrismaRepository {
 
   //Genera un filtro (Where) con el tenantID
   //para usasrse en cualquier consulta con el campo tenantId
-  protected tenantWhere(): { tenantId: string; deleted: 'INUSE' } {
-    return { tenantId: this.tenantId, deleted: 'INUSE' };
+  protected tenantWhere(): { tenantId: string; deleted: typeof StoredDeletedState.INUSE } {
+    return { tenantId: this.tenantId, deleted: StoredDeletedState.INUSE };
   }
 
   //Helper para añadir el filtro a un objeto where ya existente
@@ -47,12 +59,12 @@ export abstract class BasePrismaRepository {
   //Siempre incluye el filtro de tenant actual
   protected buildFilterWhere(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Record<string, unknown> {
     //Inicializa el array de condiciones
-    let conditions: Array<Record<string, unknown>> = [];
+    const conditions: Array<Record<string, unknown>> = [];
 
     //Añade el tenantId
     conditions.push({ tenantId: this.tenantId });
     //Añade el deleted en INUSE
-    conditions.push({ deleted: 'INUSE' });
+    conditions.push({ deleted: StoredDeletedState.INUSE });
 
     //Filtros especificos
     for (const filter of criteria.filters ?? []) {
@@ -140,7 +152,8 @@ export abstract class BasePrismaRepository {
   //Calcula la paginación con valores seguros por defecto
   protected buildPagination(criteria: FilterCriteriaDTO): { skip: number; take: number } {
     const page = criteria.page && criteria.page > 0 ? criteria.page : 1;
-    const limit = criteria.limit && criteria.limit > 0 && criteria.limit <= 100 ? criteria.limit : 20;
+    const limit =
+      criteria.limit && criteria.limit > 0 && criteria.limit <= MAXIMUM_PAGE_SIZE ? criteria.limit : DEFAULT_PAGE_SIZE;
 
     return {
       skip: (page - 1) * limit,
@@ -149,12 +162,12 @@ export abstract class BasePrismaRepository {
   }
 
   //Softdelete generico
-  protected async softDeleteRegister<T extends { update: Function }>(model: T, id: string): Promise<void> {
+  protected async softDeleteRegister(model: SoftDeletableDelegate, id: string): Promise<void> {
     if (!id) throw new Error('Id is required');
 
     await model.update({
       where: { id, tenantId: this.tenantId },
-      data: { deleted: 'DELETED', updatedAt: new Date() },
+      data: { deleted: StoredDeletedState.DELETED, updatedAt: new Date() },
     });
   }
 }

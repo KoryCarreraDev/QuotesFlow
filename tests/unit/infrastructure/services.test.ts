@@ -6,6 +6,9 @@ import { Role } from '@/domain/enums/Role.js';
 import { BcryptHashService } from '@/infrastructure/services/BcryptHashService.js';
 import { JwTokenService } from '@/infrastructure/services/JwtTokenService.js';
 
+const MILLISECONDS_PER_SECOND = 1000;
+const TWO_HOURS = 2;
+
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
 const TOKEN_SEGMENT_SEPARATOR = '.';
 const SIGNATURE_SEGMENT_INDEX = 2;
@@ -80,7 +83,7 @@ describe('JwTokenService', () => {
   });
 
   it('rechaza un token caducado', () => {
-    const issuedTwoHoursAgo = Math.floor(Date.now() / 1000) - 2 * ONE_HOUR_IN_SECONDS;
+    const issuedTwoHoursAgo = Math.floor(Date.now() / MILLISECONDS_PER_SECOND) - TWO_HOURS * ONE_HOUR_IN_SECONDS;
     const expiredToken = jwt.sign(
       { ...sessionPayload, iat: issuedTwoHoursAgo, exp: issuedTwoHoursAgo + ONE_HOUR_IN_SECONDS },
       env.JWT_SECRET,

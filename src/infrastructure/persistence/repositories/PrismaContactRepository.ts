@@ -5,9 +5,9 @@ import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 
 export class PrismaContactRepository extends BasePrismaRepository implements IContactRepository {
-  async findByTenant(): Promise<Contact[]> {
+  async findByTenant(ownerId?: string): Promise<Contact[]> {
     const records = await this.prisma.contact.findMany({
-      where: this.tenantWhere(),
+      where: ownerId ? { ...this.tenantWhere(), ownerId } : this.tenantWhere(),
       include: {
         company: true,
       },
@@ -24,6 +24,9 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
         email: contact.email,
         phone: contact.phone,
         companyId: contact.companyId,
+        ownerId: contact.ownerId,
+        documentType: contact.documentType,
+        documentNumber: contact.documentNumber,
         tenantId: contact.tenantId,
         createdAt: contact.createdAt,
         updatedAt: contact.updatedAt,
@@ -42,6 +45,11 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
       },
     });
 
+    return record ? Contact.fromPrisma(record) : null;
+  }
+
+  async findActiveByDocumentNumber(documentNumber: string): Promise<Contact | null> {
+    const record = await this.prisma.contact.findFirst({ where: { ...this.tenantWhere(), documentNumber } });
     return record ? Contact.fromPrisma(record) : null;
   }
 
@@ -65,6 +73,9 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
         email: data.email,
         phone: data.phone,
         companyId: data.companyId,
+        ownerId: data.ownerId ?? null,
+        documentType: data.documentType ?? null,
+        documentNumber: data.documentNumber ?? null,
       },
     });
   }

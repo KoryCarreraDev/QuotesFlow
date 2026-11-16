@@ -7,3 +7,5 @@ Claude outputs/
 eslint-suppressions.json
 # La documentación tiene tablas alineadas a mano; Prettier las reescribiría enteras.
 *.md
+# Generado por pnpm docs:openapi; un test comprueba que coincide con el código.
+docs/openapi.json

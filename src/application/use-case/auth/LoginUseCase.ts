@@ -6,9 +6,14 @@ import { IHashService } from '../../ports/services/IHashService.js';
 import { IAuthTokenService } from '../../ports/services/IAuthTokenService.js';
 import { LoginDTO } from '../../dtos/LoginDTO.js';
 
+/**
+ * Inicio de sesión. Solo cuentas activas de empresas activas (H3); cualquier fallo responde igual, `INVALID_CREDENTIALS`, para no revelar qué cuentas existen. Audita el éxito y la contraseña incorrecta.
+ *
+ * @throws {UnauthorizedError} `INVALID_CREDENTIALS`.
+ */
 export class LoginUseCase {
   constructor(
-    private userRepo: IUserRepository,
+    private userRepository: IUserRepository,
     private hashService: IHashService,
     private authTokenService: IAuthTokenService,
     private readonly auditLogger: IAuditLogger,
@@ -17,7 +22,7 @@ export class LoginUseCase {
   async execute(dto: LoginDTO): Promise<{ token: string }> {
     // Una cuenta desactivada, borrada o de una empresa borrada responde igual que unas credenciales
     // incorrectas (H3): no se revela que la cuenta existe.
-    const user = await this.userRepo.findActiveByEmail(dto.email);
+    const user = await this.userRepository.findActiveByEmail(dto.email);
 
     if (!user) {
       throw new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials');

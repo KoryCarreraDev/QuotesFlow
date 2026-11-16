@@ -9,7 +9,7 @@ import { CreateContactUseCase } from '@/application/use-case/contacts/createCont
 import { UpdateContactUseCase } from '@/application/use-case/contacts/updateContactUseCase.js';
 import { ListFilteredContactsUseCase } from '@/application/use-case/contacts/listFilteredContactsUseCase.js';
 
-export class contactController {
+export class ContactController {
   constructor(
     private readonly getContactsUseCase: GetContactsUseCase,
     private readonly listFilteredContactsUseCase: ListFilteredContactsUseCase,
@@ -30,8 +30,11 @@ export class contactController {
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const contacts = await this.getContactsUseCase.execute();
-      res.status(200).json(contacts);
+      const contacts = await this.getContactsUseCase.execute({
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.OK).json(contacts);
     } catch (error) {
       next(error);
     }
@@ -39,8 +42,11 @@ export class contactController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const contact = await this.createContactUseCase.execute(req.body);
-      res.status(201).json(contact);
+      const contact = await this.createContactUseCase.execute(req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.CREATED).json(contact);
     } catch (error) {
       next(error);
     }
@@ -49,8 +55,11 @@ export class contactController {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const contactId = req.params.id as string;
-      const contact = await this.updateContactUseCase.execute(contactId, req.body);
-      res.status(200).json(contact);
+      const contact = await this.updateContactUseCase.execute(contactId, req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.OK).json(contact);
     } catch (error) {
       next(error);
     }

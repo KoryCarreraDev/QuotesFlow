@@ -170,7 +170,7 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
             --data '{"companyName":"CI SAS","ownerEmail":"ci@example.com","password":"ci-only-password-123","ownerFirstName":"Ci","ownerLastName":"Runner"}' \
-            http://127.0.0.1:4000/api/auth/register)
+            http://127.0.0.1:4000/api/v1/auth/register)
           test "$status" = "201"
       - name: Registros de la API si algo falló
         if: failure()

@@ -1,3 +1,5 @@
+import { Action } from '../../application/policies/authorizationPolicy.js';
+import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { CompanyContactMapper } from '../../application/mappers/CompanyContactMapper.js';
 import { CreateCompanyContactUseCase } from '../../application/use-case/companyContacts/createCompanyContactUseCase.js';
@@ -35,6 +37,7 @@ export class CompanyContactModule {
       this.companyContactMapper,
       this.dependencies.tenantContext,
       this.createAuditLogger(),
+      new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
     );
   }
 
@@ -44,6 +47,7 @@ export class CompanyContactModule {
       this.companyContactMapper,
       this.dependencies.tenantContext,
       this.createAuditLogger(),
+      new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
     );
   }
 
@@ -60,6 +64,7 @@ export class CompanyContactModule {
       this.createCompanyContactRepository(),
       this.companyContactMapper,
       companyContactFilterConfig,
+      { action: Action.COMPANY_CONTACT_LIST, ownerField: 'ownerId' },
     );
   }
 }

@@ -1,5 +1,10 @@
+import { DocumentType } from '../enums/DocumentType.js';
+import { normalizeDocumentNumber } from '../value-objects/documentNumber.js';
 import crypto from 'crypto';
 
+/**
+ * Empresa cliente de un tenant. `documentNumber` es su NIT normalizado (sin dígito de verificación) y se deriva de `taxNumber`.
+ */
 export class CompanyContact {
   constructor(
     public readonly id: string,
@@ -16,7 +21,16 @@ export class CompanyContact {
     public readonly country?: string,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
+    /** Comercial responsable (D-18). Sin responsable solo la ve gestión. */
+    public readonly ownerId?: string,
+    /** NIT normalizado, derivado de `taxNumber` (`companyDocumentNumberFrom`). */
+    public readonly documentNumber?: string,
   ) {}
+
+  /** NIT normalizado de un `taxNumber` tal como lo escribe el usuario, o `undefined` si no hay. */
+  static documentNumberFrom(taxNumber: string | undefined): string | undefined {
+    return taxNumber ? normalizeDocumentNumber(DocumentType.NIT, taxNumber) : undefined;
+  }
 
   static fromPrisma(prismaCompanyContact: {
     id: string;
@@ -33,6 +47,8 @@ export class CompanyContact {
     country?: string | null;
     createdAt?: Date;
     updatedAt?: Date;
+    ownerId?: string | null;
+    documentNumber?: string | null;
   }): CompanyContact {
     return new CompanyContact(
       prismaCompanyContact.id,
@@ -49,6 +65,8 @@ export class CompanyContact {
       prismaCompanyContact.country ?? undefined,
       prismaCompanyContact.createdAt ?? undefined,
       prismaCompanyContact.updatedAt ?? undefined,
+      prismaCompanyContact.ownerId ?? undefined,
+      prismaCompanyContact.documentNumber ?? undefined,
     );
   }
 
@@ -64,6 +82,7 @@ export class CompanyContact {
     state?: string;
     zip?: string;
     country?: string;
+    ownerId?: string;
   }): CompanyContact {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -82,6 +101,8 @@ export class CompanyContact {
       props.country,
       now,
       now,
+      props.ownerId,
+      CompanyContact.documentNumberFrom(props.taxNumber),
     );
   }
 }

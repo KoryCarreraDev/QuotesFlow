@@ -16,6 +16,8 @@ export class CompanyContactMapper implements ICompanyContactMapper {
       state: companyContact.state,
       zip: companyContact.zip,
       country: companyContact.country,
+      ownerId: companyContact.ownerId,
+      documentNumber: companyContact.documentNumber,
     };
   }
 }

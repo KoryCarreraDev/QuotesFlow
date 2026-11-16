@@ -11,6 +11,8 @@ import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { persistCompanyContact, persistContact, persistTenant } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
+const TWO_MATCHING_RECORDS = 2;
+
 function idsOf(records: Array<{ id: string }>): string[] {
   return records.map((record) => record.id).sort();
 }
@@ -68,14 +70,14 @@ describe('PrismaContactRepository', () => {
   });
 
   it('findById no devuelve un contacto borrado', async () => {
-    const deletedContact = await persistContact(tenantId, { deleted: DeletedState.Inactive });
+    const deletedContact = await persistContact(tenantId, { deleted: DeletedState.INACTIVE });
 
     await expect(contactRepository.findById(deletedContact.id)).resolves.toBeNull();
   });
 
   it('findByTenant devuelve solo los contactos activos de la empresa', async () => {
     const ownContact = await persistContact(tenantId);
-    await persistContact(tenantId, { deleted: DeletedState.Inactive });
+    await persistContact(tenantId, { deleted: DeletedState.INACTIVE });
     await persistContact(otherTenantId);
 
     const contacts = await contactRepository.findByTenant();
@@ -108,7 +110,7 @@ describe('PrismaContactRepository', () => {
   it('findFiltered y countFiltered buscan dentro de la empresa, sin borrados', async () => {
     const matchingContact = await persistContact(tenantId, { firstName: 'Laura', email: 'laura@example.com' });
     await persistContact(tenantId, { firstName: 'Pedro', email: 'pedro@example.com' });
-    await persistContact(tenantId, { firstName: 'Laura', deleted: DeletedState.Inactive });
+    await persistContact(tenantId, { firstName: 'Laura', deleted: DeletedState.INACTIVE });
     await persistContact(otherTenantId, { firstName: 'Laura' });
 
     const criteria = { search: 'laura' };
@@ -146,7 +148,7 @@ describe('PrismaContactRepository: borrado suave (F1-T16)', () => {
     await contactRepository.delete(contact.id);
 
     const storedContact = await prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
-    expect(storedContact.deleted).toBe(DeletedState.Inactive);
+    expect(storedContact.deleted).toBe(DeletedState.INACTIVE);
     await expect(contactRepository.findById(contact.id)).resolves.toBeNull();
   });
 
@@ -156,11 +158,11 @@ describe('PrismaContactRepository: borrado suave (F1-T16)', () => {
     await expect(contactRepository.delete(foreignContact.id)).rejects.toThrow();
 
     const storedContact = await prisma.contact.findUniqueOrThrow({ where: { id: foreignContact.id } });
-    expect(storedContact.deleted).toBe(DeletedState.Active);
+    expect(storedContact.deleted).toBe(DeletedState.ACTIVE);
   });
 
   it('update no modifica un contacto borrado', async () => {
-    const deletedContact = await persistContact(tenantId, { lastName: 'Martínez', deleted: DeletedState.Inactive });
+    const deletedContact = await persistContact(tenantId, { lastName: 'Martínez', deleted: DeletedState.INACTIVE });
 
     await expect(
       contactRepository.update(deletedContact.id, Contact.create({ tenantId, firstName: 'Laura', lastName: 'Ruiz' })),
@@ -173,7 +175,7 @@ describe('PrismaContactRepository: borrado suave (F1-T16)', () => {
   it('countActiveByCompany cuenta solo los contactos no borrados de esa empresa cliente', async () => {
     const companyContact = await persistCompanyContact(tenantId);
     await persistContact(tenantId, { companyId: companyContact.id });
-    await persistContact(tenantId, { companyId: companyContact.id, deleted: DeletedState.Inactive });
+    await persistContact(tenantId, { companyId: companyContact.id, deleted: DeletedState.INACTIVE });
     await persistContact(tenantId);
 
     await expect(contactRepository.countActiveByCompany(companyContact.id)).resolves.toBe(1);
@@ -228,14 +230,14 @@ describe('PrismaCompanyContactRepository', () => {
   });
 
   it('findById no devuelve una empresa cliente borrada', async () => {
-    const deletedCompanyContact = await persistCompanyContact(tenantId, { deleted: DeletedState.Inactive });
+    const deletedCompanyContact = await persistCompanyContact(tenantId, { deleted: DeletedState.INACTIVE });
 
     await expect(companyContactRepository.findById(deletedCompanyContact.id)).resolves.toBeNull();
   });
 
   it('findByTenant devuelve solo las empresas cliente activas del tenant', async () => {
     const ownCompanyContact = await persistCompanyContact(tenantId);
-    await persistCompanyContact(tenantId, { deleted: DeletedState.Inactive });
+    await persistCompanyContact(tenantId, { deleted: DeletedState.INACTIVE });
     await persistCompanyContact(otherTenantId);
 
     const companyContacts = await companyContactRepository.findByTenant();
@@ -272,7 +274,7 @@ describe('PrismaCompanyContactRepository', () => {
     const firstMatch = await persistCompanyContact(tenantId, { name: 'Roble Uno', city: 'Bogotá' });
     const secondMatch = await persistCompanyContact(tenantId, { name: 'Roble Dos', city: 'Medellín' });
     await persistCompanyContact(tenantId, { name: 'Pino Tres', city: 'Cali' });
-    await persistCompanyContact(tenantId, { name: 'Roble Borrado', deleted: DeletedState.Inactive });
+    await persistCompanyContact(tenantId, { name: 'Roble Borrado', deleted: DeletedState.INACTIVE });
     await persistCompanyContact(otherTenantId, { name: 'Roble Ajeno' });
 
     const criteria = { filters: [{ field: 'name', operator: 'contains', value: 'roble' }] };
@@ -285,7 +287,7 @@ describe('PrismaCompanyContactRepository', () => {
 
     expect(idsOf(companyContacts)).toEqual([firstMatch.id, secondMatch.id].sort());
     expect(firstPage).toHaveLength(1);
-    expect(total).toBe(2);
+    expect(total).toBe(TWO_MATCHING_RECORDS);
   });
 });
 
@@ -302,7 +304,7 @@ describe('PrismaCompanyContactRepository: borrado suave (F1-T16)', () => {
     await companyContactRepository.delete(companyContact.id);
 
     const stored = await prisma.companyContact.findUniqueOrThrow({ where: { id: companyContact.id } });
-    expect(stored.deleted).toBe(DeletedState.Inactive);
+    expect(stored.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('delete no borra una empresa cliente de otro tenant', async () => {

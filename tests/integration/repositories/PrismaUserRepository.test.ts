@@ -115,13 +115,13 @@ describe('PrismaUserRepository', () => {
     });
 
     it('no encuentra a un usuario borrado', async () => {
-      await persistUser(tenantId, { email: 'deleted@example.com', deleted: DeletedState.Inactive });
+      await persistUser(tenantId, { email: 'deleted@example.com', deleted: DeletedState.INACTIVE });
 
       await expect(userRepository.findActiveByEmail('deleted@example.com')).resolves.toBeNull();
     });
 
     it('no encuentra a un usuario de una empresa borrada', async () => {
-      const deletedTenantId = (await persistTenant({ name: 'Empresa Borrada', deleted: DeletedState.Inactive })).id;
+      const deletedTenantId = (await persistTenant({ name: 'Empresa Borrada', deleted: DeletedState.INACTIVE })).id;
       await persistUser(deletedTenantId, { email: 'orphan@example.com' });
 
       await expect(userRepository.findActiveByEmail('orphan@example.com')).resolves.toBeNull();
@@ -129,7 +129,7 @@ describe('PrismaUserRepository', () => {
   });
 
   it('findById no devuelve un usuario borrado: no se le pueden asignar leads', async () => {
-    const deletedUser = await persistUser(tenantId, { deleted: DeletedState.Inactive });
+    const deletedUser = await persistUser(tenantId, { deleted: DeletedState.INACTIVE });
 
     await expect(userRepository.findById(deletedUser.id)).resolves.toBeNull();
   });

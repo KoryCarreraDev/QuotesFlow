@@ -20,7 +20,7 @@ import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTra
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 // F1-T13: el estado de un lead cambia con su propio caso de uso, que deja constancia en el historial.
-// Antes `PATCH /api/lead/update/:id` aceptaba `statusId` y lo ignoraba en silencio.
+// Antes `PATCH /api/v1/leads/:id` aceptaba `statusId` y lo ignoraba en silencio.
 
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 

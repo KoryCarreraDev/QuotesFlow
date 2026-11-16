@@ -9,6 +9,10 @@ import { DEFAULT_TEST_TENANT_ID, buildLead } from '@tests/support/builders/entit
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
 
+const REQUESTED_PAGE = 3;
+const REQUESTED_LIMIT = 10;
+const RECORDS_ON_LAST_PAGE = 5;
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -43,9 +47,9 @@ describe('GenericListFilteredUseCase', () => {
 
     const result = await listFilteredUseCase.execute({ page: 3, limit: 10 });
 
-    expect(result.page).toBe(3);
-    expect(result.limit).toBe(10);
-    expect(result.data).toHaveLength(5);
+    expect(result.page).toBe(REQUESTED_PAGE);
+    expect(result.limit).toBe(REQUESTED_LIMIT);
+    expect(result.data).toHaveLength(RECORDS_ON_LAST_PAGE);
   });
 
   it('acepta el límite máximo de 100', async () => {

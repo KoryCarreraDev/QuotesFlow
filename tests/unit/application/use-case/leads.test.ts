@@ -23,6 +23,8 @@ import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMem
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
+const LEADS_OF_EVERY_OWNER = 3;
+
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 
 // Roles que ven y gestionan todos los leads de la empresa. SALES_REP solo los suyos.
@@ -93,13 +95,13 @@ describe('GetLeadsUseCase', () => {
 
     const leads = await getLeadsUseCase.execute(role, manager.id);
 
-    expect(leads).toHaveLength(3);
+    expect(leads).toHaveLength(LEADS_OF_EVERY_OWNER);
   });
 
   it('nunca devuelve leads borrados', async () => {
     const { getLeadsUseCase, leadRepository } = setupLeadUseCases();
     const activeLead = buildLead();
-    leadRepository.seed(activeLead, buildLead({ deleted: DeletedState.Inactive }));
+    leadRepository.seed(activeLead, buildLead({ deleted: DeletedState.INACTIVE }));
 
     const leads = await getLeadsUseCase.execute(Role.OWNER, randomUUID());
 
@@ -326,7 +328,7 @@ describe('UpdateLeadUseCase', () => {
 
   it('trata como inexistente un lead borrado', async () => {
     const { updateLeadUseCase, leadRepository } = setupLeadUseCases();
-    const deletedLead = buildLead({ deleted: DeletedState.Inactive });
+    const deletedLead = buildLead({ deleted: DeletedState.INACTIVE });
     leadRepository.seed(deletedLead);
 
     await expect(
@@ -400,7 +402,7 @@ describe('DeleteLeadUseCase', () => {
 
     await deleteLeadUseCase.execute(lead.id, randomUUID(), Role.OWNER);
 
-    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.Inactive);
+    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.INACTIVE);
     await expect(leadRepository.findById(lead.id)).resolves.toBeNull();
   });
 
@@ -418,7 +420,7 @@ describe('DeleteLeadUseCase', () => {
     leadRepository.seed(foreignLead);
 
     await expect(deleteLeadUseCase.execute(foreignLead.id, randomUUID(), Role.OWNER)).rejects.toThrow('Lead not found');
-    expect(leadRepository.findStoredById(foreignLead.id)?.deleted).toBe(DeletedState.Active);
+    expect(leadRepository.findStoredById(foreignLead.id)?.deleted).toBe(DeletedState.ACTIVE);
   });
 
   it('SALES_REP puede borrar un lead que tiene asignado', async () => {
@@ -428,7 +430,7 @@ describe('DeleteLeadUseCase', () => {
 
     await deleteLeadUseCase.execute(ownLead.id, salesRep.id, Role.SALES_REP);
 
-    expect(leadRepository.findStoredById(ownLead.id)?.deleted).toBe(DeletedState.Inactive);
+    expect(leadRepository.findStoredById(ownLead.id)?.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('SALES_REP no puede borrar un lead de otro comercial', async () => {
@@ -439,7 +441,7 @@ describe('DeleteLeadUseCase', () => {
     await expect(deleteLeadUseCase.execute(lead.id, salesRep.id, Role.SALES_REP)).rejects.toThrow(
       'You do not have the necessary permissions.',
     );
-    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.Active);
+    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.ACTIVE);
   });
 
   it.each(ROLES_WITH_FULL_LEAD_ACCESS)('%s puede borrar cualquier lead de la empresa', async (role) => {
@@ -449,7 +451,7 @@ describe('DeleteLeadUseCase', () => {
 
     await deleteLeadUseCase.execute(lead.id, randomUUID(), role);
 
-    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.Inactive);
+    expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.INACTIVE);
   });
 });
 

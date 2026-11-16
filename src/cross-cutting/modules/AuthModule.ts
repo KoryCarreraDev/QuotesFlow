@@ -2,7 +2,7 @@ import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories
 import { LoginUseCase } from '../../application/use-case/auth/LoginUseCase.js';
 import { RegisterCompanyAndOwnerUseCase } from '../../application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
-import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
+import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
 import { PrismaTenantRepository } from '../../infrastructure/persistence/repositories/PrismaTenantRepository.js';
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { BcryptHashService } from '../../infrastructure/services/BcryptHashService.js';

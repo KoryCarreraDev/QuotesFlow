@@ -9,6 +9,8 @@ import {
 } from '@/presentation/schemas/leadStatusConfigSchema.js';
 import { itKnownDefect } from '@tests/support/knownDefect.js';
 
+const SUBMITTED_ESTIMATED_VALUE = 2_500_000;
+
 const VALID_UUID = '22222222-2222-4222-8222-222222222222';
 const STRONG_PASSWORD = 'Correct-Horse-Battery-9';
 
@@ -103,7 +105,7 @@ describe('createLeadSchema', () => {
     });
 
     expect(parsedLead.expectedCloseDate).toEqual(new Date('2026-06-30T00:00:00.000Z'));
-    expect(parsedLead.estimatedValue).toBe(2_500_000);
+    expect(parsedLead.estimatedValue).toBe(SUBMITTED_ESTIMATED_VALUE);
   });
 
   it('rechaza un lead sin nombre de contacto', () => {

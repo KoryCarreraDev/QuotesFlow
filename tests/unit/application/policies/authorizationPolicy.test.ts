@@ -29,6 +29,17 @@ describe('can', () => {
       },
     );
 
+    it.each([
+      Action.CONTACT_LIST,
+      Action.CONTACT_UPDATE,
+      Action.CONTACT_ASSIGN_OWNER,
+      Action.COMPANY_CONTACT_LIST,
+      Action.COMPANY_CONTACT_UPDATE,
+      Action.COMPANY_CONTACT_ASSIGN_OWNER,
+    ])('puede %s sobre cualquier cliente de su empresa', (action) => {
+      expect(can(actorWith(role), action, someoneElsesLead)).toBe(true);
+    });
+
     it.each([Action.LEAD_STATUS_CREATE, Action.LEAD_STATUS_UPDATE, Action.LEAD_ASSIGN_TO_OTHERS])(
       'puede %s',
       (action) => {
@@ -39,6 +50,20 @@ describe('can', () => {
 
   describe('SALES_REP', () => {
     const salesRep = actorWith(Role.SALES_REP);
+
+    // D-18 (F1-T17): los clientes, igual que los leads, solo los suyos.
+    it.each([Action.CONTACT_LIST, Action.CONTACT_UPDATE, Action.COMPANY_CONTACT_LIST, Action.COMPANY_CONTACT_UPDATE])(
+      'puede %s solo los clientes de los que es responsable',
+      (action) => {
+        expect(can(salesRep, action, ownLead)).toBe(true);
+        expect(can(salesRep, action, someoneElsesLead)).toBe(false);
+        expect(can(salesRep, action, unassignedLead)).toBe(false);
+      },
+    );
+
+    it.each([Action.CONTACT_ASSIGN_OWNER, Action.COMPANY_CONTACT_ASSIGN_OWNER])('no puede %s', (action) => {
+      expect(can(salesRep, action)).toBe(false);
+    });
 
     it.each([Action.LEAD_UPDATE, Action.LEAD_DELETE])('puede %s solo los leads asignados a él', (action) => {
       expect(can(salesRep, action, ownLead)).toBe(true);
@@ -59,18 +84,12 @@ describe('can', () => {
   });
 
   describe.each(allRoles)('%s (todos los roles)', (role) => {
-    it.each([
-      Action.LEAD_CREATE,
-      Action.LEAD_STATUS_LIST,
-      Action.CONTACT_LIST,
-      Action.CONTACT_CREATE,
-      Action.CONTACT_UPDATE,
-      Action.COMPANY_CONTACT_LIST,
-      Action.COMPANY_CONTACT_CREATE,
-      Action.COMPANY_CONTACT_UPDATE,
-    ])('puede %s', (action) => {
-      expect(can(actorWith(role), action)).toBe(true);
-    });
+    it.each([Action.LEAD_CREATE, Action.LEAD_STATUS_LIST, Action.CONTACT_CREATE, Action.COMPANY_CONTACT_CREATE])(
+      'puede %s',
+      (action) => {
+        expect(can(actorWith(role), action)).toBe(true);
+      },
+    );
   });
 
   it('un rol desconocido no tiene ningún permiso (se deniega por defecto)', () => {

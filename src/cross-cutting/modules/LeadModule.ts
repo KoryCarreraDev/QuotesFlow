@@ -12,7 +12,7 @@ import { PrismaTransactionManager } from '../../infrastructure/persistence/prism
 import { PrismaLeadStatusHistoryRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusHistoryRepository.js';
 import { leadFilterConfig } from '../../infrastructure/persistence/filters/leadFilterConfig.js';
 import { PrismaLeadRepository } from '../../infrastructure/persistence/repositories/PrismaLeadRepository.js';
-import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
+import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
 

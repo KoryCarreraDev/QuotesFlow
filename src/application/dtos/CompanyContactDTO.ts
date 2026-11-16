@@ -10,4 +10,7 @@ export interface CompanyContactDTO {
   state?: string;
   zip?: string;
   country?: string;
+  ownerId?: string;
+  /** NIT normalizado, derivado de `taxNumber`. */
+  documentNumber?: string;
 }

@@ -8,6 +8,8 @@ import { User } from '@/domain/entities/User.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
 
+const STORED_ESTIMATED_VALUE = 2_500_000;
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const RECORD_ID = '22222222-2222-4222-8222-222222222222';
@@ -101,16 +103,16 @@ describe('Lead', () => {
       estimatedValue: '2500000',
       createdAt: CREATED_AT,
       updatedAt: UPDATED_AT,
-      deleted: DeletedState.Inactive,
+      deleted: DeletedState.INACTIVE,
     });
 
     expect(lead.contactName).toBe('Ana Gómez');
     expect(lead.statusId).toBe('status-id');
     expect(lead.assignedToId).toBe('user-id');
-    expect(lead.estimatedValue).toBe(2_500_000);
+    expect(lead.estimatedValue).toBe(STORED_ESTIMATED_VALUE);
     expect(lead.createdAt).toEqual(CREATED_AT);
     expect(lead.updatedAt).toEqual(UPDATED_AT);
-    expect(lead.deleted).toBe(DeletedState.Inactive);
+    expect(lead.deleted).toBe(DeletedState.INACTIVE);
   });
 });
 
@@ -145,7 +147,7 @@ describe('LeadStatusConfig', () => {
       createdAt: CREATED_AT,
       updatedAt: UPDATED_AT,
       color: null,
-      deleted: DeletedState.Active,
+      deleted: DeletedState.ACTIVE,
     });
 
     expect(status).toMatchObject({
@@ -155,8 +157,8 @@ describe('LeadStatusConfig', () => {
       order: 1,
       isDefault: true,
       createdAt: CREATED_AT,
-      updateAt: UPDATED_AT,
-      deleted: DeletedState.Active,
+      updatedAt: UPDATED_AT,
+      deleted: DeletedState.ACTIVE,
     });
     expect(status.color).toBeUndefined();
   });
@@ -319,7 +321,7 @@ describe('Enums de dominio', () => {
   });
 
   it('DeletedState usa los mismos valores que el enum de la base de datos', () => {
-    expect(DeletedState.Active).toBe('INUSE');
-    expect(DeletedState.Inactive).toBe('DELETED');
+    expect(DeletedState.ACTIVE).toBe('INUSE');
+    expect(DeletedState.INACTIVE).toBe('DELETED');
   });
 });

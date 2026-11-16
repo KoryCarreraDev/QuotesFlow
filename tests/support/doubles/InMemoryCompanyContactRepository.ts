@@ -33,8 +33,17 @@ export class InMemoryCompanyContactRepository implements ICompanyContactReposito
     return [...this.companyContactsById.values()];
   }
 
-  async findByTenant(): Promise<CompanyContact[]> {
-    return this.listCompanyContactsOfCurrentTenant();
+  async findByTenant(ownerId?: string): Promise<CompanyContact[]> {
+    const companyContacts = this.listCompanyContactsOfCurrentTenant();
+    return ownerId ? companyContacts.filter((companyContact) => companyContact.ownerId === ownerId) : companyContacts;
+  }
+
+  async findActiveByDocumentNumber(documentNumber: string): Promise<CompanyContact | null> {
+    return (
+      this.listCompanyContactsOfCurrentTenant().find(
+        (companyContact) => companyContact.documentNumber === documentNumber,
+      ) ?? null
+    );
   }
 
   async create(companyContact: CompanyContact): Promise<void> {
@@ -77,6 +86,8 @@ export class InMemoryCompanyContactRepository implements ICompanyContactReposito
         data.country ?? storedCompanyContact.country,
         storedCompanyContact.createdAt,
         new Date(),
+        data.ownerId,
+        data.documentNumber,
       ),
     );
   }

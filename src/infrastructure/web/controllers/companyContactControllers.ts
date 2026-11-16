@@ -9,7 +9,7 @@ import { CreateCompanyContactUseCase } from '@/application/use-case/companyConta
 import { UpdateCompanyContactUseCase } from '@/application/use-case/companyContacts/updateCompanyContactUseCase.js';
 import { ListFilteredCompanyContactsUseCase } from '@/application/use-case/companyContacts/listFilteredCompanyContactsUseCase.js';
 
-export class companyContactController {
+export class CompanyContactController {
   constructor(
     private readonly getCompanyContactsUseCase: GetCompanyContactsUseCase,
     private readonly listFilteredCompanyContactsUseCase: ListFilteredCompanyContactsUseCase,
@@ -30,8 +30,11 @@ export class companyContactController {
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const companyContacts = await this.getCompanyContactsUseCase.execute();
-      res.status(200).json(companyContacts);
+      const companyContacts = await this.getCompanyContactsUseCase.execute({
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.OK).json(companyContacts);
     } catch (error) {
       next(error);
     }
@@ -39,8 +42,11 @@ export class companyContactController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const companyContact = await this.createCompanyContactUseCase.execute(req.body);
-      res.status(201).json(companyContact);
+      const companyContact = await this.createCompanyContactUseCase.execute(req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.CREATED).json(companyContact);
     } catch (error) {
       next(error);
     }
@@ -49,8 +55,11 @@ export class companyContactController {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const companyContactId = req.params.id as string;
-      const companyContact = await this.updateCompanyContactUseCase.execute(companyContactId, req.body);
-      res.status(200).json(companyContact);
+      const companyContact = await this.updateCompanyContactUseCase.execute(companyContactId, req.body, {
+        role: req.user?.role as Role,
+        userId: req.user?.userId,
+      });
+      res.status(HttpStatus.OK).json(companyContact);
     } catch (error) {
       next(error);
     }

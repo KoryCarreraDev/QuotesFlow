@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { DeletedState as StoredDeletedState } from '@prisma/client';
+import { Prisma, type User as UserRecord } from '@prisma/client';
 import { IUserRepository } from '../../../application/ports/repositories/IUserRepository.js';
 import { ConflictError } from '../../../domain/errors/ConflictError.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
@@ -52,19 +53,24 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
 
   async findActiveByEmail(email: string): Promise<User | null> {
     const record = await this.prisma.user.findFirst({
-      where: { email, isActive: true, deleted: 'INUSE', tenant: { deleted: 'INUSE' } },
+      where: {
+        email,
+        isActive: true,
+        deleted: StoredDeletedState.INUSE,
+        tenant: { deleted: StoredDeletedState.INUSE },
+      },
     });
     return record ? this.toDomain(record) : null;
   }
 
   async findById(id: string): Promise<User | null> {
     const record = await this.prisma.user.findFirst({
-      where: { id, tenantId: this.tenantId, deleted: 'INUSE' },
+      where: { id, tenantId: this.tenantId, deleted: StoredDeletedState.INUSE },
     });
     return record ? this.toDomain(record) : null;
   }
 
-  private toDomain(record: any): User {
+  private toDomain(record: UserRecord): User {
     return new User(
       record.id,
       record.email,

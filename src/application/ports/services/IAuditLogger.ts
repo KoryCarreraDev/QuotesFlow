@@ -9,6 +9,8 @@ export enum AuditAction {
   LEAD_STATUS_CHANGED = 'LEAD_STATUS_CHANGED',
   LEAD_STATUS_CONFIG_CREATED = 'LEAD_STATUS_CONFIG_CREATED',
   LEAD_STATUS_CONFIG_UPDATED = 'LEAD_STATUS_CONFIG_UPDATED',
+  LEAD_STATUS_CONFIG_DELETED = 'LEAD_STATUS_CONFIG_DELETED',
+  LEAD_STATUS_CONFIGS_REORDERED = 'LEAD_STATUS_CONFIGS_REORDERED',
   CONTACT_CREATED = 'CONTACT_CREATED',
   CONTACT_UPDATED = 'CONTACT_UPDATED',
   CONTACT_DELETED = 'CONTACT_DELETED',
@@ -27,6 +29,9 @@ export enum AuditEntity {
   COMPANY_CONTACT = 'CompanyContact',
 }
 
+/**
+ * Un registro de auditoría: qué acción, sobre qué entidad y, en rutas públicas, quién.
+ */
 export interface AuditEntry {
   action: AuditAction;
   entity: AuditEntity;

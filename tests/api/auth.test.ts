@@ -5,7 +5,7 @@ import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses
 import prisma from '@/config/database.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
-import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
+import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
 import {
   TEST_USER_PASSWORD,
   persistTenant,
@@ -39,7 +39,7 @@ function findSessionCookie(setCookieHeader: string | string[] | undefined): stri
   return cookies.find((cookie) => cookie.startsWith(`${SESSION_COOKIE_NAME}=`));
 }
 
-describe('POST /api/auth/register', () => {
+describe('POST /api/v1/auth/register', () => {
   it('crea la empresa y su dueño, y responde 201 con ambos ids', async () => {
     const response = await request(app).post(apiPaths.auth.register).send(registration);
 
@@ -113,7 +113,7 @@ describe('POST /api/auth/register', () => {
   });
 });
 
-describe('POST /api/auth/login', () => {
+describe('POST /api/v1/auth/login', () => {
   it('con credenciales correctas responde 200 y emite la cookie de sesión', async () => {
     const company = await persistTenantWithTeam();
 
@@ -202,7 +202,7 @@ describe('POST /api/auth/login', () => {
 
   it('un usuario borrado no puede iniciar sesión', async () => {
     const tenant = await persistTenant();
-    const deletedUser = await persistUser(tenant.id, { deleted: DeletedState.Inactive });
+    const deletedUser = await persistUser(tenant.id, { deleted: DeletedState.INACTIVE });
 
     const response = await request(app)
       .post(apiPaths.auth.login)
@@ -212,7 +212,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('un usuario de una empresa borrada no puede iniciar sesión', async () => {
-    const deletedTenant = await persistTenant({ deleted: DeletedState.Inactive });
+    const deletedTenant = await persistTenant({ deleted: DeletedState.INACTIVE });
     const user = await persistUser(deletedTenant.id);
 
     const response = await request(app)
@@ -224,7 +224,7 @@ describe('POST /api/auth/login', () => {
 });
 
 // Regresión de H8: empresa, dueño y estados se escribían por separado.
-describe('POST /api/auth/register es atómico', () => {
+describe('POST /api/v1/auth/register es atómico', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });

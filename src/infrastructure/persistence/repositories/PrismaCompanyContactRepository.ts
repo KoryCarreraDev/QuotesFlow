@@ -5,9 +5,9 @@ import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 
 export class PrismaCompanyContactRepository extends BasePrismaRepository implements ICompanyContactRepository {
-  async findByTenant(): Promise<CompanyContact[]> {
+  async findByTenant(ownerId?: string): Promise<CompanyContact[]> {
     const records = await this.prisma.companyContact.findMany({
-      where: this.tenantWhere(),
+      where: ownerId ? { ...this.tenantWhere(), ownerId } : this.tenantWhere(),
       include: {
         contacts: true,
       },
@@ -22,6 +22,8 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
         name: companyContact.name,
         industry: companyContact.industry,
         taxNumber: companyContact.taxNumber,
+        documentNumber: companyContact.documentNumber,
+        ownerId: companyContact.ownerId,
         phone: companyContact.phone,
         email: companyContact.email,
         address: companyContact.address,
@@ -50,6 +52,11 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
     return record ? CompanyContact.fromPrisma(record) : null;
   }
 
+  async findActiveByDocumentNumber(documentNumber: string): Promise<CompanyContact | null> {
+    const record = await this.prisma.companyContact.findFirst({ where: { ...this.tenantWhere(), documentNumber } });
+    return record ? CompanyContact.fromPrisma(record) : null;
+  }
+
   async delete(companyContactId: string): Promise<void> {
     await this.softDeleteRegister(this.prisma.companyContact, companyContactId);
   }
@@ -64,6 +71,8 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
         name: data.name,
         industry: data.industry,
         taxNumber: data.taxNumber,
+        documentNumber: data.documentNumber ?? null,
+        ownerId: data.ownerId ?? null,
         phone: data.phone,
         email: data.email,
         address: data.address,

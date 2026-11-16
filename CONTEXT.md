@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T07-logging-and-audit` (apilada sobre F1-T01 a F1-T12 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T11-rest-v1-openapi` (apilada sobre F1-T01 a F1-T18 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -19,26 +19,22 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 |---|---|---|
 | Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto en una sola transacción (F1-T03). Login emite cookie `accessToken` |
 | Leads | ✅ | getAll, create, update, filtered, **delete (soft)**. Reglas por rol (sección 6) |
-| LeadStatusConfig (estados de lead) | ✅ | getAll, create, update. **Sin delete** |
-| Contactos persona | ✅ CRUD + filtered + borrado suave (F1-T16) | Borrar solo gestión; el resto sin restricción de rol hasta F1-T17 |
-| Contactos empresa | ✅ CRUD + filtered + borrado suave (F1-T16) | Borrar solo gestión y sin contactos activos |
+| LeadStatusConfig (estados de lead) | ✅ | getAll, create, update, delete (suave), reorder; tipo OPEN/WON/LOST (F1-T14) |
+| Contactos persona | ✅ CRUD + filtered + borrado suave (F1-T16) | Responsable (`ownerId`) y documento normalizado y único (F1-T17); un comercial solo ve los suyos |
+| Contactos empresa | ✅ CRUD + filtered + borrado suave (F1-T16) | Responsable y NIT normalizado y único (F1-T17); borrar solo gestión y sin contactos activos |
 | Motor de filtrado genérico | ✅ | Sección 8 |
 | Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
 | AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07. `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 905 tests (unit, integración con PostgreSQL efímero, API, build). 4 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 988 tests (unit, integración con PostgreSQL efímero, API, build). 3 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
 - **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
-- **Cambio de estado (F1-T13).** Solo por `PATCH /api/lead/status/:id` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/lead/update/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
-- `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
-- `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
-- `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
+- **Cambio de estado (F1-T13).** Solo por `PATCH /api/v1/leads/:id/status` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/v1/leads/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
+- Borrado suave (F1-T15): en `domain` y `application` se usa el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`), y `Lead.deleted` y `LeadStatusConfig.deleted` tienen ese tipo. En los repositorios se usa el enum que genera Prisma (`DeletedState as StoredDeletedState` de `@prisma/client`), porque el de dominio no es asignable a sus tipos literales. No quedan literales `'INUSE'`/`'DELETED'` fuera de los enums.
 - Todos los repositorios de negocio filtran `deleted: 'INUSE'` en lecturas y modificaciones; contactos y empresas cliente desde F1-T16 (H10). En los dobles en memoria de contactos la marca de borrado se guarda aparte, porque las entidades `Contact` y `CompanyContact` no la llevan.
-- `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
-- **Crear un estado predeterminado con `order` repetido deja a la empresa sin predeterminado**: `CreateLeadStatusConfigUseCase` desmarca el anterior antes de crear el nuevo y no hay transacción; si la creación falla, no se revierte. Test: `tests/api/leadStatusConfig.test.ts` (defecto conocido F1-T14).
 - Desde F1-T13 y F1-T16 toda referencia a otro registro se valida dentro del tenant: el responsable de un lead (usuario activo) y la empresa cliente de un contacto (no borrada; si no, 400 `INVALID_COMPANY_CONTACT`).
 - `pnpm audit` (2026-11-16, tras F0-T09): `pnpm audit --prod` sin avisos. Quedan 2 moderados solo de desarrollo, `glob` 10.5.0 y `minimatch` 5.1.9/9.0.9, que arrastra `@testcontainers/postgresql` 12.2.1 vía `archiver` 7. No tienen versión corregida en su rama mayor y testcontainers aún no admite `archiver` 8, por eso no se fuerzan. Antes eran 94 avisos (1 crítico).
 
@@ -46,11 +42,11 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 ## 3. Stack
 
-TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `package.json`, `.nvmrc` = 24.18.0, imagen `node:24.18.0-slim` fijada por digest) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors (lista blanca, F1-T06) · compression · express-rate-limit (por IP cada 15 min: 100 global y 10 en `/api/auth`, configurables) · pnpm · Docker Compose · tsx + nodemon en dev.
+TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `package.json`, `.nvmrc` = 24.18.0, imagen `node:24.18.0-slim` fijada por digest) · pnpm 11.28.10 fijado en `devEngines` (se descarga solo si la versión local es otra) · Express 5 · Prisma 7 (`@prisma/adapter-pg`, `pg`) · PostgreSQL 15 · Zod 4 · bcryptjs · jsonwebtoken · cookie-parser · helmet · cors (lista blanca, F1-T06) · compression · express-rate-limit (por IP cada 15 min: 100 global y 10 en `/api/v1/auth`, configurables) · pnpm · Docker Compose · tsx + nodemon en dev.
 
 **Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
 
-**Calidad (F0-T03):** ESLint 10 (`eslint.config.js`: typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, regla local `eslint-rules/no-commented-out-code.js`) y Prettier (`.prettierrc.json`: comillas simples, 120 columnas, LF; los `.md` no se formatean). Las violaciones heredadas están congeladas en `eslint-suppressions.json` (77 el 2026-11-16: 59 números mágicos, 6 nombres, 5 variables sin usar, 4 `any`, otras 3). Ese archivo solo puede encoger (ver `docs/guia-de-codigo.md`, sección 11). `.gitattributes` fuerza LF. El commit de formato masivo está en `.git-blame-ignore-revs`.
+**Calidad (F0-T03):** ESLint 10 (`eslint.config.js`: typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, regla local `eslint-rules/no-commented-out-code.js`) y Prettier (`.prettierrc.json`: comillas simples, 120 columnas, LF; los `.md` no se formatean). `eslint-suppressions.json` está vacío desde F1-T18: las 77 violaciones heredadas que congelaba (Q-008) se corrigieron entre F1-T02 y F1-T18. Si vuelve a tener entradas, solo puede encoger (ver `docs/guia-de-codigo.md`, sección 11). `.gitattributes` fuerza LF. El commit de formato masivo está en `.git-blame-ignore-revs`.
 
 **Hooks de git (F0-T05):** lefthook 2.2.2 (`lefthook.yml`), instalado por su `postinstall` al hacer `pnpm install` (no se instala con `CI=true`). pre-commit: ESLint + Prettier sobre los archivos preparados. pre-push: `pnpm typecheck`, `pnpm arch:check`, `pnpm test:unit`.
 
@@ -98,7 +94,7 @@ src/
   domain/value-objects/      (vacío)
   application/constants/     defaultLeadStatuses.ts
   application/dtos/          [Entidad]DTO, Create…DTO, Update…DTO, FilterCriteriaDTO, PaginatedResultDTO, LoginDTO, RegisterCompanyDTO
-  application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadConfigStatusMapper
+  application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadStatusConfigMapper
   application/policies/      authorizationPolicy.ts: matriz de permisos, can, scopeFor (F1-T04)
   application/ports/         repositories/I*, services/I*, mappers/I*
   application/use-case/      auth/, leads/, LeadStatusConfig/, contacts/, companyContacts/, filter/, (messaging/ y pricing/ vacíos)
@@ -106,8 +102,8 @@ src/
   infrastructure/persistence/prisma/PrismaTransactionManager.ts  ITransactionManager sobre $transaction + AsyncLocalStorage
   infrastructure/persistence/repositories/                    BasePrismaRepository + Prisma*Repository
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
-  infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
-  infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
+  infrastructure/services/                                    BcryptHashService (coste 12, D-10), JwtTokenService (clase JwTokenService)
+  infrastructure/web/controllers/                             AuthController, LeadController, LeadStatusConfigController, ContactController, CompanyContactController
   infrastructure/web/gracefulShutdown.ts                      cierra el servidor (espera peticiones en curso), luego Prisma; plazo 10 s
   infrastructure/persistence/prisma/databaseReadiness.ts      SELECT 1 con plazo de 2 s para /ready
   presentation/routes/healthRoutes.ts                         manejadores de /health y /ready
@@ -151,9 +147,13 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 
 ## 6. Reglas de negocio vigentes
 
-**Roles:** `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP`. Solo Leads y LeadStatusConfig aplican roles.
+**Roles:** `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP`. Leads, estados, contactos y empresas cliente aplican roles.
 
-**Autorización (F1-T04).** Una sola matriz, `permissionMatrix` en `src/application/policies/authorizationPolicy.ts`: por acción y rol, `all`, `own` (solo los recursos de los que es responsable) o `none`. Los casos de uso preguntan `can(actor, action, resource)`; los listados usan `scopeFor(actor, action)`. Un rol fuera de la matriz no tiene permisos, y un permiso `own` sin usuario o sin recurso se deniega. `docs/security/matriz-permisos.md` se genera con `pnpm docs:permissions` y un test falla si no coincide con el código. Las acciones de contactos, empresas cliente y `lead-status:list` aún no consultan la política (hoy se permiten a todos).
+**Clientes (contactos y empresas cliente, F1-T17)**
+- Responsable `ownerId` (D-18): un comercial solo lista, filtra y modifica los clientes de los que es responsable; lo que crea queda a su nombre aunque envíe otro `ownerId`; solo puede vincular un contacto a una empresa cliente suya. Gestión ve todos y asigna responsable a un usuario activo de la empresa (si no, 400 `OWNER_NOT_FOUND`). Los clientes anteriores a F1-T17 no tienen responsable y solo los ve gestión hasta asignarlos (Q-005).
+- Documento (D-19): `documentType` (`CC`, `CE`, `TI`, `PASSPORT`, `PPT`, `NIT`) y `documentNumber` en contactos; en empresas, `documentNumber` se deriva de `taxNumber`. Se guarda normalizado (`domain/value-objects/documentNumber.ts`): solo dígitos, letras y dígitos en mayúscula en pasaportes, sin dígito de verificación en el NIT. Un número sin tipo responde 400 `DOCUMENT_TYPE_REQUIRED`. Repetido entre clientes activos de la misma empresa, 409 `DOCUMENT_ALREADY_REGISTERED`; el de un cliente borrado se puede reutilizar. La comprobación es de la aplicación: dos altas simultáneas con el mismo documento podrían pasar las dos.
+
+**Autorización (F1-T04, ampliada en F1-T17).** Una sola matriz, `permissionMatrix` en `src/application/policies/authorizationPolicy.ts`: por acción y rol, `all`, `own` (solo los recursos de los que es responsable) o `none`. Los casos de uso preguntan `can(actor, action, resource)`; los listados usan `scopeFor(actor, action)`. Un rol fuera de la matriz no tiene permisos, y un permiso `own` sin usuario o sin recurso se deniega. `docs/security/matriz-permisos.md` se genera con `pnpm docs:permissions` y un test falla si no coincide con el código. Solo `lead-status:list` aún no consulta la política (se permite a todos).
 
 **Leads**
 | Acción | SALES_REP | Otros roles |
@@ -169,6 +169,10 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 - Los leads con `deleted='DELETED'` no aparecen en ninguna consulta.
 
 **LeadStatusConfig**
+- Cada estado tiene `type` (`OPEN`, `WON`, `LOST`; D-51), por defecto `OPEN`. El predeterminado tiene que ser `OPEN` (400 `DEFAULT_LEAD_STATUS_MUST_BE_OPEN`). Los estados del registro: Ganado = `WON`, Perdido = `LOST`.
+- Crear y modificar van en una transacción: si falla, el predeterminado anterior se conserva. Un `order` repetido responde 409 `LEAD_STATUS_ORDER_TAKEN`.
+- Borrar (suave, solo gestión): no el predeterminado (409 `DEFAULT_LEAD_STATUS_CANNOT_BE_DELETED`) ni uno con leads (409 `LEAD_STATUS_IN_USE`). Al borrar, su `order` pasa a un negativo para liberar el número, porque `@@unique([tenantId, order])` incluye los borrados.
+- Reordenar: `PATCH /api/v1/lead-statuses/order` con `{ statusIds }`, la lista completa de estados activos en el orden nuevo; si falta, sobra o se repite alguno, 400 `LEAD_STATUS_LIST_MISMATCH`. Asigna 1..n en una transacción, en dos pasadas para no chocar con la restricción única.
 - `SALES_REP` no puede crear ni actualizar (error "Insufficient permissions").
 - Solo un estado `isDefault` por tenant: al marcar uno nuevo como default, el anterior se desmarca. No se puede poner `isDefault=false` al default actual sin otro que lo reemplace.
 - `@@unique([tenantId, order])` en BD: `order` duplicado por tenant falla.
@@ -199,7 +203,7 @@ Tenant ─┬ User[]  ─ role Role, isActive
         └ AuditLog[]
 ```
 Enums: `Role`, `QuoteStatus` (DRAFT/SENT/ACCEPTED/REJECTED), `LeadAssignmentStrategy`, `DeletedState`.
-Migraciones: `init` (2026-07-10), `add_deleted_to_models` (2026-09-01) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
+Migraciones: `init` (2026-07-10), `add_deleted_to_models` (2026-09-01), `add_owner_and_document_to_clients` (F1-T17: `ownerId` con FK a `User` y `ON DELETE SET NULL`, enum `DocumentType`, `documentNumber`; rellena el NIT normalizado de las empresas existentes), `add_type_to_lead_status_config` (F1-T14: enum `LeadStatusType`; Ganado y Perdido se marcan `WON` y `LOST` por nombre) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
 
 Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, con un `prisma.config` que declare `shadowDatabaseUrl` (Prisma 7 no acepta la URL por parámetro). En producción las aplica Operaciones con la imagen `migrator` (R6).
 
@@ -207,29 +211,33 @@ Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate dif
 
 ## 8. API implementada
 
-Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
+Desde F1-T11 (D-06) la API son recursos REST bajo `/api/v1`: `auth`, `leads`, `lead-statuses`, `contacts`, `company-contacts`. Listar es `GET /recurso`, el listado filtrado y paginado `GET /recurso/search`, crear `POST /recurso`, modificar `PATCH /recurso/:id` y borrar (suave) `DELETE /recurso/:id`. Las sondas `/health` y `/ready` siguen en la raíz. El contrato OpenAPI 3.1 está en `docs/openapi.json` (D-07), generado desde los esquemas Zod con `pnpm docs:openapi`; un test falla si no coincide con el código o le falta alguna ruta.
 
-**Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). Piezas: `src/infrastructure/web/httpSecurity.ts`.
+Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
+
+**Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/v1/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). Piezas: `src/infrastructure/web/httpSecurity.ts`.
 
 | Método | Ruta | Body / Query |
 |---|---|---|
 | GET | `/health` | — (vida: el proceso responde; no toca la base de datos) |
 | GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`) |
-| POST | `/api/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
-| POST | `/api/auth/login` | `{ email, password }` |
-| GET | `/api/lead/getAll` | — |
-| POST | `/api/lead/create` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
-| PATCH | `/api/lead/update/:id` | mismos campos salvo `statusId`, todos opcionales |
-| PATCH | `/api/lead/status/:id` | `{ statusId (uuid, requerido), note? (máx. 500) }`: cambia el estado y lo registra en `LeadStatusHistory` |
-| POST | `/api/lead/delete/:id` | — (soft delete; es POST, no DELETE) |
-| GET | `/api/lead/filtered` | `?search=&filters=[...]&page=&limit=` |
-| GET | `/api/leadStatusConfig/getAll` | — (ordenado por `order` asc) |
-| POST | `/api/leadStatusConfig/create` | `{ name, order, isDefault?, color? }` |
-| PATCH | `/api/leadStatusConfig/update/:id` | `{ name?, order?, isDefault?, color? }` |
-| GET/POST/PATCH | `/api/contact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ firstName, lastName, email?, phone?, companyId? }` (`companyId`: empresa cliente del tenant, no borrada) |
-| POST | `/api/contact/delete/:id` | — (borrado suave; solo gestión) |
-| GET/POST/PATCH | `/api/companyContact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` |
-| POST | `/api/companyContact/delete/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
+| POST | `/api/v1/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
+| POST | `/api/v1/auth/login` | `{ email, password }` |
+| GET | `/api/v1/leads` | — |
+| POST | `/api/v1/leads` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
+| PATCH | `/api/v1/leads/:id` | mismos campos salvo `statusId`, todos opcionales |
+| PATCH | `/api/v1/leads/:id/status` | `{ statusId (uuid, requerido), note? (máx. 500) }`: cambia el estado y lo registra en `LeadStatusHistory` |
+| DELETE | `/api/v1/leads/:id` | — (borrado suave) |
+| GET | `/api/v1/leads/search` | `?search=&filters=[...]&page=&limit=&sortBy=&sortDir=` |
+| GET | `/api/v1/lead-statuses` | — (ordenado por `order` asc) |
+| POST | `/api/v1/lead-statuses` | `{ name, order, isDefault?, color?, type? }` (`type`: `OPEN` \| `WON` \| `LOST`) |
+| PATCH | `/api/v1/lead-statuses/:id` | `{ name?, order?, isDefault?, color?, type? }` |
+| DELETE | `/api/v1/lead-statuses/:id` | — (borrado suave; solo gestión) |
+| PATCH | `/api/v1/lead-statuses/order` | `{ statusIds: uuid[] }` (todos los estados activos, en el orden nuevo) |
+| GET, POST, PATCH `/:id`, GET `/search` | `/api/v1/contacts` | `{ firstName, lastName, email?, phone?, companyId?, ownerId?, documentType?, documentNumber? }` (`companyId`: empresa cliente del tenant, no borrada y visible para quien la vincula) |
+| DELETE | `/api/v1/contacts/:id` | — (borrado suave; solo gestión) |
+| GET, POST, PATCH `/:id`, GET `/search` | `/api/v1/company-contacts` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country?, ownerId? }` |
+| DELETE | `/api/v1/company-contacts/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
 
 ### Logs y auditoría (F1-T07)
 
@@ -257,7 +265,7 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 Un recurso de otro tenant responde igual que uno inexistente (404).
 
 ### Motor de filtrado genérico
-`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20&sortBy=createdAt&sortDir=desc`
+`GET /api/v1/<recurso>/search?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20&sortBy=createdAt&sortDir=desc`
 
 Desde F1-T12 la query la valida `src/infrastructure/web/filters/parseFilterQuery.ts` antes de llegar al caso de uso (H11). Cada campo de `*FilterConfig.ts` declara `type` (`text`, `number`, `date`, `id`) y, si se puede ordenar, `sortable: true`. Un valor de otro tipo (por ejemplo un objeto `{ "not": … }`, que Prisma interpretaría como operador) responde 400 `INVALID_FILTER_VALUE` con `details[].path = ['filters', i, 'value']`. Las fechas aceptan `2026-01-31` o ISO con zona y llegan como `Date`; `in` exige una lista de 1 a 100 valores; un texto, 200 caracteres como máximo; como mucho 20 filtros. Sin `sortBy`, orden por `createdAt` descendente con `id` de desempate; `sortBy` fuera de la lista responde 400 `SORT_FIELD_NOT_ALLOWED`. El alcance por rol (un comercial solo ve sus leads) lo aplica `GenericListFilteredUseCase` con `ownershipScope`, no el controller.
 - `search`: OR `contains` (insensible a mayúsculas) sobre campos con `searchable:true`.
@@ -344,6 +352,7 @@ pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format c
 pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
 pnpm check:context develop   # R3: CONTEXT.md actualizado respecto a la rama base
 pnpm docs:permissions        # regenera docs/security/matriz-permisos.md desde la matriz del código
+pnpm docs:openapi            # regenera docs/openapi.json (OpenAPI 3.1) desde los esquemas Zod
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # DESARROLLO (Dockerfile.dev): db (host 3363), backend (4000), prisma-studio (3364)
@@ -364,8 +373,8 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 4 (H2, H7 y F1-T14), listados en `tests/README.md`. H11 terminó de pasar a regresión en F1-T12. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
-- **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/auth` (los tests suben ese cupo desde 10).
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 3 (H2 y H7), listados en `tests/README.md`. El de F1-T14 pasó a regresión en F1-T14. H11 terminó de pasar a regresión en F1-T12. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
+- **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/v1/auth` (los tests suben ese cupo desde 10).
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
 ---
@@ -387,11 +396,16 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T03 | pendiente | Puerto `ITransactionManager` y adaptador `PrismaTransactionManager` (`$transaction` interactivo + `AsyncLocalStorage`); `BasePrismaRepository.prisma` usa la transacción abierta. Registro atómico (H8): empresa, dueño y estados en una transacción, con bcrypt fuera. `PrismaUserRepository.create` traduce el correo duplicado (P2002) a 409. 12 tests nuevos (unitarios, integración contra PostgreSQL y API con fallo simulado y registros simultáneos). La construcción del caso de uso en `unit/application/use-case/auth.test.ts` recibe el nuevo parámetro. |
 | 2026-11-16 | F1-T04 | pendiente | Políticas de autorización centralizadas (H12): `permissionMatrix`, `can` y `scopeFor` en `src/application/policies/authorizationPolicy.ts`; los casos de uso de leads y estados y el filtrado de leads dejan de comparar roles. Deniega por defecto (rol desconocido, `own` sin usuario). Antes un `SALES_REP` sin `userId` habría visto todos los leads. `docs/security/matriz-permisos.md` generado con `pnpm docs:permissions` (`scripts/docs/`) y comprobado por test. 66 tests nuevos (sobre todo combinaciones rol × acción); la matriz de roles de la API pasa sin cambios. |
 | 2026-11-16 | F1-T05 | pendiente | Suites de seguridad sobre todo el inventario de rutas (R5): `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts`, con escenarios por ruta en `tests/support/http/routeSecurityScenarios.ts`. La suite falla si una ruta protegida no tiene escenario o si un escenario apunta a una ruta que ya no existe. Lo esperado por rol sale de `permissionMatrix`. 82 tests nuevos; sin cambios en `src/`. |
-| 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |
+| 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/v1/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |
 | 2026-11-16 | F1-T08 | pendiente | `GET /ready` (la base de datos responde en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE` sin detalles) junto a `GET /health`, que no toca la base. Apagado ordenado en `server.ts` con `createGracefulShutdown`: deja de aceptar conexiones, termina las peticiones en curso, cierra Prisma y sale con 0; a los 10 s corta las conexiones y sale con 1. 7 tests nuevos; `/ready` añadida al inventario de rutas. |
 | 2026-11-16 | F1-T09 | pendiente | `ScopedContainer` dividido por módulo en `src/cross-cutting/modules/` (`AuthModule`, `LeadModule`, `LeadStatusModule`, `ContactModule`, `CompanyContactModule`, con `ModuleDependencies`); las rutas piden `req.container!.<módulo>.get…UseCase()`. Sin cambio de comportamiento. 20 tests nuevos del contenedor. |
 | 2026-11-16 | F1-T10 | pendiente | Migración `add_tenant_id_to_history_and_quote_items` (H15): `tenantId` en `LeadStatusHistory` y `QuoteItem`, relleno desde el registro padre, NOT NULL, FK a `Tenant` en cascada e índice. Verificada contra una base con datos y con `prisma migrate diff` (sin diferencias). H15 pasa a regresión; 2 tests nuevos de esquema (ningún `tenantId` nullable, todos con FK). Pendiente: aplicarla en producción (Operaciones, R6). |
-| 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/lead/status/:id`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |
-| 2026-11-16 | F1-T16 | pendiente | Borrado suave de contactos y empresas cliente (`DeleteContactUseCase`, `DeleteCompanyContactUseCase`, `POST /api/contact/delete/:id`, `POST /api/companyContact/delete/:id`), solo para gestión (acciones nuevas `contact:delete` y `company-contact:delete`); una empresa con contactos activos no se borra (409). `findById` y `update` filtran `deleted` (H10). El `companyId` de un contacto debe ser una empresa cliente del tenant (H9). Suite de permisos por rol repartida en dos archivos por el cupo de peticiones. H10 (3) y H9 en contactos (1) pasan a regresión; 43 tests nuevos. Cambia la preparación de 2 archivos de tests unitarios (nuevo parámetro y empresas cliente sembradas). |
+| 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/v1/leads/:id/status`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |
+| 2026-11-16 | F1-T16 | pendiente | Borrado suave de contactos y empresas cliente (`DeleteContactUseCase`, `DeleteCompanyContactUseCase`, `POST /api/v1/contacts/:id`, `POST /api/v1/company-contacts/:id`), solo para gestión (acciones nuevas `contact:delete` y `company-contact:delete`); una empresa con contactos activos no se borra (409). `findById` y `update` filtran `deleted` (H10). El `companyId` de un contacto debe ser una empresa cliente del tenant (H9). Suite de permisos por rol repartida en dos archivos por el cupo de peticiones. H10 (3) y H9 en contactos (1) pasan a regresión; 43 tests nuevos. Cambia la preparación de 2 archivos de tests unitarios (nuevo parámetro y empresas cliente sembradas). |
 | 2026-11-16 | F1-T12 | pendiente | Validación de la query de los listados filtrados (H11) en `parseFilterQuery`: tipo de cada valor según `type` del campo (`text`, `number`, `date`, `id`), `in` con lista, límites de tamaño, orden por lista blanca (`sortBy`, `sortDir`, campos `sortable`) con orden por defecto estable. Códigos `INVALID_FILTER_VALUE` y `SORT_FIELD_NOT_ALLOWED`. El alcance por rol pasa del controller a `GenericListFilteredUseCase` (`ownershipScope`). El último defecto conocido de H11 pasa a regresión; 31 tests nuevos. Las configuraciones de filtros de 2 tests unitarios ganan el campo `type`, ahora obligatorio. |
 | 2026-11-16 | F1-T07 | pendiente | Logger estructurado (H13): puerto `ILogger`, `WinstonLogger` en JSON, redacción de datos sensibles, `X-Request-Id` y contexto de petición con `AsyncLocalStorage`, log de acceso. Prisma ya no registra consultas con datos (H25). Auditoría de negocio: puerto `IAuditLogger`, `PrismaAuditLogger`, registro en toda modificación, registro de empresa y login. Variable `LOG_LEVEL`. `console.*` sustituido por el logger. 35 tests nuevos. Cambia la construcción de 25 casos de uso en 6 archivos de tests unitarios (nuevo parámetro), el test de `errorHandler` usa un logger falso en lugar de espiar `console.error` y el test de configuración completa añade `LOG_LEVEL`. |
+| 2026-11-16 | F1-T14 | pendiente | Estados de lead: `type` OPEN/WON/LOST (D-51, migración `add_type_to_lead_status_config`, el predeterminado debe ser OPEN); crear y modificar en transacción (el defecto conocido F1-T14 pasa a regresión) con 409 `LEAD_STATUS_ORDER_TAKEN`; borrado suave (`POST /api/v1/lead-statuses/:id`, acción `lead-status:delete`, no el predeterminado ni con leads, libera su `order`); reordenamiento transaccional (`PATCH /api/v1/lead-statuses/order`). Escenarios de seguridad con operación nueva `bulkUpdate`. 40 tests nuevos. Las construcciones de los casos de uso de estados en 2 archivos unitarios reciben el gestor de transacciones. |
+| 2026-11-16 | F1-T15 | pendiente | Nombres y tipos: `PrismaLeadStatusConfig.ts` pasa a `PrismaLeadStatusConfigRepository.ts` y `LeadConfigStatusMapper.ts` a `LeadStatusConfigMapper.ts`; `LeadStatusConfig.updateAt` pasa a `updatedAt`; `deleted` tipado con el enum `DeletedState`, sin literales sueltos; los listados llaman a `toDTO` con su objeto en lugar de pasarlo sin enlazar. 4 tests de regresión nuevos. Cambian solo rutas de import y el nombre `updatedAt` en tests existentes. |
+| 2026-11-16 | F1-T17 | pendiente | Migración `add_owner_and_document_to_clients`: `ownerId` en contactos y empresas cliente; `documentType` y `documentNumber` en contactos; `documentNumber` normalizado del NIT en empresas. Visibilidad por responsable (D-18) en listados, filtrado (`ownershipScope` sobre `ownerId`) y modificación, con acciones nuevas `contact:assign-owner` y `company-contact:assign-owner`; los clientes sin responsable solo los ve gestión (Q-005). Documento normalizado y único por empresa entre clientes activos (D-19, 409). Matriz de permisos regenerada. 27 tests nuevos. Cambian tests existentes por D-18: los de `api/contacts.test.ts` usan clientes del propio comercial, la matriz de `authorizationPolicy.test.ts` pasa contactos a "solo los suyos", el DTO de empresa incluye `documentNumber` y las construcciones y llamadas de los casos de uso de clientes reciben el repositorio de usuarios y el actor. |
+| 2026-11-16 | F1-T18 | pendiente | Código al día con R11 a R13: `eslint-suppressions.json` vacío (las 77 violaciones heredadas corregidas, Q-008); identificadores renombrados (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`, `statusProperty`, `*Repo`, `*Map`, `als`…); clases de controller en PascalCase; enum `DeletedState` con miembros `ACTIVE`/`INACTIVE`; bcrypt con coste 12 (D-10, antes 10); JSDoc en todos los puertos, casos de uso y entidades; `docs/modulos/` de auth, leads, estados de lead, contactos y filtrado. Sin cambio de comportamiento salvo el coste de bcrypt. En tests existentes solo cambian `DeletedState.Active/Inactive` por `ACTIVE/INACTIVE` y 20 números mágicos por constantes con nombre. |
+| 2026-11-16 | F1-T11 | pendiente | API REST bajo `/api/v1` (D-06): recursos `auth`, `leads`, `lead-statuses`, `contacts`, `company-contacts`; `GET /recurso`, `GET /recurso/search`, `POST /recurso`, `PATCH /recurso/:id`, `DELETE /recurso/:id`, `PATCH /leads/:id/status`, `PATCH /lead-statuses/order`. Las rutas anteriores dejan de existir. OpenAPI 3.1 generado desde los esquemas Zod (D-07) en `docs/openapi.json` con `pnpm docs:openapi` (`@asteasolutions/zod-to-openapi` 9.1.0 como devDependency, fuera de la imagen); un test compara el documento con el código y con el inventario de rutas. CI y documentación de módulos al día. 4 tests nuevos. En tests existentes cambian las rutas centralizadas en `apiRoutes.ts`, los borrados pasan de POST a DELETE y los títulos que citaban rutas antiguas. |

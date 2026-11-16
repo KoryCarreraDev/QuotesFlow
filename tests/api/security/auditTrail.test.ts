@@ -41,7 +41,12 @@ describe('Rastro de auditoría', () => {
     '$title deja un registro con autor, empresa e id de petición',
     async ({ route, scenario }) => {
       let response: request.Response;
-      if (scenario.operation === 'create') {
+      if (scenario.operation === 'bulkUpdate') {
+        response = await request(app)
+          .patch(route.pattern)
+          .set('Cookie', ownerCookie)
+          .send(scenarioUpdateBody(scenario, company));
+      } else if (scenario.operation === 'create') {
         response = await request(app)
           .post(route.pattern)
           .set('Cookie', ownerCookie)
@@ -52,7 +57,7 @@ describe('Rastro de auditoría', () => {
         response =
           route.method === 'PATCH'
             ? await request(app).patch(path).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
-            : await request(app).post(path).set('Cookie', ownerCookie);
+            : await request(app).delete(path).set('Cookie', ownerCookie);
       }
 
       expect(response.status).toBeLessThan(FIRST_NON_SUCCESS_STATUS);

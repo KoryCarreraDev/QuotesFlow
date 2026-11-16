@@ -23,6 +23,8 @@ function idsOf(records: Array<{ id: string }>): string[] {
 }
 
 let company: TenantWithTeam;
+// Desde F1-T17 (D-18) un comercial solo ve y modifica los clientes de los que es responsable: los
+// registros de estas pruebas son del comercial que hace las peticiones.
 let salesRepCookie: string;
 
 beforeEach(async () => {
@@ -33,7 +35,9 @@ beforeEach(async () => {
 
 describe('API de contactos', () => {
   it('POST /create crea el contacto en la empresa del usuario y responde 201', async () => {
-    const companyContact = await persistCompanyContact(company.tenant.id);
+    const companyContact = await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
 
     const response = await request(app).post(apiPaths.contacts.create).set('Cookie', salesRepCookie).send({
       firstName: 'Laura',
@@ -67,9 +71,16 @@ describe('API de contactos', () => {
   });
 
   it('GET /getAll devuelve los contactos activos de la empresa', async () => {
-    const firstContact = await persistContact(company.tenant.id);
-    const secondContact = await persistContact(company.tenant.id);
-    await persistContact(company.tenant.id, { deleted: DeletedState.Inactive });
+    const firstContact = await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
+    const secondContact = await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
+    await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      deleted: DeletedState.INACTIVE,
+    });
 
     const response = await request(app).get(apiPaths.contacts.getAll).set('Cookie', salesRepCookie);
 
@@ -78,7 +89,11 @@ describe('API de contactos', () => {
   });
 
   it('PATCH /update/:id actualiza los campos enviados y conserva el resto', async () => {
-    const contact = await persistContact(company.tenant.id, { firstName: 'Laura', lastName: 'Martínez' });
+    const contact = await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      firstName: 'Laura',
+      lastName: 'Martínez',
+    });
 
     const response = await request(app)
       .patch(apiPaths.contacts.update(contact.id))
@@ -92,13 +107,20 @@ describe('API de contactos', () => {
   });
 
   it('GET /filtered busca, filtra y pagina dentro de la empresa', async () => {
-    const companyContact = await persistCompanyContact(company.tenant.id);
+    const companyContact = await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
     const matchingContact = await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
       firstName: 'Laura',
       companyId: companyContact.id,
     });
-    await persistContact(company.tenant.id, { firstName: 'Laura' });
     await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      firstName: 'Laura',
+    });
+    await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
       firstName: 'Pedro',
       email: 'pedro.gil@example.com',
       companyId: companyContact.id,
@@ -149,8 +171,9 @@ describe('API de contactos', () => {
 
   it('PATCH /update/:id no modifica un contacto borrado', async () => {
     const deletedContact = await persistContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
       lastName: 'Martínez',
-      deleted: DeletedState.Inactive,
+      deleted: DeletedState.INACTIVE,
     });
 
     await request(app)
@@ -197,9 +220,16 @@ describe('API de empresas cliente', () => {
   });
 
   it('GET /getAll devuelve las empresas cliente activas del tenant', async () => {
-    const firstCompanyContact = await persistCompanyContact(company.tenant.id);
-    const secondCompanyContact = await persistCompanyContact(company.tenant.id);
-    await persistCompanyContact(company.tenant.id, { deleted: DeletedState.Inactive });
+    const firstCompanyContact = await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
+    const secondCompanyContact = await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+    });
+    await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      deleted: DeletedState.INACTIVE,
+    });
 
     const response = await request(app).get(apiPaths.companyContacts.getAll).set('Cookie', salesRepCookie);
 
@@ -209,6 +239,7 @@ describe('API de empresas cliente', () => {
 
   it('PATCH /update/:id actualiza los campos enviados y conserva el resto', async () => {
     const companyContact = await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
       name: 'Constructora El Roble',
       city: 'Bogotá',
     });
@@ -225,9 +256,18 @@ describe('API de empresas cliente', () => {
   });
 
   it('GET /filtered busca y pagina dentro del tenant', async () => {
-    await persistCompanyContact(company.tenant.id, { name: 'Roble Uno' });
-    await persistCompanyContact(company.tenant.id, { name: 'Roble Dos' });
-    await persistCompanyContact(company.tenant.id, { name: 'Pino Tres' });
+    await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      name: 'Roble Uno',
+    });
+    await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      name: 'Roble Dos',
+    });
+    await persistCompanyContact(company.tenant.id, {
+      ownerId: company.salesRep.id,
+      name: 'Pino Tres',
+    });
 
     const response = await request(app)
       .get(apiPaths.companyContacts.filtered)

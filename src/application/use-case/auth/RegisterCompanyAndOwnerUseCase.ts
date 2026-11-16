@@ -1,3 +1,4 @@
+import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
@@ -13,18 +14,23 @@ import { Role } from '../../../domain/enums/Role.js';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import { LeadStatusConfig } from '@/domain/entities/LeadStatusConfig.js';
 
+/**
+ * Registro de una empresa nueva con su dueño (OWNER) y los 5 estados de lead por defecto, todo en una transacción (H8).
+ *
+ * @throws {ConflictError} `EMAIL_ALREADY_IN_USE`.
+ */
 export class RegisterCompanyAndOwnerUseCase {
   constructor(
-    private tenantRepo: ITenantRepository,
-    private userRepo: IUserRepository,
+    private tenantRepository: ITenantRepository,
+    private userRepository: IUserRepository,
     private hashService: IHashService,
-    private statusRepo: ILeadStatusConfigRepository,
+    private leadStatusRepository: ILeadStatusConfigRepository,
     private readonly transactionManager: ITransactionManager,
     private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(dto: RegisterCompanyDTO) {
-    const existingUser = await this.userRepo.findByEmail(dto.ownerEmail);
+    const existingUser = await this.userRepository.findByEmail(dto.ownerEmail);
     if (existingUser) {
       throw new ConflictError(ErrorCode.EMAIL_ALREADY_IN_USE, 'Email already in use');
     }
@@ -43,8 +49,8 @@ export class RegisterCompanyAndOwnerUseCase {
 
     // Todo o nada (H8): una empresa sin dueño o sin estados no puede usarse ni volver a registrarse.
     await this.transactionManager.runInTransaction(async () => {
-      await this.tenantRepo.create(tenant);
-      await this.userRepo.create(owner);
+      await this.tenantRepository.create(tenant);
+      await this.userRepository.create(owner);
 
       for (const statusData of defaultLeadStatuses) {
         const status = LeadStatusConfig.create({
@@ -53,9 +59,10 @@ export class RegisterCompanyAndOwnerUseCase {
           isDefault: statusData.isDefault,
           tenantId: tenant.id,
           color: statusData.color,
-          deleted: 'INUSE',
+          type: statusData.type,
+          deleted: DeletedState.ACTIVE,
         });
-        await this.statusRepo.create(status);
+        await this.leadStatusRepository.create(status);
       }
 
       await this.auditLogger.record({

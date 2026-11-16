@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { CompanyContactMapper } from '@/application/mappers/CompanyContactMapper.js';
 import { ContactMapper } from '@/application/mappers/ContactMapper.js';
-import { LeadStatusConfigMapper } from '@/application/mappers/LeadConfigStatusMapper.js';
+import { LeadStatusConfigMapper } from '@/application/mappers/LeadStatusConfigMapper.js';
 import { LeadMapper } from '@/application/mappers/LeadMapper.js';
 import { CreateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js';
 import { GetLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js';
@@ -33,6 +33,7 @@ import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepos
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 
 const MISSING_TENANT_ID = '';
 
@@ -107,7 +108,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
     const deleteLeadUseCase = new DeleteLeadUseCase(leadRepository, contextWithoutTenant, new RecordingAuditLogger());
 
     await expect(deleteLeadUseCase.execute(storedLead.id, randomUUID(), Role.OWNER)).rejects.toThrow();
-    expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.Active);
+    expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.ACTIVE);
   });
 
   it('GetLeadStatusConfigUseCase no devuelve estados', async () => {
@@ -128,6 +129,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -143,6 +145,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -159,9 +162,15 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez' })).rejects.toThrow();
+    await expect(
+      createContactUseCase.execute(
+        { firstName: 'Laura', lastName: 'Martínez' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(contactRepository.listStored()).toHaveLength(1);
   });
 
@@ -173,9 +182,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' })).rejects.toThrow();
+    await expect(
+      updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' }, { role: Role.OWNER, userId: randomUUID() }),
+    ).rejects.toThrow();
     expect(contactRepository.findStoredById(storedContact.id)?.lastName).toBe('Martínez');
   });
 
@@ -186,9 +198,15 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new CompanyContactMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(createCompanyContactUseCase.execute({ name: 'Constructora El Roble' })).rejects.toThrow();
+    await expect(
+      createCompanyContactUseCase.execute(
+        { name: 'Constructora El Roble' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(companyContactRepository.listStored()).toHaveLength(1);
   });
 
@@ -199,9 +217,16 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new CompanyContactMapper(),
       contextWithoutTenant,
       new RecordingAuditLogger(),
+      new InMemoryUserRepository(contextWithoutTenant),
     );
 
-    await expect(updateCompanyContactUseCase.execute(storedCompanyContact.id, { city: 'Medellín' })).rejects.toThrow();
+    await expect(
+      updateCompanyContactUseCase.execute(
+        storedCompanyContact.id,
+        { city: 'Medellín' },
+        { role: Role.OWNER, userId: randomUUID() },
+      ),
+    ).rejects.toThrow();
     expect(companyContactRepository.findStoredById(storedCompanyContact.id)?.city).toBe('Bogotá');
   });
 });
@@ -210,7 +235,7 @@ describe('UpdateLeadUseCase ante un repositorio que devolviera un lead borrado',
   it('rechaza la actualización: un lead borrado no se modifica aunque el repositorio lo entregue', async () => {
     const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
     const leadRepository = new InMemoryLeadRepository(tenantContext);
-    const deletedLead = buildLead({ deleted: DeletedState.Inactive, notes: 'Nota original' });
+    const deletedLead = buildLead({ deleted: DeletedState.INACTIVE, notes: 'Nota original' });
     leadRepository.seed(deletedLead);
     vi.spyOn(leadRepository, 'findById').mockResolvedValue(deletedLead);
     const updateLeadUseCase = new UpdateLeadUseCase(

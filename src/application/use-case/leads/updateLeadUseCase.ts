@@ -1,3 +1,4 @@
+import { DeletedState } from '@/domain/enums/DeletedState.js';
 import {
   AuditAction,
   AuditEntity,
@@ -17,12 +18,19 @@ import { Role } from '@/domain/enums/Role.js';
 import { Lead } from '@/domain/entities/Lead.js';
 import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
 
+/**
+ * Modifica los datos de un lead (no su estado: eso es `ChangeLeadStatusUseCase`). Un comercial solo los suyos y sin reasignar; gestión reasigna a usuarios activos de la empresa (H9).
+ *
+ * @throws {NotFoundError} `LEAD_NOT_FOUND`.
+ * @throws {ForbiddenError} Si un comercial intenta modificar un lead ajeno.
+ * @throws {ValidationError} `ASSIGNED_USER_NOT_FOUND`.
+ */
 export class UpdateLeadUseCase {
   constructor(
-    private readonly leadRepo: ILeadRepository,
-    private readonly leadmap: ILeadMapper,
+    private readonly leadRepository: ILeadRepository,
+    private readonly leadMapper: ILeadMapper,
     private readonly tenantContext: ITenantContext,
-    private readonly userRepo: IUserRepository,
+    private readonly userRepository: IUserRepository,
     private readonly auditLogger: IAuditLogger,
   ) {}
 
@@ -36,56 +44,56 @@ export class UpdateLeadUseCase {
       throw new Error('Tenant ID is required');
     }
 
-    const leadProperty = await this.leadRepo.findById(leadId);
-    if (!leadProperty) {
+    const storedLead = await this.leadRepository.findById(leadId);
+    if (!storedLead) {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
-    if (leadProperty.deleted === 'DELETED') {
+    if (storedLead.deleted === DeletedState.INACTIVE) {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'This lead is deleted');
     }
 
     const actor = { role: role as Role, userId };
-    const lead = { ownerUserId: leadProperty.assignedToId };
+    const lead = { ownerUserId: storedLead.assignedToId };
     if (!can(actor, Action.LEAD_UPDATE, lead)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You can only update your own leads');
     }
     const mayReassign = can(actor, Action.LEAD_REASSIGN, lead);
     const reassignsLead =
-      mayReassign && updateLead.assignedToId !== undefined && updateLead.assignedToId !== leadProperty.assignedToId;
+      mayReassign && updateLead.assignedToId !== undefined && updateLead.assignedToId !== storedLead.assignedToId;
     if (reassignsLead) await this.ensureAssignableUser(updateLead.assignedToId!);
 
     const updatedLead = new Lead(
-      leadProperty.id,
-      leadProperty.tenantId,
-      updateLead.companyName !== undefined ? updateLead.companyName : leadProperty.companyName,
-      updateLead.contactName !== undefined ? updateLead.contactName : leadProperty.contactName,
-      updateLead.email !== undefined ? updateLead.email : leadProperty.email,
-      updateLead.phone !== undefined ? updateLead.phone : leadProperty.phone,
-      leadProperty.statusId,
-      updateLead.source !== undefined ? updateLead.source : leadProperty.source,
-      mayReassign && updateLead.assignedToId !== undefined ? updateLead.assignedToId : leadProperty.assignedToId,
-      updateLead.estimatedValue !== undefined ? updateLead.estimatedValue : leadProperty.estimatedValue,
-      updateLead.expectedCloseDate !== undefined ? updateLead.expectedCloseDate : leadProperty.expectedCloseDate,
-      updateLead.notes !== undefined ? updateLead.notes : leadProperty.notes,
-      leadProperty.createdAt,
+      storedLead.id,
+      storedLead.tenantId,
+      updateLead.companyName !== undefined ? updateLead.companyName : storedLead.companyName,
+      updateLead.contactName !== undefined ? updateLead.contactName : storedLead.contactName,
+      updateLead.email !== undefined ? updateLead.email : storedLead.email,
+      updateLead.phone !== undefined ? updateLead.phone : storedLead.phone,
+      storedLead.statusId,
+      updateLead.source !== undefined ? updateLead.source : storedLead.source,
+      mayReassign && updateLead.assignedToId !== undefined ? updateLead.assignedToId : storedLead.assignedToId,
+      updateLead.estimatedValue !== undefined ? updateLead.estimatedValue : storedLead.estimatedValue,
+      updateLead.expectedCloseDate !== undefined ? updateLead.expectedCloseDate : storedLead.expectedCloseDate,
+      updateLead.notes !== undefined ? updateLead.notes : storedLead.notes,
+      storedLead.createdAt,
       new Date(),
     );
 
-    await this.leadRepo.update(leadProperty.id, updatedLead);
+    await this.leadRepository.update(storedLead.id, updatedLead);
     await this.auditLogger.record({
       action: AuditAction.LEAD_UPDATED,
       entity: AuditEntity.LEAD,
-      entityId: leadProperty.id,
+      entityId: storedLead.id,
       metadata: { changedFields: changedFieldNames(updateLead) },
     });
 
-    return this.leadmap.toDTO(updatedLead);
+    return this.leadMapper.toDTO(updatedLead);
   }
 
   /** El nuevo responsable tiene que ser un usuario activo de la misma empresa (H9). */
   private async ensureAssignableUser(userId: string): Promise<void> {
-    const assignee = await this.userRepo.findById(userId);
+    const assignee = await this.userRepository.findById(userId);
     if (!assignee?.isActive) {
       throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
     }

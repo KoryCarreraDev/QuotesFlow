@@ -13,13 +13,19 @@ import { Lead } from '../../../domain/entities/Lead.js';
 import { Role } from '@/domain/enums/Role.js';
 import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
 
+/**
+ * Crea un lead. Sin estado, toma el predeterminado de la empresa. Un comercial queda siempre como responsable; gestión puede asignarlo a un usuario activo de la empresa (H9).
+ *
+ * @throws {ValidationError} `INVALID_LEAD_STATUS` o `ASSIGNED_USER_NOT_FOUND`.
+ * @throws {ConflictError} `DEFAULT_LEAD_STATUS_MISSING`.
+ */
 export class CreateLeadUseCase {
   constructor(
-    private readonly leadRepo: ILeadRepository,
-    private readonly leadmap: ILeadMapper,
+    private readonly leadRepository: ILeadRepository,
+    private readonly leadMapper: ILeadMapper,
     private readonly tenantContext: ITenantContext,
-    private readonly statusRepo: ILeadStatusConfigRepository,
-    private readonly userRepo: IUserRepository,
+    private readonly leadStatusRepository: ILeadStatusConfigRepository,
+    private readonly userRepository: IUserRepository,
     private readonly auditLogger: IAuditLogger,
   ) {}
 
@@ -33,7 +39,7 @@ export class CreateLeadUseCase {
     let statusId = createLead.statusId;
 
     if (!statusId) {
-      const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+      const defaultStatus = await this.leadStatusRepository.findDefaultByTenant(tenantId);
       if (!defaultStatus) {
         throw new ConflictError(
           ErrorCode.DEFAULT_LEAD_STATUS_MISSING,
@@ -42,7 +48,7 @@ export class CreateLeadUseCase {
       }
       statusId = defaultStatus.id;
     } else {
-      const existingStatus = await this.statusRepo.findById(statusId);
+      const existingStatus = await this.leadStatusRepository.findById(statusId);
       if (!existingStatus) {
         throw new ValidationError(ErrorCode.INVALID_LEAD_STATUS, 'Invalid statusId: does not belong to this tenant');
       }
@@ -55,7 +61,7 @@ export class CreateLeadUseCase {
     const mayAssignToOthers = can(actor, Action.LEAD_ASSIGN_TO_OTHERS);
 
     if (createLead.assignedToId && mayAssignToOthers) {
-      const findUser = await this.userRepo.findById(createLead.assignedToId);
+      const findUser = await this.userRepository.findById(createLead.assignedToId);
       // Un usuario desactivado no puede recibir leads nuevos (H9).
       if (!findUser?.isActive) {
         throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
@@ -78,12 +84,12 @@ export class CreateLeadUseCase {
       notes: createLead.notes,
     });
 
-    await this.leadRepo.create(leadEntity);
+    await this.leadRepository.create(leadEntity);
     await this.auditLogger.record({
       action: AuditAction.LEAD_CREATED,
       entity: AuditEntity.LEAD,
       entityId: leadEntity.id,
     });
-    return this.leadmap.toDTO(leadEntity);
+    return this.leadMapper.toDTO(leadEntity);
   }
 }

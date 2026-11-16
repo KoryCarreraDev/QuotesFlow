@@ -11,6 +11,7 @@ export const createCompanyContactSchema = z.object({
   state: z.string().optional(),
   zip: z.string().optional(),
   country: z.string().optional(),
+  ownerId: z.uuid().optional(),
 });
 
 export const updateCompanyContactSchema = z.object({
@@ -24,4 +25,5 @@ export const updateCompanyContactSchema = z.object({
   state: z.string().optional(),
   zip: z.string().optional(),
   country: z.string().optional(),
+  ownerId: z.uuid().optional(),
 });

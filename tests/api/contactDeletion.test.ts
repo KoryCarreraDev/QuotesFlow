@@ -30,23 +30,23 @@ describe('borrado de contactos y empresas cliente', () => {
     ownerCookie = sessionCookieFor(company.owner);
   });
 
-  it('POST /api/contact/delete/:id borra de forma suave: deja de listarse y la fila se conserva', async () => {
+  it('DELETE /api/v1/contacts/:id borra de forma suave: deja de listarse y la fila se conserva', async () => {
     const contact = await persistContact(company.tenant.id);
 
-    const response = await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    const response = await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
     const listResponse = await request(app).get(apiPaths.contacts.getAll).set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_OK);
     expect(listResponse.body.map((listed: { id: string }) => listed.id)).not.toContain(contact.id);
     const stored = await prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
-    expect(stored.deleted).toBe(DeletedState.Inactive);
+    expect(stored.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('borrar dos veces el mismo contacto responde 404 la segunda vez', async () => {
     const contact = await persistContact(company.tenant.id);
-    await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
 
-    const response = await request(app).post(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
+    const response = await request(app).delete(apiPaths.contacts.delete(contact.id)).set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);
   });
@@ -55,22 +55,22 @@ describe('borrado de contactos y empresas cliente', () => {
     const contact = await persistContact(company.tenant.id);
 
     const response = await request(app)
-      .post(apiPaths.contacts.delete(contact.id))
+      .delete(apiPaths.contacts.delete(contact.id))
       .set('Cookie', sessionCookieFor(company.salesRep));
 
     expect(response.status).toBe(HTTP_FORBIDDEN);
   });
 
-  it('POST /api/companyContact/delete/:id borra una empresa cliente sin contactos', async () => {
+  it('DELETE /api/v1/company-contacts/:id borra una empresa cliente sin contactos', async () => {
     const companyContact = await persistCompanyContact(company.tenant.id);
 
     const response = await request(app)
-      .post(apiPaths.companyContacts.delete(companyContact.id))
+      .delete(apiPaths.companyContacts.delete(companyContact.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_OK);
     const stored = await prisma.companyContact.findUniqueOrThrow({ where: { id: companyContact.id } });
-    expect(stored.deleted).toBe(DeletedState.Inactive);
+    expect(stored.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('una empresa cliente con contactos activos no se borra: 409 COMPANY_CONTACT_HAS_CONTACTS', async () => {
@@ -78,7 +78,7 @@ describe('borrado de contactos y empresas cliente', () => {
     await persistContact(company.tenant.id, { companyId: companyContact.id });
 
     const response = await request(app)
-      .post(apiPaths.companyContacts.delete(companyContact.id))
+      .delete(apiPaths.companyContacts.delete(companyContact.id))
       .set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_CONFLICT);
@@ -86,7 +86,7 @@ describe('borrado de contactos y empresas cliente', () => {
   });
 
   it('un contacto no se puede vincular a una empresa cliente borrada: 400 INVALID_COMPANY_CONTACT', async () => {
-    const deletedCompanyContact = await persistCompanyContact(company.tenant.id, { deleted: DeletedState.Inactive });
+    const deletedCompanyContact = await persistCompanyContact(company.tenant.id, { deleted: DeletedState.INACTIVE });
 
     const response = await request(app)
       .post(apiPaths.contacts.create)

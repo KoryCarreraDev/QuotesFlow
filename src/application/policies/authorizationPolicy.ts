@@ -24,14 +24,17 @@ export enum Action {
   LEAD_STATUS_LIST = 'lead-status:list',
   LEAD_STATUS_CREATE = 'lead-status:create',
   LEAD_STATUS_UPDATE = 'lead-status:update',
+  LEAD_STATUS_DELETE = 'lead-status:delete',
   CONTACT_LIST = 'contact:list',
   CONTACT_CREATE = 'contact:create',
   CONTACT_UPDATE = 'contact:update',
   CONTACT_DELETE = 'contact:delete',
+  CONTACT_ASSIGN_OWNER = 'contact:assign-owner',
   COMPANY_CONTACT_LIST = 'company-contact:list',
   COMPANY_CONTACT_CREATE = 'company-contact:create',
   COMPANY_CONTACT_UPDATE = 'company-contact:update',
   COMPANY_CONTACT_DELETE = 'company-contact:delete',
+  COMPANY_CONTACT_ASSIGN_OWNER = 'company-contact:assign-owner',
 }
 
 /**
@@ -84,15 +87,20 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.LEAD_STATUS_LIST]: everyone,
   [Action.LEAD_STATUS_CREATE]: managementOnly,
   [Action.LEAD_STATUS_UPDATE]: managementOnly,
-  // Contactos y empresas cliente aún no tienen responsable: la visibilidad por rol (D-18) llega con F1-T17.
-  [Action.CONTACT_LIST]: everyone,
+  [Action.LEAD_STATUS_DELETE]: managementOnly,
+  // D-18 (F1-T17): un comercial solo ve y modifica los clientes de los que es responsable; los clientes
+  // sin responsable (previos a F1-T17, Q-005) solo los ve gestión.
+  [Action.CONTACT_LIST]: managementOrOwnForSalesRep,
+  // Lo que crea un comercial queda a su nombre.
   [Action.CONTACT_CREATE]: everyone,
-  [Action.CONTACT_UPDATE]: everyone,
+  [Action.CONTACT_UPDATE]: managementOrOwnForSalesRep,
+  [Action.CONTACT_ASSIGN_OWNER]: managementOnly,
   // Borrar clientes queda para gestión mientras no tengan responsable (Q-012; F1-T17 añade ownerId).
   [Action.CONTACT_DELETE]: managementOnly,
-  [Action.COMPANY_CONTACT_LIST]: everyone,
+  [Action.COMPANY_CONTACT_LIST]: managementOrOwnForSalesRep,
   [Action.COMPANY_CONTACT_CREATE]: everyone,
-  [Action.COMPANY_CONTACT_UPDATE]: everyone,
+  [Action.COMPANY_CONTACT_UPDATE]: managementOrOwnForSalesRep,
+  [Action.COMPANY_CONTACT_ASSIGN_OWNER]: managementOnly,
   [Action.COMPANY_CONTACT_DELETE]: managementOnly,
 };
 

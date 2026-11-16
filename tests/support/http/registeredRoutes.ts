@@ -20,7 +20,9 @@ function describeRouteLayer(mountPath: string, layer: RouterLayer): string[] {
   if (!layer.route) {
     return [];
   }
-  const fullPath = `${mountPath}${layer.route.path}`;
+  // `router.get('/')` montado en `/api/v1/leads` atiende `/api/v1/leads`, sin barra final.
+  const routePath = layer.route.path === '/' && mountPath !== '' ? '' : layer.route.path;
+  const fullPath = `${mountPath}${routePath}`;
   return Object.keys(layer.route.methods).map((method) => `${method.toUpperCase()} ${fullPath}`);
 }
 

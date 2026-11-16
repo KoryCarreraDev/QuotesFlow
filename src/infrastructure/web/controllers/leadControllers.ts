@@ -10,7 +10,7 @@ import { DeleteLeadUseCase } from '@/application/use-case/leads/deleteLeadUseCas
 import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
 import { ListFilteredLeadsUseCase } from '@/application/use-case/leads/listFilteredLeadsUseCase.js';
 
-export class leadController {
+export class LeadController {
   constructor(
     private readonly getLeadsUseCase: GetLeadsUseCase,
     private readonly listFilteredLeadsUseCase: ListFilteredLeadsUseCase,

@@ -1,8 +1,11 @@
 import { Lead } from '../../../domain/entities/Lead.js';
 import { IFilterableRepository } from './IFilterableRepository.js';
 
+/**
+ * Persistencia de leads. Toda operación queda acotada al tenant de la sesión y a leads no borrados (R5).
+ */
 export interface ILeadRepository extends IFilterableRepository<Lead> {
-  findByTenant(AssignedTo?: string | undefined): Promise<Lead[]>;
+  findByTenant(ownerUserId?: string | undefined): Promise<Lead[]>;
   create(lead: Lead): Promise<void>;
   findById(id: string): Promise<Lead | null>;
   /** Modifica los datos del lead. No cambia su estado: eso solo lo hace `updateStatus`. */

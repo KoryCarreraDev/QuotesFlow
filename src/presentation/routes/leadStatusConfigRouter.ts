@@ -4,19 +4,23 @@ import { createAuthValidateCookie } from '../../infrastructure/web/middleware/cr
 import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { Request } from 'express';
-import { leadStatusConfigControllers } from '@/infrastructure/web/controllers/leadStatusConfigControllers.js';
+import { LeadStatusConfigController } from '@/infrastructure/web/controllers/leadStatusConfigControllers.js';
 import { createLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
-import { updateLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
+import { reorderLeadStatusConfigsSchema, updateLeadStatusConfigSchema } from '../schemas/leadStatusConfigSchema.js';
 
-function getLeadStatusConfigController(req: Request): leadStatusConfigControllers {
-  const getLeadsStatusUseCase = req.container!.leadStatuses.getGetLeadStatusConfigUseCase();
+function getLeadStatusConfigController(req: Request): LeadStatusConfigController {
+  const getLeadStatusConfigUseCase = req.container!.leadStatuses.getGetLeadStatusConfigUseCase();
   const createLeadStatusConfigUseCase = req.container!.leadStatuses.getCreateLeadStatusConfigUseCase();
   const updateLeadStatusConfigUseCase = req.container!.leadStatuses.getUpdateLeadStatusConfigUseCase();
+  const deleteLeadStatusConfigUseCase = req.container!.leadStatuses.getDeleteLeadStatusConfigUseCase();
+  const reorderLeadStatusConfigsUseCase = req.container!.leadStatuses.getReorderLeadStatusConfigsUseCase();
 
-  return new leadStatusConfigControllers(
-    getLeadsStatusUseCase,
+  return new LeadStatusConfigController(
+    getLeadStatusConfigUseCase,
     createLeadStatusConfigUseCase,
     updateLeadStatusConfigUseCase,
+    deleteLeadStatusConfigUseCase,
+    reorderLeadStatusConfigsUseCase,
   );
 }
 
@@ -25,22 +29,31 @@ export function leadStatusConfigRouter(jwtService: IAuthTokenService): Router {
   const authMiddleware = createAuthValidateCookie(jwtService);
   const tenantMiddleware = createTenantMiddleware();
 
-  router.get('/getAll', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadStatusConfigController(req).getAll(req, res, next);
   });
 
-  router.post(
-    '/create',
+  router.post('/', authMiddleware, tenantMiddleware, validateBody(createLeadStatusConfigSchema), (req, res, next) => {
+    getLeadStatusConfigController(req).create(req, res, next);
+  });
+
+  router.delete('/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getLeadStatusConfigController(req).delete(req, res, next);
+  });
+
+  // `/order` antes que `/:id`: si no, Express lo tomaría como el id de un estado.
+  router.patch(
+    '/order',
     authMiddleware,
     tenantMiddleware,
-    validateBody(createLeadStatusConfigSchema),
+    validateBody(reorderLeadStatusConfigsSchema),
     (req, res, next) => {
-      getLeadStatusConfigController(req).create(req, res, next);
+      getLeadStatusConfigController(req).reorder(req, res, next);
     },
   );
 
   router.patch(
-    '/update/:id',
+    '/:id',
     authMiddleware,
     tenantMiddleware,
     validateBody(updateLeadStatusConfigSchema),

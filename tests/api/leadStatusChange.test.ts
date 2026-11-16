@@ -12,7 +12,7 @@ import {
 import { sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
 
-// F1-T13: PATCH /api/lead/status/:id cambia el estado y lo registra en LeadStatusHistory.
+// F1-T13: PATCH /api/v1/leads/:id/status cambia el estado y lo registra en LeadStatusHistory.
 
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
@@ -20,7 +20,7 @@ const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const MAXIMUM_NOTE_LENGTH = 500;
 
-describe('PATCH /api/lead/status/:id', () => {
+describe('PATCH /api/v1/leads/:id/status', () => {
   let company: TenantWithTeam;
   let ownerCookie: string;
 
@@ -110,7 +110,7 @@ describe('PATCH /api/lead/status/:id', () => {
     expect(response.body.error.code).toBe(ErrorCode.VALIDATION_FAILED);
   });
 
-  it('PATCH /api/lead/update/:id ya no acepta statusId: el estado solo cambia por esta ruta, con historial', async () => {
+  it('PATCH /api/v1/leads/:id ya no acepta statusId: el estado solo cambia por esta ruta, con historial', async () => {
     const lead = await persistLead(company.tenant.id, { statusId: company.defaultLeadStatus.id });
 
     await request(app)
