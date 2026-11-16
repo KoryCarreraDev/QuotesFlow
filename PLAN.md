@@ -278,7 +278,6 @@ Ya instaladas y que se usarán: zod, winston, mathjs, pdf-lib, multer, bcryptjs,
 ---
 
 ## 7. Auditorías
-
 | Auditoría | Cuándo | Quién | Entregable |
 |---|---|---|---|
 | Línea base de seguridad | F0 | Opus, firma humano | `docs/audits/00-linea-base.md` |
@@ -341,13 +340,13 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 ### 9.3 Cotizaciones (bloquean F3)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-20 | IVA por ítem con tasa configurable (19 % por defecto) | Sí | [ ] | [ ] | |
-| D-21 | Solo pesos colombianos en el MVP | Sí | [ ] | [ ] | |
-| D-22 | Una cotización enviada no se edita; los cambios generan una versión nueva | Sí | [ ] | [ ] | |
-| D-23 | Estado "vencida" automático al pasar la fecha de vigencia | Sí | [ ] | [ ] | |
-| D-24 | El comercial puede cambiar a mano el precio calculado | No | [ ] | [ ] | |
-| D-25 | Descuento máximo por rol, configurable por el dueño | Sí | [ ] | [ ] | |
-| D-26 | Archivos (logos, PDF) en almacenamiento tipo S3 en producción | Sí | [ ] | [ ] | |
+| D-20 | IVA por ítem con tasa configurable (19 % por defecto) | Sí | [ ] | [ ] |Por defecto poner IVA de colombia, permitir configuracion a la hora de realizar cotizaciones|
+| D-21 | Solo pesos colombianos en el MVP | Sí | [x] | [ ] | |
+| D-22 | Una cotización enviada no se edita; los cambios generan una versión nueva | Sí | [x] | [ ] | |
+| D-23 | Estado "vencida" automático al pasar la fecha de vigencia | Sí | [x] | [ ] | |
+| D-24 | El comercial puede cambiar a mano el precio calculado | No | [ ] | [ ] |Si, pero realizar una alerta al lider comercial, sea mayor o menor, debido a asociaciones con clientes, negociacion o descuentos|
+| D-25 | Descuento máximo por rol, configurable por el dueño | Sí | [x] | [ ] | |
+| D-26 | Archivos (logos, PDF) en almacenamiento tipo S3 en producción | Sí | [ ] | [ ] |Si, pero para mvp optar por algun servicio gratuito|
 
 ### 9.4 Correos, notificaciones y tareas (bloquean F4)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
@@ -360,40 +359,40 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 ### 9.5 Suscripciones y administración (bloquean F5)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-31 | Prueba gratuita automática al registrarse (días en sección 8) | Sí | [ ] | [ ] | |
-| D-32 | MVP sin pasarela de pago: activación manual por admin | Sí | [ ] | [ ] | |
-| D-33 | Al vencer: solo lectura y exportación de datos, sin bloqueo total | Sí | [ ] | [ ] | |
-| D-34 | Límite de usuarios por plan | Sí | [ ] | [ ] | |
-| D-35 | Dos roles de admin: SUPER_ADMIN y SUPPORT (solo lectura) | Sí | [ ] | [ ] | |
-| D-36 | Lista de IP permitidas para el panel admin | No | [ ] | [ ] | |
-| D-37 | Backups a cargo del proveedor de BD; el panel solo muestra su estado | Sí | [ ] | [ ] | |
-| D-38 | Soporte puede entrar como un tenant (suplantación) | No | [ ] | [ ] | |
-| D-39 | Purgar definitivamente lo borrado tras un plazo (días: ____) | Sí | [ ] | [ ] | |
+| D-31 | Prueba gratuita automática al registrarse (días en sección 8) | Sí | [ ] | [ ] |Dar la opcion de solicitarla dejando datos y el por qué la solicita|
+| D-32 | MVP sin pasarela de pago: activación manual por admin | Sí | [x] | [ ] | |
+| D-33 | Al vencer: solo lectura y exportación de datos, sin bloqueo total | Sí | [ ] | [ ] | Solo por 1 mes y con constantes avisos, al vencer el mes, inhabilitar el acceso pero no borrar la información a menos que se solicite|
+| D-34 | Límite de usuarios por plan | Sí | [x] | [ ] | |
+| D-35 | Dos roles de admin: SUPER_ADMIN y SUPPORT (solo lectura) | Sí | [x] | [ ] | |
+| D-36 | Lista de IP permitidas para el panel admin | No | [] | [X] | |
+| D-37 | Backups a cargo del proveedor de BD; el panel solo muestra su estado | Sí | [X] | [ ] | |
+| D-38 | Soporte puede entrar como un tenant (suplantación) | No | [ ] | [ ] |Solo los super admin|
+| D-39 | Purgar definitivamente lo borrado tras un plazo (días: 60) | Sí | [x] | [ ] | |
 
 ### 9.6 Siigo y cartera (bloquean F6)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-40 | Puerto contable genérico para sumar otros ERP más adelante | Sí | [ ] | [ ] | |
-| D-41 | Sincronización nocturna diaria + botón "sincronizar ahora" con espera mínima | Sí | [ ] | [ ] | |
-| D-42 | Facturas sin cliente emparejado van a "Sin asignar", visibles para dueño y líder, con asignación manual | Sí | [ ] | [ ] | |
-| D-43 | Mora con interés simple diario: saldo × (tasa mensual ÷ 30) × días en mora | Sí | [ ] | [ ] | |
-| D-44 | La tasa no puede superar el máximo legal, que mantiene el admin de plataforma | Sí | [ ] | [ ] | |
-| D-45 | Solo el dueño configura el interés por mora | Sí | [ ] | [ ] | |
-| D-46 | PARTNER también puede descargar la cartera completa | No | [ ] | [ ] | |
-| D-47 | Enviar recordatorios de cobro por correo al cliente final | No | [ ] | [ ] | |
-| D-48 | Días de gracia configurables antes de generar mora | Sí | [ ] | [ ] | |
-| D-49 | Usar `fetch` nativo y eliminar axios | Sí | [ ] | [ ] | |
+| D-40 | Puerto contable genérico para sumar otros ERP más adelante | Sí | [x] | [ ] | |
+| D-41 | Sincronización nocturna diaria + botón "sincronizar ahora" con espera mínima | Sí | [x] | [ ] | |
+| D-42 | Facturas sin cliente emparejado van a "Sin asignar", visibles para dueño y líder, con asignación manual | Sí | [x] | [ ] | |
+| D-43 | Mora con interés simple diario: saldo × (tasa mensual ÷ 30) × días en mora | Sí | [ ] | [ ] |Por defecto deshabilitada, darle la opcion a dueño y socio de configurarlo en panel|
+| D-44 | La tasa no puede superar el máximo legal, que mantiene el admin de plataforma | Sí | [x] | [ ] | |
+| D-45 | Solo el dueño configura el interés por mora | Sí | [x] | [ ] | |
+| D-46 | PARTNER también puede descargar la cartera completa | No | [ ] | [ ] |Solo su cartera|
+| D-47 | Enviar recordatorios de cobro por correo al cliente final | No | [ ] | [ ] |Solo al comercial, no al cliente final, a menos que manualmente un usuario lo active, solo que el dueño lo active para que se envie automatico, manualmente o lo inhabilite a los clientes finales en el panel admin|
+| D-48 | Días de gracia configurables antes de generar mora | Sí | [X] | [ ] | |
+| D-49 | Usar `fetch` nativo y eliminar axios | Sí | [ ] | [ ] |Fijar versiones estables de axios y sin vulnerabilidades publicas|
 
 ### 9.7 Analíticas y salida (bloquean F7 y F8)
 | ID | Decisión | Recomendado | Sí | No | Otro (explicación) |
 |---|---|---|---|---|---|
-| D-50 | Los 5 reportes de F7 son suficientes para el MVP | Sí | [ ] | [ ] | |
-| D-51 | Cada estado de lead declara su tipo: abierto, ganado o perdido | Sí | [ ] | [ ] | |
-| D-52 | Rango máximo de consulta de 24 meses | Sí | [ ] | [ ] | |
-| D-53 | Escaneo dinámico (OWASP ZAP) contra staging antes de salir | Sí | [ ] | [ ] | |
-| D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [ ] | [ ] | |
-| D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] | |
-| D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] | |
+| D-50 | Los 5 reportes de F7 son suficientes para el MVP | Sí | [X] | [ ] | |
+| D-51 | Cada estado de lead declara su tipo: abierto, ganado o perdido | Sí | [X] | [ ] | |
+| D-52 | Rango máximo de consulta de 24 meses | Sí | [ ] | [ ] |Configurable por cada usuario, fijable por lider comercial y dueño/socio|
+| D-53 | Escaneo dinámico (OWASP ZAP) contra staging antes de salir | Sí | [X] | [ ] | |
+| D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [X] | [ ] | |
+| D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] |Neon, Plan Free|
+| D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] |Dejar genericos mientras se establece el mvp luego de testeos|
 
 ### 9.8 Funcionalidades comunes de CRM sugeridas (¿entran al MVP?)
 "Sí" las agrega a F1/F3/F4 como tareas nuevas; "No" las deja en F9.
