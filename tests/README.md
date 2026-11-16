@@ -38,7 +38,7 @@ tests/
     http/                      rutas de la API, cookie de sesión, inventario de rutas
     knownDefect.ts             `itKnownDefect`: defectos conocidos pendientes de corregir
   fixtures/architecture/       mini proyecto con violaciones de capas a propósito (lo usa unit/tooling)
-  unit/                        dominio, casos de uso, mappers, esquemas Zod, middleware, motor de filtrado
+  unit/                        dominio, casos de uso, mappers, esquemas Zod, middleware, motor de filtrado, configuración de entorno
     tooling/                   reglas propias de calidad: lint (código comentado), arquitectura (R4) y comprobación de R3 de la CI
   integration/                 repositorios Prisma y esquema, contra PostgreSQL real
   build/                       build de producción y arranque del servidor compilado

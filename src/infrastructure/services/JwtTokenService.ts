@@ -1,11 +1,14 @@
 import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
 import { IPayload } from '../../application/ports/services/IAuthTokenService.js';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { env } from '../../config/env.js';
+
+type TokenLifetime = NonNullable<SignOptions['expiresIn']>;
 
 export class JwTokenService implements IAuthTokenService {
   private readonly JWT_SECRET = env.JWT_SECRET;
-  private readonly JWT_EXPIRATION = env.JWT_EXPIRATION as any;
+  // `env.ts` ya comprobó que es un número + unidad que jsonwebtoken entiende (JWT_EXPIRATION_PATTERN).
+  private readonly JWT_EXPIRATION = env.JWT_EXPIRATION as TokenLifetime;
 
   generateToken(payload: IPayload): string {
     const token = jwt.sign(payload, this.JWT_SECRET, {
