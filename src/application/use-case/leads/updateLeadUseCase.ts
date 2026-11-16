@@ -1,3 +1,7 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { UpdateLeadDTO } from '@/application/dtos/UpdateLeadDTO.js';
 import { ILeadRepository } from '@/application/ports/repositories/ILeadRepository.js';
 import { ILeadMapper } from '@/application/ports/mappers/ILeadMapper.js';
@@ -14,7 +18,7 @@ export class UpdateLeadUseCase {
 
   async execute(leadId: string, updateLead: UpdateLeadDTO, role: string, userId: string) {
     if (!leadId || !updateLead || !role || !userId) {
-      throw new Error('All information is required');
+      throw new ValidationError(ErrorCode.MISSING_REQUIRED_DATA, 'All information is required');
     }
 
     const tenantId = this.tenantContext.getTenantId();
@@ -24,15 +28,15 @@ export class UpdateLeadUseCase {
 
     const leadProperty = await this.leadRepo.findById(leadId);
     if (!leadProperty) {
-      throw new Error('Lead not found');
+      throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
     if (leadProperty.deleted === 'DELETED') {
-      throw new Error('This lead is deleted');
+      throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'This lead is deleted');
     }
 
     if (role === Role.SALES_REP && leadProperty.assignedToId !== userId) {
-      throw new Error('You can only update your own leads');
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You can only update your own leads');
     }
 
     const updatedLead = new Lead(

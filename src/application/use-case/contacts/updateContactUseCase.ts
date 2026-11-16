@@ -1,3 +1,6 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { UpdateContactDTO } from '@/application/dtos/UpdateContactDTO.js';
 import { IContactRepository } from '@/application/ports/repositories/IContactRepository.js';
 import { IContactMapper } from '@/application/ports/mappers/IContactMapper.js';
@@ -13,7 +16,7 @@ export class UpdateContactUseCase {
 
   async execute(contactId: string, updateContact: UpdateContactDTO) {
     if (!contactId || !updateContact) {
-      throw new Error('All information is required');
+      throw new ValidationError(ErrorCode.MISSING_REQUIRED_DATA, 'All information is required');
     }
 
     const tenantId = this.tenantContext.getTenantId();
@@ -23,7 +26,7 @@ export class UpdateContactUseCase {
 
     const existingContact = await this.contactRepo.findById(contactId);
     if (!existingContact) {
-      throw new Error('Contact not found');
+      throw new NotFoundError(ErrorCode.CONTACT_NOT_FOUND, 'Contact not found');
     }
 
     const updatedContact = new Contact(

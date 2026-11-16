@@ -1,3 +1,6 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ConflictError } from '@/domain/errors/ConflictError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { CreateLeadDTO } from '../../../application/dtos/CreateLeadDTO.js';
 import { ILeadRepository } from '../../../application/ports/repositories/ILeadRepository.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
@@ -28,20 +31,23 @@ export class CreateLeadUseCase {
     if (!statusId) {
       const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
       if (!defaultStatus) {
-        throw new Error('Default lead status not configured for this tenant');
+        throw new ConflictError(
+          ErrorCode.DEFAULT_LEAD_STATUS_MISSING,
+          'Default lead status not configured for this tenant',
+        );
       }
       statusId = defaultStatus.id;
     } else {
       const existingStatus = await this.statusRepo.findById(statusId);
       if (!existingStatus) {
-        throw new Error('Invalid statusId: does not belong to this tenant');
+        throw new ValidationError(ErrorCode.INVALID_LEAD_STATUS, 'Invalid statusId: does not belong to this tenant');
       }
     }
 
     if (createLead.assignedToId && role !== Role.SALES_REP) {
       const findUser = await this.userRepo.findById(createLead.assignedToId);
       if (!findUser) {
-        throw new Error('User not found');
+        throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
       }
     }
 

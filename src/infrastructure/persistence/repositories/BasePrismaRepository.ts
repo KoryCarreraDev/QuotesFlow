@@ -1,3 +1,6 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { PrismaClient } from '@prisma/client';
 import { ITenantContext } from '../../../application/ports/services/ITenantContext.js';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
@@ -30,7 +33,7 @@ export abstract class BasePrismaRepository {
   //Si no es asi, lanza un error.
   protected validateTenant(record: { tenantId?: string }): void {
     if (record.tenantId !== this.tenantId) {
-      throw new Error('Acceso denegado: el registro no pertenece al tenant actual');
+      throw new NotFoundError(ErrorCode.RECORD_NOT_FOUND, 'Record not found');
     }
   }
 
@@ -49,10 +52,16 @@ export abstract class BasePrismaRepository {
     for (const filter of criteria.filters ?? []) {
       const fieldConfig = config[filter.field];
       if (!fieldConfig) {
-        throw new Error(`Campo no permitido para el filtro: ${filter.field}`);
+        throw new ValidationError(
+          ErrorCode.FILTER_FIELD_NOT_ALLOWED,
+          `Field is not allowed in filters: ${filter.field}`,
+        );
       }
       if (!fieldConfig.allowedOperators.includes(filter.operator)) {
-        throw new Error(`Operador no permitido para el campo ${filter.field}: ${filter.operator}`);
+        throw new ValidationError(
+          ErrorCode.FILTER_OPERATOR_NOT_ALLOWED,
+          `Operator ${filter.operator} is not allowed for field ${filter.field}`,
+        );
       }
 
       const condition: Record<string, unknown> = {};

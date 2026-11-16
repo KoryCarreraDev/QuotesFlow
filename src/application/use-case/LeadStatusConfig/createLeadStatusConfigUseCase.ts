@@ -1,3 +1,5 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { CreateLeadStatusConfigDTO } from '@/application/dtos/CreateLeadStatusConfigDTO.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { ILeadStatusConfigMapper } from '@/application/ports/mappers/ILeadStatusConfigMapper.js';
@@ -20,7 +22,7 @@ export class CreateLeadStatusConfigUseCase {
     }
 
     if (role === Role.SALES_REP) {
-      throw new Error('Insufficient permissions');
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
     const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);

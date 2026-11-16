@@ -92,7 +92,7 @@ describe('POST /api/auth/register', () => {
       .send({ ...registration, ownerEmail: 'not-an-email' });
 
     expect(response.status).toBe(HTTP_BAD_REQUEST);
-    expect(response.body.errors).toBeInstanceOf(Array);
+    expect(response.body.error.details).toBeInstanceOf(Array);
     await expect(prisma.tenant.count()).resolves.toBe(0);
     await expect(prisma.user.count()).resolves.toBe(0);
   });
@@ -177,7 +177,7 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(HTTP_BAD_REQUEST);
   });
 
-  itKnownDefect('H5', 'un login fallido responde 401, sin traza de error en el cuerpo', async () => {
+  it('un login fallido responde 401, sin traza de error en el cuerpo', async () => {
     const response = await request(app)
       .post(apiPaths.auth.login)
       .send({ email: 'unknown@example.com', password: TEST_USER_PASSWORD });

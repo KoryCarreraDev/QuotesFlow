@@ -148,7 +148,7 @@ describe('API de estados de lead', () => {
       await expect(listDefaultStatusNames()).resolves.toEqual(['Nuevo']);
     });
 
-    itKnownDefect('H5', 'responde 404 si el estado no existe', async () => {
+    it('responde 404 si el estado no existe', async () => {
       const response = await request(app)
         .patch(apiPaths.leadStatusConfigs.update(NON_EXISTENT_ID))
         .set('Cookie', ownerCookie)

@@ -1,3 +1,5 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { Request, Response, NextFunction } from 'express';
 import { GetCompanyContactsUseCase } from '@/application/use-case/companyContacts/getCompanyContactsUseCase.js';
 import { CreateCompanyContactUseCase } from '@/application/use-case/companyContacts/createCompanyContactUseCase.js';
@@ -52,7 +54,9 @@ export class companyContactController {
           const parsed = JSON.parse(filtersRaw);
           filters = Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-          return res.status(400).json({ error: 'Invalid filters format' });
+          return next(
+            new ValidationError(ErrorCode.INVALID_FILTERS_FORMAT, 'Invalid filters format', [], { cause: error }),
+          );
         }
       }
 

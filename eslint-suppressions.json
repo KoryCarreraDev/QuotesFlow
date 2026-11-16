@@ -65,10 +65,7 @@
       "count": 1
     },
     "@typescript-eslint/no-magic-numbers": {
-      "count": 5
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
+      "count": 4
     }
   },
   "src/infrastructure/web/controllers/contactControllers.ts": {
@@ -76,10 +73,7 @@
       "count": 1
     },
     "@typescript-eslint/no-magic-numbers": {
-      "count": 5
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
+      "count": 4
     }
   },
   "src/infrastructure/web/controllers/leadControllers.ts": {
@@ -87,10 +81,7 @@
       "count": 1
     },
     "@typescript-eslint/no-magic-numbers": {
-      "count": 6
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
+      "count": 5
     }
   },
   "src/infrastructure/web/controllers/leadStatusConfigControllers.ts": {
@@ -99,19 +90,6 @@
     },
     "@typescript-eslint/no-magic-numbers": {
       "count": 3
-    }
-  },
-  "src/infrastructure/web/middleware/createAuthValidateCookie.ts": {
-    "@typescript-eslint/no-magic-numbers": {
-      "count": 1
-    }
-  },
-  "src/infrastructure/web/middleware/validateBody.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-magic-numbers": {
-      "count": 1
     }
   },
   "src/presentation/schemas/authSchema.ts": {

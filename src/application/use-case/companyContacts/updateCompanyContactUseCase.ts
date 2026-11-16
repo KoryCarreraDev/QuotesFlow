@@ -1,3 +1,6 @@
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { UpdateCompanyContactDTO } from '@/application/dtos/UpdateCompanyContactDTO.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
 import { ICompanyContactMapper } from '@/application/ports/mappers/ICompanyContactMapper.js';
@@ -13,7 +16,7 @@ export class UpdateCompanyContactUseCase {
 
   async execute(companyContactId: string, updateCompanyContact: UpdateCompanyContactDTO) {
     if (!companyContactId || !updateCompanyContact) {
-      throw new Error('All information is required');
+      throw new ValidationError(ErrorCode.MISSING_REQUIRED_DATA, 'All information is required');
     }
 
     const tenantId = this.tenantContext.getTenantId();
@@ -23,7 +26,7 @@ export class UpdateCompanyContactUseCase {
 
     const existingCompanyContact = await this.companyContactRepo.findById(companyContactId);
     if (!existingCompanyContact) {
-      throw new Error('Company contact not found');
+      throw new NotFoundError(ErrorCode.COMPANY_CONTACT_NOT_FOUND, 'Company contact not found');
     }
 
     const updatedCompanyContact = new CompanyContact(

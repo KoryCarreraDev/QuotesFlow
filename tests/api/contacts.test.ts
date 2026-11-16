@@ -127,7 +127,7 @@ describe('API de contactos', () => {
     expect(response.status).toBe(HTTP_BAD_REQUEST);
   });
 
-  itKnownDefect('H5', 'PATCH /update/:id responde 404 si el contacto no existe', async () => {
+  it('PATCH /update/:id responde 404 si el contacto no existe', async () => {
     const response = await request(app)
       .patch(apiPaths.contacts.update(NON_EXISTENT_ID))
       .set('Cookie', salesRepCookie)
@@ -249,7 +249,7 @@ describe('API de empresas cliente', () => {
     expect(response.status).toBe(HTTP_BAD_REQUEST);
   });
 
-  itKnownDefect('H5', 'PATCH /update/:id responde 404 si la empresa cliente no existe', async () => {
+  it('PATCH /update/:id responde 404 si la empresa cliente no existe', async () => {
     const response = await request(app)
       .patch(apiPaths.companyContacts.update(NON_EXISTENT_ID))
       .set('Cookie', salesRepCookie)
