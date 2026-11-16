@@ -53,6 +53,18 @@ TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `
 
 **Hooks de git (F0-T05):** lefthook 2.2.2 (`lefthook.yml`), instalado por su `postinstall` al hacer `pnpm install` (no se instala con `CI=true`). pre-commit: ESLint + Prettier sobre los archivos preparados. pre-push: `pnpm typecheck`, `pnpm arch:check`, `pnpm test:unit`.
 
+**CI (F0-T06):** `.github/workflows/ci.yml`, en cada PR y push a `develop`/`main`. Actions fijadas por SHA de commit y permisos `contents: read`. Jobs:
+| Job | Qué exige |
+|---|---|
+| `quality` | `pnpm typecheck`, `pnpm lint`, `pnpm arch:check` |
+| `tests` | `pnpm test:coverage` (los 4 proyectos, con PostgreSQL vía testcontainers) y umbrales de D-03; sube `coverage/` como artefacto |
+| `dependency-audit` | `pnpm audit --prod` sin ningún aviso; `pnpm audit --audit-level high` para todo |
+| `secret-scan` | gitleaks 8.30.1 (imagen por digest) sobre todo el historial |
+| `context-updated` | Solo en PR: `pnpm check:context origin/<base>` falla si cambian `src/` o `prisma/` sin una fila nueva en el registro de `CONTEXT.md` (R3; `scripts/ci/`) |
+| `docker-image` | Construye `runtime` y `migrator`, migra un PostgreSQL de servicio, arranca la API con `--init` y comprueba `/health`, usuario no root y registro (201) |
+
+Que estos jobs sean obligatorios para fusionar lo configura un humano en la protección de ramas de GitHub.
+
 `pnpm-workspace.yaml`: `allowBuilds` niega las compilaciones nativas opcionales de testcontainers (`cpu-features`, `protobufjs`, `ssh2`) y `overrides` fuerza `brace-expansion` 2.1.7 (versión corregida; la arrastra testcontainers).
 
 Alias `@/` = `src/` (en `tsconfig.json`, `paths` sin `baseUrl`). En el código se mezclan imports `@/...` y relativos. `pnpm build` ejecuta `tsc` y después `tsc-alias` (1.9.10, F0-T07), que reescribe `@/` a rutas relativas en `dist/`; sin ese paso `node dist/server.js` no arranca. En los tests además `@tests/` = `tests/` (en `vitest.config.ts` y `tests/tsconfig.json`).
@@ -267,6 +279,7 @@ pnpm test:build     # compila como producción y arranca el servidor compilado (
 pnpm typecheck      # src/ y tests/
 pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format corrigen)
 pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
+pnpm check:context develop   # R3: CONTEXT.md actualizado respecto a la rama base
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # DESARROLLO (Dockerfile.dev): db (host 3363), backend (4000), prisma-studio (3364)
@@ -304,3 +317,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T04 | pendiente | `dependency-cruiser` con las reglas de R4 (`pnpm arch:check`); `src/` sin violaciones. Fixture `tests/fixtures/architecture` y 8 tests que comprueban que cada regla detecta su violación. |
 | 2026-11-16 | F0-T05 | pendiente | Hooks de git con lefthook: pre-commit (ESLint + Prettier), pre-push (typecheck, arquitectura, tests unitarios). `allowBuilds` permite el `postinstall` de lefthook. |
 | 2026-11-16 | F0-T08 | pendiente | `Dockerfile` de producción multi-etapa (Node 24.18.0 por digest, no root, pnpm fijado, `--frozen-lockfile`, healthcheck, etapa `migrator`) y `Dockerfile.dev` + compose de desarrollo. Probado de extremo a extremo: migraciones, registro (201) y lectura autenticada (200) contra la imagen. H16 y H17 resueltos. |
+| 2026-11-16 | F0-T06 | pendiente | CI en GitHub Actions: calidad, tests con cobertura, auditoría de dependencias, gitleaks, comprobación de R3 y prueba de la imagen Docker. Script `pnpm check:context` con 6 tests. Validado con actionlint; aún no se ha ejecutado en GitHub. |

@@ -16,5 +16,7 @@
 /eslint-rules/ @KoryCarreraDev
 /eslint-suppressions.json @KoryCarreraDev
 /.dependency-cruiser.cjs @KoryCarreraDev
+/scripts/ci/ @KoryCarreraDev
+/lefthook.yml @KoryCarreraDev
 /docs/security/ @KoryCarreraDev
 /docs/audits/ @KoryCarreraDev

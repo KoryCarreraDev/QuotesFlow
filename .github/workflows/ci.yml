@@ -1,0 +1,177 @@
+# Integración continua (F0-T06). Cada job es una comprobación obligatoria para fusionar en develop y main
+# (la protección de ramas la configura un humano en GitHub, ver PLAN.md F0).
+# Las actions se fijan por SHA de commit (cadena de suministro, A03); el comentario indica la versión.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  # Igual que `devEngines.packageManager` de package.json.
+  PNPM_VERSION: 11.28.10
+
+jobs:
+  quality:
+    name: Typecheck, lint y arquitectura
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm arch:check
+
+  tests:
+    name: Tests y cobertura
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      # unit + integration + api + build. Integration y api levantan su propio PostgreSQL con testcontainers.
+      # Falla bajo los umbrales de D-03 (80 % global, 90 % en domain y application).
+      - run: pnpm test:coverage
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  dependency-audit:
+    name: Auditoría de dependencias
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Producción: ningún aviso, de ninguna severidad.
+      - run: pnpm audit --prod
+      # Desarrollo: falla desde severidad alta. Los moderados que quedan están documentados en CONTEXT.md.
+      - run: pnpm audit --audit-level high
+
+  secret-scan:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Imagen oficial fijada por digest (v8.30.1); recorre todo el historial de git.
+      - run: >
+          docker run --rm -v "${{ github.workspace }}:/repo"
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --redact --no-banner --exit-code 1
+
+  context-updated:
+    name: CONTEXT.md actualizado (R3)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:context "origin/${BASE_BRANCH}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+
+  docker-image:
+    name: Imagen Docker de producción
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5432/ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --target runtime -t quotesflow-api:ci .
+      - run: docker build --target migrator -t quotesflow-migrator:ci .
+      - name: Aplicar migraciones con la imagen migrator
+        run: docker run --rm --network host -e DATABASE_URL quotesflow-migrator:ci
+      - name: Arrancar la API como en producción
+        run: >
+          docker run -d --init --name api --network host
+          -e DATABASE_URL -e JWT_SECRET=ci-only-jwt-secret quotesflow-api:ci
+      - name: Comprobar /health, el usuario sin privilegios y el registro contra la base de datos
+        run: |
+          for _ in $(seq 1 30); do
+            curl --silent --fail http://127.0.0.1:4000/health && break
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4000/health
+          test "$(docker exec api id -u)" != "0"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"companyName":"CI SAS","ownerEmail":"ci@example.com","password":"ci-only-password-123","ownerFirstName":"Ci","ownerLastName":"Runner"}' \
+            http://127.0.0.1:4000/api/auth/register)
+          test "$status" = "201"
+      - name: Registros de la API si algo falló
+        if: failure()
+        run: docker logs api
