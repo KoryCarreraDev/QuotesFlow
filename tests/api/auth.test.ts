@@ -202,7 +202,7 @@ describe('POST /api/auth/login', () => {
 
   it('un usuario borrado no puede iniciar sesión', async () => {
     const tenant = await persistTenant();
-    const deletedUser = await persistUser(tenant.id, { deleted: DeletedState.Inactive });
+    const deletedUser = await persistUser(tenant.id, { deleted: DeletedState.INACTIVE });
 
     const response = await request(app)
       .post(apiPaths.auth.login)
@@ -212,7 +212,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('un usuario de una empresa borrada no puede iniciar sesión', async () => {
-    const deletedTenant = await persistTenant({ deleted: DeletedState.Inactive });
+    const deletedTenant = await persistTenant({ deleted: DeletedState.INACTIVE });
     const user = await persistUser(deletedTenant.id);
 
     const response = await request(app)

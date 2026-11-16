@@ -22,7 +22,9 @@ import {
   createRequestContextMiddleware,
 } from './infrastructure/web/middleware/requestLogging.js';
 
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+const MILLISECONDS_PER_MINUTE = 60_000;
+const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * MILLISECONDS_PER_MINUTE;
 // Ningún cuerpo legítimo de la API se acerca a esto; uno mayor solo sirve para agotar memoria (H14).
 const JSON_BODY_LIMIT = '100kb';
 

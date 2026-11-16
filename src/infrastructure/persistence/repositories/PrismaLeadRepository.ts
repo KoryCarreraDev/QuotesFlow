@@ -31,7 +31,7 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
   }
 
   async create(lead: Lead): Promise<void> {
-    const record = await this.prisma.lead.create({
+    await this.prisma.lead.create({
       data: {
         id: lead.id,
         companyName: lead.companyName,

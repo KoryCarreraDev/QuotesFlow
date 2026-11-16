@@ -79,7 +79,7 @@ describe('API de contactos', () => {
     });
     await persistContact(company.tenant.id, {
       ownerId: company.salesRep.id,
-      deleted: DeletedState.Inactive,
+      deleted: DeletedState.INACTIVE,
     });
 
     const response = await request(app).get(apiPaths.contacts.getAll).set('Cookie', salesRepCookie);
@@ -173,7 +173,7 @@ describe('API de contactos', () => {
     const deletedContact = await persistContact(company.tenant.id, {
       ownerId: company.salesRep.id,
       lastName: 'Martínez',
-      deleted: DeletedState.Inactive,
+      deleted: DeletedState.INACTIVE,
     });
 
     await request(app)
@@ -228,7 +228,7 @@ describe('API de empresas cliente', () => {
     });
     await persistCompanyContact(company.tenant.id, {
       ownerId: company.salesRep.id,
-      deleted: DeletedState.Inactive,
+      deleted: DeletedState.INACTIVE,
     });
 
     const response = await request(app).get(apiPaths.companyContacts.getAll).set('Cookie', salesRepCookie);

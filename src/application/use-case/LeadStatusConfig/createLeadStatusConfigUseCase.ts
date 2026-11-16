@@ -12,10 +12,17 @@ import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { LeadStatusConfig } from '@/domain/entities/LeadStatusConfig.js';
 import { Role } from '@/domain/enums/Role.js';
 
+/**
+ * Crea un estado de lead. Solo gestión. Si es el predeterminado, desmarca el anterior en la misma transacción; el predeterminado tiene que ser OPEN.
+ *
+ * @throws {ForbiddenError} Si el rol no puede crear estados.
+ * @throws {ValidationError} `DEFAULT_LEAD_STATUS_MUST_BE_OPEN`.
+ * @throws {ConflictError} `LEAD_STATUS_ORDER_TAKEN` si el orden ya lo usa otro estado.
+ */
 export class CreateLeadStatusConfigUseCase {
   constructor(
-    private readonly statusRepo: ILeadStatusConfigRepository,
-    private readonly statusMap: ILeadStatusConfigMapper,
+    private readonly leadStatusRepository: ILeadStatusConfigRepository,
+    private readonly leadStatusMapper: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
     private readonly transactionManager: ITransactionManager,
@@ -37,7 +44,7 @@ export class CreateLeadStatusConfigUseCase {
 
     // Todo o nada (F1-T14): si la creación falla (orden repetido), el predeterminado anterior se conserva.
     return this.transactionManager.runInTransaction(async () => {
-      const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+      const defaultStatus = await this.leadStatusRepository.findDefaultByTenant(tenantId);
 
       if (createLeadStatus.isDefault === true) {
         if (defaultStatus) {
@@ -53,7 +60,7 @@ export class CreateLeadStatusConfigUseCase {
             defaultStatus.deleted,
             defaultStatus.type,
           );
-          await this.statusRepo.update(oldDefaultLeadStatus.id, oldDefaultLeadStatus);
+          await this.leadStatusRepository.update(oldDefaultLeadStatus.id, oldDefaultLeadStatus);
         }
       }
 
@@ -66,13 +73,13 @@ export class CreateLeadStatusConfigUseCase {
         type: statusType,
       });
 
-      await this.statusRepo.create(leadStatusEntity);
+      await this.leadStatusRepository.create(leadStatusEntity);
       await this.auditLogger.record({
         action: AuditAction.LEAD_STATUS_CONFIG_CREATED,
         entity: AuditEntity.LEAD_STATUS_CONFIG,
         entityId: leadStatusEntity.id,
       });
-      return this.statusMap.toDTO(leadStatusEntity);
+      return this.leadStatusMapper.toDTO(leadStatusEntity);
     });
   }
 }

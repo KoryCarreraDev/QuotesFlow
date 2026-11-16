@@ -29,6 +29,9 @@ export enum AuditEntity {
   COMPANY_CONTACT = 'CompanyContact',
 }
 
+/**
+ * Un registro de auditoría: qué acción, sobre qué entidad y, en rutas públicas, quién.
+ */
 export interface AuditEntry {
   action: AuditAction;
   entity: AuditEntity;

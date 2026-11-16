@@ -2,6 +2,9 @@ import { DeletedState } from '../enums/DeletedState.js';
 import crypto from 'crypto';
 import { LeadStatusType } from '../enums/LeadStatusType.js';
 
+/**
+ * Estado de lead configurable por empresa: nombre, orden, color, si es el predeterminado y su tipo (OPEN, WON, LOST; D-51).
+ */
 export class LeadStatusConfig {
   constructor(
     public readonly id: string,
@@ -16,7 +19,7 @@ export class LeadStatusConfig {
     public readonly type: LeadStatusType = LeadStatusType.OPEN,
   ) {}
 
-  static fromPrisma(prismaLead: {
+  static fromPrisma(record: {
     id: string;
     tenantId: string;
     name: string;
@@ -29,16 +32,16 @@ export class LeadStatusConfig {
     type?: string;
   }): LeadStatusConfig {
     return new LeadStatusConfig(
-      prismaLead.id,
-      prismaLead.name,
-      prismaLead.order,
-      prismaLead.isDefault,
-      prismaLead.updatedAt,
-      prismaLead.createdAt,
-      prismaLead.color ?? undefined,
-      prismaLead.tenantId,
-      (prismaLead.deleted as DeletedState | null) ?? undefined,
-      (prismaLead.type as LeadStatusType | undefined) ?? LeadStatusType.OPEN,
+      record.id,
+      record.name,
+      record.order,
+      record.isDefault,
+      record.updatedAt,
+      record.createdAt,
+      record.color ?? undefined,
+      record.tenantId,
+      (record.deleted as DeletedState | null) ?? undefined,
+      (record.type as LeadStatusType | undefined) ?? LeadStatusType.OPEN,
     );
   }
 

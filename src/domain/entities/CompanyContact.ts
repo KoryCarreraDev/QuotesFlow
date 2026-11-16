@@ -2,6 +2,9 @@ import { DocumentType } from '../enums/DocumentType.js';
 import { normalizeDocumentNumber } from '../value-objects/documentNumber.js';
 import crypto from 'crypto';
 
+/**
+ * Empresa cliente de un tenant. `documentNumber` es su NIT normalizado (sin dígito de verificación) y se deriva de `taxNumber`.
+ */
 export class CompanyContact {
   constructor(
     public readonly id: string,

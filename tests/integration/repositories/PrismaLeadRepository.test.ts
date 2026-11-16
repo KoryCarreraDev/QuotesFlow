@@ -12,6 +12,9 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
+const UPDATED_ESTIMATED_VALUE = 3_000_000;
+const TWO_MATCHING_RECORDS = 2;
+
 function createRepositoryFor(tenantId: string): PrismaLeadRepository {
   return new PrismaLeadRepository(prisma, new FixedTenantContext(tenantId));
 }
@@ -64,7 +67,7 @@ describe('PrismaLeadRepository', () => {
         estimatedValue: 2_500_000,
         expectedCloseDate,
         notes: 'Llamar el lunes',
-        deleted: DeletedState.Active,
+        deleted: DeletedState.ACTIVE,
       });
     });
 
@@ -79,7 +82,7 @@ describe('PrismaLeadRepository', () => {
     });
 
     it('findById no devuelve un lead borrado', async () => {
-      const deletedLead = await persistLead(company.tenant.id, { deleted: DeletedState.Inactive });
+      const deletedLead = await persistLead(company.tenant.id, { deleted: DeletedState.INACTIVE });
 
       await expect(leadRepository.findById(deletedLead.id)).resolves.toBeNull();
     });
@@ -89,7 +92,7 @@ describe('PrismaLeadRepository', () => {
     it('devuelve solo los leads activos de la empresa', async () => {
       const firstLead = await persistLead(company.tenant.id);
       const secondLead = await persistLead(company.tenant.id);
-      await persistLead(company.tenant.id, { deleted: DeletedState.Inactive });
+      await persistLead(company.tenant.id, { deleted: DeletedState.INACTIVE });
       await persistLead(otherCompany.tenant.id);
 
       const leads = await leadRepository.findByTenant();
@@ -121,7 +124,7 @@ describe('PrismaLeadRepository', () => {
         undefined,
         'Feria',
         company.otherSalesRep.id,
-        3_000_000,
+        UPDATED_ESTIMATED_VALUE,
         new Date('2026-09-15T00:00:00.000Z'),
         'Reasignado',
       );
@@ -192,7 +195,7 @@ describe('PrismaLeadRepository', () => {
       await leadRepository.delete(storedLead.id);
 
       const deletedLead = await prisma.lead.findUniqueOrThrow({ where: { id: storedLead.id } });
-      expect(deletedLead.deleted).toBe(DeletedState.Inactive);
+      expect(deletedLead.deleted).toBe(DeletedState.INACTIVE);
       await expect(leadRepository.findById(storedLead.id)).resolves.toBeNull();
     });
 
@@ -202,7 +205,7 @@ describe('PrismaLeadRepository', () => {
       await expect(leadRepository.delete(foreignLead.id)).rejects.toThrow();
 
       const untouchedLead = await prisma.lead.findUniqueOrThrow({ where: { id: foreignLead.id } });
-      expect(untouchedLead.deleted).toBe(DeletedState.Active);
+      expect(untouchedLead.deleted).toBe(DeletedState.ACTIVE);
     });
   });
 
@@ -210,14 +213,14 @@ describe('PrismaLeadRepository', () => {
     it('sin criterios devuelve los leads activos de la empresa y su total', async () => {
       const firstLead = await persistLead(company.tenant.id);
       const secondLead = await persistLead(company.tenant.id);
-      await persistLead(company.tenant.id, { deleted: DeletedState.Inactive });
+      await persistLead(company.tenant.id, { deleted: DeletedState.INACTIVE });
       await persistLead(otherCompany.tenant.id);
 
       const leads = await leadRepository.findFiltered({}, leadFilterConfig);
       const total = await leadRepository.countFiltered({}, leadFilterConfig);
 
       expect(idsOf(leads)).toEqual([firstLead.id, secondLead.id].sort());
-      expect(total).toBe(2);
+      expect(total).toBe(TWO_MATCHING_RECORDS);
     });
 
     it('contains encuentra texto parcial sin distinguir mayúsculas', async () => {
@@ -289,7 +292,7 @@ describe('PrismaLeadRepository', () => {
 
       // `source` no es buscable: el tercer lead no entra.
       expect(idsOf(leads)).toEqual([matchByCompany.id, matchByNotes.id].sort());
-      expect(total).toBe(2);
+      expect(total).toBe(TWO_MATCHING_RECORDS);
     });
 
     it('pagina los resultados y el total cuenta todos los que cumplen el criterio', async () => {
@@ -302,14 +305,14 @@ describe('PrismaLeadRepository', () => {
       const lastPage = await leadRepository.findFiltered({ page: 3, limit: 2 }, leadFilterConfig);
       const total = await leadRepository.countFiltered({ page: 3, limit: 2 }, leadFilterConfig);
 
-      expect(firstPage).toHaveLength(2);
+      expect(firstPage).toHaveLength(TWO_MATCHING_RECORDS);
       expect(lastPage).toHaveLength(1);
       expect(total).toBe(storedLeadCount);
     });
 
     it('ningún filtro alcanza leads de otra empresa ni leads borrados', async () => {
       await persistLead(otherCompany.tenant.id, { contactName: 'Ana Gómez' });
-      await persistLead(company.tenant.id, { contactName: 'Ana Gómez', deleted: DeletedState.Inactive });
+      await persistLead(company.tenant.id, { contactName: 'Ana Gómez', deleted: DeletedState.INACTIVE });
 
       const criteria = { filters: [{ field: 'contactName', operator: 'equals', value: 'Ana Gómez' }] };
       const leads = await leadRepository.findFiltered(criteria, leadFilterConfig);

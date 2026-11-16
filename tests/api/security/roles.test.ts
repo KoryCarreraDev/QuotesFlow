@@ -179,7 +179,7 @@ describe('Permisos por rol', () => {
         expect(deleteResponse.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);
         const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: foreignLeadId } });
         expect(storedLead.notes).not.toBe('Nota ajena');
-        expect(storedLead.deleted).toBe(DeletedState.Active);
+        expect(storedLead.deleted).toBe(DeletedState.ACTIVE);
       }
     });
 

@@ -9,6 +9,8 @@ import { leadFilterConfig } from '@/infrastructure/persistence/filters/leadFilte
 import { BasePrismaRepository } from '@/infrastructure/persistence/repositories/BasePrismaRepository.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
+const DEFAULT_PAGE_SIZE = 20;
+
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 const RECORD_ID = '22222222-2222-4222-8222-222222222222';
@@ -19,7 +21,7 @@ const SUPPORTED_OPERATORS = ['contains', 'equals', 'in', 'gt', 'gte', 'lt', 'lte
 const FORBIDDEN_FILTER_FIELDS = ['tenantId', 'deleted', 'passwordHash'];
 
 const TENANT_CONDITION = { tenantId: TENANT_ID };
-const NOT_DELETED_CONDITION = { deleted: DeletedState.Active };
+const NOT_DELETED_CONDITION = { deleted: DeletedState.ACTIVE };
 
 const filterConfig: IFilterFieldConfig = {
   contactName: { type: 'text', allowedOperators: ['contains', 'equals'], searchable: true },
@@ -70,7 +72,7 @@ function conditionsOf(where: Record<string, unknown>): unknown[] {
 
 describe('BasePrismaRepository: alcance por tenant', () => {
   it('tenantWhere acota al tenant actual y a registros no borrados', () => {
-    expect(createRepository().exposeTenantWhere()).toEqual({ tenantId: TENANT_ID, deleted: DeletedState.Active });
+    expect(createRepository().exposeTenantWhere()).toEqual({ tenantId: TENANT_ID, deleted: DeletedState.ACTIVE });
   });
 
   it('withTenant añade el tenant actual y pisa el que venga en la condición', () => {
@@ -202,7 +204,7 @@ describe('BasePrismaRepository.buildPagination', () => {
   it.each([{ limit: 101 }, { limit: 0 }, { limit: -1 }, { limit: Number.NaN }])(
     'con un límite fuera de rango ($limit) usa 20: nunca devuelve páginas sin tope',
     (criteria) => {
-      expect(createRepository().exposeBuildPagination(criteria).take).toBe(20);
+      expect(createRepository().exposeBuildPagination(criteria).take).toBe(DEFAULT_PAGE_SIZE);
     },
   );
 
@@ -222,7 +224,7 @@ describe('BasePrismaRepository.softDeleteRegister', () => {
 
     expect(model.update).toHaveBeenCalledWith({
       where: { id: RECORD_ID, tenantId: TENANT_ID },
-      data: { deleted: DeletedState.Inactive, updatedAt: expect.any(Date) },
+      data: { deleted: DeletedState.INACTIVE, updatedAt: expect.any(Date) },
     });
   });
 

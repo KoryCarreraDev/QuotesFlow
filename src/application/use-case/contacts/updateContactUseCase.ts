@@ -15,14 +15,17 @@ import { ForbiddenError } from '../../../domain/errors/ForbiddenError.js';
 import { NotFoundError } from '../../../domain/errors/NotFoundError.js';
 import { ValidationError } from '../../../domain/errors/ValidationError.js';
 
+/**
+ * Modifica un contacto: un comercial solo los suyos; solo gestión cambia el responsable.
+ */
 export class UpdateContactUseCase {
   constructor(
-    private readonly contactRepo: IContactRepository,
-    private readonly contactMap: IContactMapper,
+    private readonly contactRepository: IContactRepository,
+    private readonly contactMapper: IContactMapper,
     private readonly tenantContext: ITenantContext,
-    private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly companyContactRepository: ICompanyContactRepository,
     private readonly auditLogger: IAuditLogger,
-    private readonly userRepo: IUserRepository,
+    private readonly userRepository: IUserRepository,
   ) {}
 
   /**
@@ -40,7 +43,7 @@ export class UpdateContactUseCase {
       throw new Error('Tenant ID is required');
     }
 
-    const existingContact = await this.contactRepo.findById(contactId);
+    const existingContact = await this.contactRepository.findById(contactId);
     if (!existingContact) {
       throw new NotFoundError(ErrorCode.CONTACT_NOT_FOUND, 'Contact not found');
     }
@@ -56,7 +59,7 @@ export class UpdateContactUseCase {
       updateContact.ownerId,
       existingContact.ownerId,
       Action.CONTACT_ASSIGN_OWNER,
-      this.userRepo,
+      this.userRepository,
     );
 
     const changesDocument = updateContact.documentNumber !== undefined || updateContact.documentType !== undefined;
@@ -81,7 +84,7 @@ export class UpdateContactUseCase {
       documentNumber,
     );
 
-    await this.contactRepo.update(existingContact.id, updatedContact);
+    await this.contactRepository.update(existingContact.id, updatedContact);
     await this.auditLogger.record({
       action: AuditAction.CONTACT_UPDATED,
       entity: AuditEntity.CONTACT,
@@ -89,19 +92,19 @@ export class UpdateContactUseCase {
       metadata: { changedFields: changedFieldNames(updateContact) },
     });
 
-    return this.contactMap.toDTO(updatedContact);
+    return this.contactMapper.toDTO(updatedContact);
   }
 
   /** La empresa cliente tiene que ser del tenant, no estar borrada (H9) y ser visible para el actor (D-18). */
   private async ensureVisibleCompanyContact(companyContactId: string, actor: Actor): Promise<void> {
-    const companyContact = await this.companyContactRepo.findById(companyContactId);
+    const companyContact = await this.companyContactRepository.findById(companyContactId);
     if (!companyContact || !canSeeClient(actor, Action.COMPANY_CONTACT_LIST, companyContact.ownerId)) {
       throw new ValidationError(ErrorCode.INVALID_COMPANY_CONTACT, 'Invalid companyId: does not belong to this tenant');
     }
   }
 
   private async ensureDocumentIsFree(documentNumber: string, contactId: string): Promise<void> {
-    const holder = await this.contactRepo.findActiveByDocumentNumber(documentNumber);
+    const holder = await this.contactRepository.findActiveByDocumentNumber(documentNumber);
     if (holder && holder.id !== contactId) {
       throw new ConflictError(ErrorCode.DOCUMENT_ALREADY_REGISTERED, 'Another client of the company has this document');
     }

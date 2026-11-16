@@ -2,10 +2,13 @@ import { ILeadStatusConfigRepository } from '@/application/ports/repositories/IL
 import { ILeadStatusConfigMapper } from '@/application/ports/mappers/ILeadStatusConfigMapper.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 
+/**
+ * Estados de lead de la empresa, ordenados por su campo `order`.
+ */
 export class GetLeadStatusConfigUseCase {
   constructor(
-    private readonly statusRepo: ILeadStatusConfigRepository,
-    private readonly statusMap: ILeadStatusConfigMapper,
+    private readonly leadStatusRepository: ILeadStatusConfigRepository,
+    private readonly leadStatusMapper: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
   ) {}
 
@@ -16,7 +19,7 @@ export class GetLeadStatusConfigUseCase {
       throw new Error('Tenant not found');
     }
 
-    const status = await this.statusRepo.findAllByTenant(tenantId);
-    return status.map((entity) => this.statusMap.toDTO(entity));
+    const status = await this.leadStatusRepository.findAllByTenant(tenantId);
+    return status.map((entity) => this.leadStatusMapper.toDTO(entity));
   }
 }

@@ -1,5 +1,5 @@
 import { DeletedState as StoredDeletedState } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { Prisma, type User as UserRecord } from '@prisma/client';
 import { IUserRepository } from '../../../application/ports/repositories/IUserRepository.js';
 import { ConflictError } from '../../../domain/errors/ConflictError.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
@@ -70,7 +70,7 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
     return record ? this.toDomain(record) : null;
   }
 
-  private toDomain(record: any): User {
+  private toDomain(record: UserRecord): User {
     return new User(
       record.id,
       record.email,

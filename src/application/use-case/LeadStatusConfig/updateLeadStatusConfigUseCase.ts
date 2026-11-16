@@ -18,12 +18,18 @@ import { ILeadStatusConfigRepository } from '@/application/ports/repositories/IL
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Role } from '@/domain/enums/Role.js';
 import { LeadStatusConfig } from '@/domain/entities/LeadStatusConfig.js';
-import { error } from 'node:console';
 
+/**
+ * Modifica un estado de lead. Solo gestión. El cambio de predeterminado y la modificación van en una transacción.
+ *
+ * @throws {NotFoundError} `LEAD_STATUS_NOT_FOUND`.
+ * @throws {ForbiddenError} Si el rol no puede modificar estados.
+ * @throws {ConflictError} `DEFAULT_LEAD_STATUS_REQUIRED` o `LEAD_STATUS_ORDER_TAKEN`.
+ */
 export class UpdateLeadStatusConfigUseCase {
   constructor(
-    private readonly statusRepo: ILeadStatusConfigRepository,
-    private readonly statusMap: ILeadStatusConfigMapper,
+    private readonly leadStatusRepository: ILeadStatusConfigRepository,
+    private readonly leadStatusMapper: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
     private readonly transactionManager: ITransactionManager,
@@ -39,8 +45,8 @@ export class UpdateLeadStatusConfigUseCase {
       throw new Error('Tenant Id is required');
     }
 
-    const statusProperty = await this.statusRepo.findById(statusId);
-    if (!statusProperty) {
+    const storedStatus = await this.leadStatusRepository.findById(statusId);
+    if (!storedStatus) {
       throw new NotFoundError(ErrorCode.LEAD_STATUS_NOT_FOUND, 'Status Lead not found');
     }
 
@@ -48,12 +54,12 @@ export class UpdateLeadStatusConfigUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
-    const resultingType = statusUpdate.type ?? statusProperty.type;
-    ensureDefaultStatusIsOpen(statusUpdate.isDefault ?? statusProperty.isDefault, resultingType);
+    const resultingType = statusUpdate.type ?? storedStatus.type;
+    ensureDefaultStatusIsOpen(statusUpdate.isDefault ?? storedStatus.isDefault, resultingType);
 
     // Todo o nada: el cambio de predeterminado y la modificación se confirman juntos.
     return this.transactionManager.runInTransaction(async () => {
-      const defaultStatus = await this.statusRepo.findDefaultByTenant(tenantId);
+      const defaultStatus = await this.leadStatusRepository.findDefaultByTenant(tenantId);
 
       if (defaultStatus?.id === statusId && statusUpdate.isDefault === false) {
         throw new ConflictError(
@@ -76,32 +82,32 @@ export class UpdateLeadStatusConfigUseCase {
             defaultStatus!.deleted,
             defaultStatus!.type,
           );
-          await this.statusRepo.update(oldDefaultStatus.id, oldDefaultStatus);
+          await this.leadStatusRepository.update(oldDefaultStatus.id, oldDefaultStatus);
         }
       }
 
       const updateStatus = new LeadStatusConfig(
-        statusProperty.id,
-        statusUpdate.name !== undefined ? statusUpdate.name : statusProperty.name,
-        statusUpdate.order !== undefined ? statusUpdate.order : statusProperty.order,
-        statusUpdate.isDefault !== undefined ? statusUpdate.isDefault : statusProperty.isDefault,
+        storedStatus.id,
+        statusUpdate.name !== undefined ? statusUpdate.name : storedStatus.name,
+        statusUpdate.order !== undefined ? statusUpdate.order : storedStatus.order,
+        statusUpdate.isDefault !== undefined ? statusUpdate.isDefault : storedStatus.isDefault,
         new Date(),
-        statusProperty.createdAt,
-        statusUpdate.color !== undefined ? statusUpdate.color : statusProperty.color,
+        storedStatus.createdAt,
+        statusUpdate.color !== undefined ? statusUpdate.color : storedStatus.color,
         tenantId,
-        statusProperty.deleted,
+        storedStatus.deleted,
         resultingType,
       );
 
-      await this.statusRepo.update(statusProperty.id, updateStatus);
+      await this.leadStatusRepository.update(storedStatus.id, updateStatus);
       await this.auditLogger.record({
         action: AuditAction.LEAD_STATUS_CONFIG_UPDATED,
         entity: AuditEntity.LEAD_STATUS_CONFIG,
-        entityId: statusProperty.id,
+        entityId: storedStatus.id,
         metadata: { changedFields: changedFieldNames(statusUpdate) },
       });
 
-      return this.statusMap.toDTO(updateStatus);
+      return this.leadStatusMapper.toDTO(updateStatus);
     });
   }
 }

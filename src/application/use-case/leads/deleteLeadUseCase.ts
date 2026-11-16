@@ -7,9 +7,15 @@ import { ILeadRepository } from '@/application/ports/repositories/ILeadRepositor
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Role } from '@/domain/enums/Role.js';
 
+/**
+ * Borrado suave de un lead. Un comercial solo los suyos.
+ *
+ * @throws {NotFoundError} `LEAD_NOT_FOUND`.
+ * @throws {ForbiddenError} Si el rol no permite borrarlo.
+ */
 export class DeleteLeadUseCase {
   constructor(
-    private readonly leadRepo: ILeadRepository,
+    private readonly leadRepository: ILeadRepository,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
   ) {}
@@ -21,17 +27,17 @@ export class DeleteLeadUseCase {
       throw new Error('Tenant not found');
     }
 
-    const existingRepo = await this.leadRepo.findById(leadId);
+    const storedLead = await this.leadRepository.findById(leadId);
 
-    if (!existingRepo) {
+    if (!storedLead) {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
-    if (!can({ role, userId }, Action.LEAD_DELETE, { ownerUserId: existingRepo.assignedToId })) {
+    if (!can({ role, userId }, Action.LEAD_DELETE, { ownerUserId: storedLead.assignedToId })) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You do not have the necessary permissions.');
     }
 
-    await this.leadRepo.delete(leadId);
+    await this.leadRepository.delete(leadId);
     await this.auditLogger.record({ action: AuditAction.LEAD_DELETED, entity: AuditEntity.LEAD, entityId: leadId });
   }
 }

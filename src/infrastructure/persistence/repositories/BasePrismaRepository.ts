@@ -8,6 +8,17 @@ import { ITenantContext } from '../../../application/ports/services/ITenantConte
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IFilterFieldConfig } from '../../../application/ports/services/IFilterFieldConfig.js';
 
+const DEFAULT_PAGE_SIZE = 20;
+const MAXIMUM_PAGE_SIZE = 100;
+
+/** Lo que necesita el borrado suave genérico de un delegado de Prisma (`prisma.lead`, `prisma.contact`…). */
+interface SoftDeletableDelegate {
+  update(arguments_: {
+    where: { id: string; tenantId: string };
+    data: { deleted: typeof StoredDeletedState.DELETED; updatedAt: Date };
+  }): Promise<unknown>;
+}
+
 export abstract class BasePrismaRepository {
   constructor(
     private readonly rootClient: PrismaClient,
@@ -48,7 +59,7 @@ export abstract class BasePrismaRepository {
   //Siempre incluye el filtro de tenant actual
   protected buildFilterWhere(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Record<string, unknown> {
     //Inicializa el array de condiciones
-    let conditions: Array<Record<string, unknown>> = [];
+    const conditions: Array<Record<string, unknown>> = [];
 
     //Añade el tenantId
     conditions.push({ tenantId: this.tenantId });
@@ -141,7 +152,8 @@ export abstract class BasePrismaRepository {
   //Calcula la paginación con valores seguros por defecto
   protected buildPagination(criteria: FilterCriteriaDTO): { skip: number; take: number } {
     const page = criteria.page && criteria.page > 0 ? criteria.page : 1;
-    const limit = criteria.limit && criteria.limit > 0 && criteria.limit <= 100 ? criteria.limit : 20;
+    const limit =
+      criteria.limit && criteria.limit > 0 && criteria.limit <= MAXIMUM_PAGE_SIZE ? criteria.limit : DEFAULT_PAGE_SIZE;
 
     return {
       skip: (page - 1) * limit,
@@ -150,7 +162,7 @@ export abstract class BasePrismaRepository {
   }
 
   //Softdelete generico
-  protected async softDeleteRegister<T extends { update: Function }>(model: T, id: string): Promise<void> {
+  protected async softDeleteRegister(model: SoftDeletableDelegate, id: string): Promise<void> {
     if (!id) throw new Error('Id is required');
 
     await model.update({

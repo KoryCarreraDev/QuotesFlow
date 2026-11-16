@@ -12,13 +12,16 @@ import { ConflictError } from '../../../domain/errors/ConflictError.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { ForbiddenError } from '../../../domain/errors/ForbiddenError.js';
 
+/**
+ * Crea una empresa cliente con su responsable (D-18) y su NIT normalizado y único en la empresa (D-19).
+ */
 export class CreateCompanyContactUseCase {
   constructor(
-    private readonly companyContactRepo: ICompanyContactRepository,
-    private readonly companyContactMap: ICompanyContactMapper,
+    private readonly companyContactRepository: ICompanyContactRepository,
+    private readonly companyContactMapper: ICompanyContactMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
-    private readonly userRepo: IUserRepository,
+    private readonly userRepository: IUserRepository,
   ) {}
 
   /**
@@ -38,7 +41,7 @@ export class CreateCompanyContactUseCase {
       actor,
       createCompanyContact.ownerId,
       Action.COMPANY_CONTACT_ASSIGN_OWNER,
-      this.userRepo,
+      this.userRepository,
     );
     const companyContactEntity = CompanyContact.create({
       tenantId,
@@ -55,7 +58,9 @@ export class CreateCompanyContactUseCase {
       ownerId,
     });
     if (companyContactEntity.documentNumber) {
-      const holder = await this.companyContactRepo.findActiveByDocumentNumber(companyContactEntity.documentNumber);
+      const holder = await this.companyContactRepository.findActiveByDocumentNumber(
+        companyContactEntity.documentNumber,
+      );
       if (holder) {
         throw new ConflictError(
           ErrorCode.DOCUMENT_ALREADY_REGISTERED,
@@ -64,12 +69,12 @@ export class CreateCompanyContactUseCase {
       }
     }
 
-    await this.companyContactRepo.create(companyContactEntity);
+    await this.companyContactRepository.create(companyContactEntity);
     await this.auditLogger.record({
       action: AuditAction.COMPANY_CONTACT_CREATED,
       entity: AuditEntity.COMPANY_CONTACT,
       entityId: companyContactEntity.id,
     });
-    return this.companyContactMap.toDTO(companyContactEntity);
+    return this.companyContactMapper.toDTO(companyContactEntity);
   }
 }

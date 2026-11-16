@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T17-client-ownership-and-documents` (apilada sobre F1-T01 a F1-T15 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T18-code-docs-cleanup` (apilada sobre F1-T01 a F1-T17 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -46,7 +46,7 @@ TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `
 
 **Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
 
-**Calidad (F0-T03):** ESLint 10 (`eslint.config.js`: typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, regla local `eslint-rules/no-commented-out-code.js`) y Prettier (`.prettierrc.json`: comillas simples, 120 columnas, LF; los `.md` no se formatean). Las violaciones heredadas están congeladas en `eslint-suppressions.json` (77 el 2026-11-16: 59 números mágicos, 6 nombres, 5 variables sin usar, 4 `any`, otras 3). Ese archivo solo puede encoger (ver `docs/guia-de-codigo.md`, sección 11). `.gitattributes` fuerza LF. El commit de formato masivo está en `.git-blame-ignore-revs`.
+**Calidad (F0-T03):** ESLint 10 (`eslint.config.js`: typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, regla local `eslint-rules/no-commented-out-code.js`) y Prettier (`.prettierrc.json`: comillas simples, 120 columnas, LF; los `.md` no se formatean). `eslint-suppressions.json` está vacío desde F1-T18: las 77 violaciones heredadas que congelaba (Q-008) se corrigieron entre F1-T02 y F1-T18. Si vuelve a tener entradas, solo puede encoger (ver `docs/guia-de-codigo.md`, sección 11). `.gitattributes` fuerza LF. El commit de formato masivo está en `.git-blame-ignore-revs`.
 
 **Hooks de git (F0-T05):** lefthook 2.2.2 (`lefthook.yml`), instalado por su `postinstall` al hacer `pnpm install` (no se instala con `CI=true`). pre-commit: ESLint + Prettier sobre los archivos preparados. pre-push: `pnpm typecheck`, `pnpm arch:check`, `pnpm test:unit`.
 
@@ -102,8 +102,8 @@ src/
   infrastructure/persistence/prisma/PrismaTransactionManager.ts  ITransactionManager sobre $transaction + AsyncLocalStorage
   infrastructure/persistence/repositories/                    BasePrismaRepository + Prisma*Repository
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
-  infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
-  infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
+  infrastructure/services/                                    BcryptHashService (coste 12, D-10), JwtTokenService (clase JwTokenService)
+  infrastructure/web/controllers/                             AuthController, LeadController, LeadStatusConfigController, ContactController, CompanyContactController
   infrastructure/web/gracefulShutdown.ts                      cierra el servidor (espera peticiones en curso), luego Prisma; plazo 10 s
   infrastructure/persistence/prisma/databaseReadiness.ts      SELECT 1 con plazo de 2 s para /ready
   presentation/routes/healthRoutes.ts                         manejadores de /health y /ready
@@ -404,3 +404,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T14 | pendiente | Estados de lead: `type` OPEN/WON/LOST (D-51, migración `add_type_to_lead_status_config`, el predeterminado debe ser OPEN); crear y modificar en transacción (el defecto conocido F1-T14 pasa a regresión) con 409 `LEAD_STATUS_ORDER_TAKEN`; borrado suave (`POST /api/leadStatusConfig/delete/:id`, acción `lead-status:delete`, no el predeterminado ni con leads, libera su `order`); reordenamiento transaccional (`PATCH /api/leadStatusConfig/reorder`). Escenarios de seguridad con operación nueva `bulkUpdate`. 40 tests nuevos. Las construcciones de los casos de uso de estados en 2 archivos unitarios reciben el gestor de transacciones. |
 | 2026-11-16 | F1-T15 | pendiente | Nombres y tipos: `PrismaLeadStatusConfig.ts` pasa a `PrismaLeadStatusConfigRepository.ts` y `LeadConfigStatusMapper.ts` a `LeadStatusConfigMapper.ts`; `LeadStatusConfig.updateAt` pasa a `updatedAt`; `deleted` tipado con el enum `DeletedState`, sin literales sueltos; los listados llaman a `toDTO` con su objeto en lugar de pasarlo sin enlazar. 4 tests de regresión nuevos. Cambian solo rutas de import y el nombre `updatedAt` en tests existentes. |
 | 2026-11-16 | F1-T17 | pendiente | Migración `add_owner_and_document_to_clients`: `ownerId` en contactos y empresas cliente; `documentType` y `documentNumber` en contactos; `documentNumber` normalizado del NIT en empresas. Visibilidad por responsable (D-18) en listados, filtrado (`ownershipScope` sobre `ownerId`) y modificación, con acciones nuevas `contact:assign-owner` y `company-contact:assign-owner`; los clientes sin responsable solo los ve gestión (Q-005). Documento normalizado y único por empresa entre clientes activos (D-19, 409). Matriz de permisos regenerada. 27 tests nuevos. Cambian tests existentes por D-18: los de `api/contacts.test.ts` usan clientes del propio comercial, la matriz de `authorizationPolicy.test.ts` pasa contactos a "solo los suyos", el DTO de empresa incluye `documentNumber` y las construcciones y llamadas de los casos de uso de clientes reciben el repositorio de usuarios y el actor. |
+| 2026-11-16 | F1-T18 | pendiente | Código al día con R11 a R13: `eslint-suppressions.json` vacío (las 77 violaciones heredadas corregidas, Q-008); identificadores renombrados (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`, `statusProperty`, `*Repo`, `*Map`, `als`…); clases de controller en PascalCase; enum `DeletedState` con miembros `ACTIVE`/`INACTIVE`; bcrypt con coste 12 (D-10, antes 10); JSDoc en todos los puertos, casos de uso y entidades; `docs/modulos/` de auth, leads, estados de lead, contactos y filtrado. Sin cambio de comportamiento salvo el coste de bcrypt. En tests existentes solo cambian `DeletedState.Active/Inactive` por `ACTIVE/INACTIVE` y 20 números mágicos por constantes con nombre. |

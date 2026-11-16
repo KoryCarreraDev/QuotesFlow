@@ -9,7 +9,7 @@ import { CreateContactUseCase } from '@/application/use-case/contacts/createCont
 import { UpdateContactUseCase } from '@/application/use-case/contacts/updateContactUseCase.js';
 import { ListFilteredContactsUseCase } from '@/application/use-case/contacts/listFilteredContactsUseCase.js';
 
-export class contactController {
+export class ContactController {
   constructor(
     private readonly getContactsUseCase: GetContactsUseCase,
     private readonly listFilteredContactsUseCase: ListFilteredContactsUseCase,
@@ -34,7 +34,7 @@ export class contactController {
         role: req.user?.role as Role,
         userId: req.user?.userId,
       });
-      res.status(200).json(contacts);
+      res.status(HttpStatus.OK).json(contacts);
     } catch (error) {
       next(error);
     }
@@ -46,7 +46,7 @@ export class contactController {
         role: req.user?.role as Role,
         userId: req.user?.userId,
       });
-      res.status(201).json(contact);
+      res.status(HttpStatus.CREATED).json(contact);
     } catch (error) {
       next(error);
     }
@@ -59,7 +59,7 @@ export class contactController {
         role: req.user?.role as Role,
         userId: req.user?.userId,
       });
-      res.status(200).json(contact);
+      res.status(HttpStatus.OK).json(contact);
     } catch (error) {
       next(error);
     }

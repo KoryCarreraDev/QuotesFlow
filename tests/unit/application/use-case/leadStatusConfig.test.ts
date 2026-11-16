@@ -78,7 +78,7 @@ describe('GetLeadStatusConfigUseCase', () => {
     const { getLeadStatusUseCase, leadStatusRepository } = setupLeadStatusUseCases();
     leadStatusRepository.seed(
       buildLeadStatusConfig({ name: 'De otra empresa', order: 3, tenantId: OTHER_TENANT_ID }),
-      buildLeadStatusConfig({ name: 'Borrado', order: 4, deleted: DeletedState.Inactive }),
+      buildLeadStatusConfig({ name: 'Borrado', order: 4, deleted: DeletedState.INACTIVE }),
     );
 
     const statuses = await getLeadStatusUseCase.execute();

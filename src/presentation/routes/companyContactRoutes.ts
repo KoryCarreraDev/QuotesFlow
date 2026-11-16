@@ -2,18 +2,18 @@ import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
-import { companyContactController } from '../../infrastructure/web/controllers/companyContactControllers.js';
+import { CompanyContactController } from '../../infrastructure/web/controllers/companyContactControllers.js';
 import { createCompanyContactSchema, updateCompanyContactSchema } from '../schemas/companyContactSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { Request } from 'express';
 
-function getCompanyContactController(req: Request): companyContactController {
+function getCompanyContactController(req: Request): CompanyContactController {
   const getCompanyContactsUseCase = req.container!.companyContacts.getGetCompanyContactsUseCase();
   const listFilteredUseCase = req.container!.companyContacts.getListFilteredCompanyContactsUseCase();
   const createUseCase = req.container!.companyContacts.getCreateCompanyContactUseCase();
   const updateUseCase = req.container!.companyContacts.getUpdateCompanyContactUseCase();
   const deleteUseCase = req.container!.companyContacts.getDeleteCompanyContactUseCase();
-  return new companyContactController(
+  return new CompanyContactController(
     getCompanyContactsUseCase,
     listFilteredUseCase,
     createUseCase,

@@ -1,5 +1,8 @@
 import crypto from 'crypto';
 
+/**
+ * Empresa que usa la plataforma. Todo dato de negocio pertenece a un tenant (R5).
+ */
 export class Tenant {
   constructor(
     public readonly id: string,

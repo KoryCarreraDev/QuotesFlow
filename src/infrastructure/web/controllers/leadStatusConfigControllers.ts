@@ -7,7 +7,7 @@ import { CreateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatus
 import { UpdateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/updateLeadStatusConfigUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
 
-export class leadStatusConfigControllers {
+export class LeadStatusConfigController {
   constructor(
     private readonly getLeadStatusUseCase: GetLeadStatusConfigUseCase,
     private readonly createLeadStatusUseCase: CreateLeadStatusConfigUseCase,
@@ -39,7 +39,7 @@ export class leadStatusConfigControllers {
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const leadStatus = await this.getLeadStatusUseCase.execute();
-      res.status(200).json(leadStatus);
+      res.status(HttpStatus.OK).json(leadStatus);
     } catch (err) {
       next(err);
     }
@@ -47,9 +47,9 @@ export class leadStatusConfigControllers {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const rolUser: Role = req.user?.role as Role;
-      const status = await this.createLeadStatusUseCase.execute(req.body, rolUser);
-      res.status(201).json(status);
+      const role: Role = req.user?.role as Role;
+      const status = await this.createLeadStatusUseCase.execute(req.body, role);
+      res.status(HttpStatus.CREATED).json(status);
     } catch (err) {
       next(err);
     }
@@ -58,10 +58,10 @@ export class leadStatusConfigControllers {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.userId;
-      const rolUser = req.user?.role as Role;
+      const role = req.user?.role as Role;
       const statusId = req.params.id as string;
-      const status = await this.updateLeadStatusUseCase.execute(statusId, req.body, rolUser, userId as string);
-      res.status(200).json(status);
+      const status = await this.updateLeadStatusUseCase.execute(statusId, req.body, role, userId as string);
+      res.status(HttpStatus.OK).json(status);
     } catch (err) {
       next(err);
     }

@@ -2,18 +2,18 @@ import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
-import { contactController } from '../../infrastructure/web/controllers/contactControllers.js';
+import { ContactController } from '../../infrastructure/web/controllers/contactControllers.js';
 import { createContactSchema, updateContactSchema } from '../schemas/contactSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { Request } from 'express';
 
-function getContactController(req: Request): contactController {
+function getContactController(req: Request): ContactController {
   const getContactsUseCase = req.container!.contacts.getGetContactsUseCase();
   const listFilteredUseCase = req.container!.contacts.getListFilteredContactsUseCase();
   const createUseCase = req.container!.contacts.getCreateContactUseCase();
   const updateUseCase = req.container!.contacts.getUpdateContactUseCase();
   const deleteUseCase = req.container!.contacts.getDeleteContactUseCase();
-  return new contactController(getContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
+  return new ContactController(getContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
 }
 
 export function contactRouter(jwtService: IAuthTokenService): Router {

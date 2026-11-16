@@ -1,6 +1,9 @@
 import { DocumentType } from '../enums/DocumentType.js';
 import crypto from 'crypto';
 
+/**
+ * Contacto (persona) de un tenant, opcionalmente vinculado a una empresa cliente y con un comercial responsable.
+ */
 export class Contact {
   constructor(
     public readonly id: string,

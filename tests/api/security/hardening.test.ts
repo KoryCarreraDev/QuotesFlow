@@ -7,6 +7,9 @@ import { TEST_USER_PASSWORD } from '@tests/support/database/persistenceFactories
 import { GLOBAL_RATE_LIMIT_MAX_REQUESTS } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
 
+const BYTES_PER_KILOBYTE = 1024;
+const KILOBYTES_OVER_PLANNED_LIMIT = 200;
+
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
 const HTTP_PAYLOAD_TOO_LARGE = 413;
@@ -16,7 +19,7 @@ const UNTRUSTED_ORIGIN = 'https://untrusted-site.example';
 const ALLOW_ANY_ORIGIN = '*';
 
 // Límite de cuerpo previsto en la tarea F1-T06 (hallazgo H14): 100 kb.
-const BODY_SIZE_OVER_PLANNED_LIMIT_BYTES = 200 * 1024;
+const BODY_SIZE_OVER_PLANNED_LIMIT_BYTES = KILOBYTES_OVER_PLANNED_LIMIT * BYTES_PER_KILOBYTE;
 
 describe('Cabeceras de seguridad', () => {
   it('no revela la tecnología del servidor', async () => {

@@ -39,7 +39,7 @@ describe('borrado de contactos y empresas cliente', () => {
     expect(response.status).toBe(HTTP_OK);
     expect(listResponse.body.map((listed: { id: string }) => listed.id)).not.toContain(contact.id);
     const stored = await prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
-    expect(stored.deleted).toBe(DeletedState.Inactive);
+    expect(stored.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('borrar dos veces el mismo contacto responde 404 la segunda vez', async () => {
@@ -70,7 +70,7 @@ describe('borrado de contactos y empresas cliente', () => {
 
     expect(response.status).toBe(HTTP_OK);
     const stored = await prisma.companyContact.findUniqueOrThrow({ where: { id: companyContact.id } });
-    expect(stored.deleted).toBe(DeletedState.Inactive);
+    expect(stored.deleted).toBe(DeletedState.INACTIVE);
   });
 
   it('una empresa cliente con contactos activos no se borra: 409 COMPANY_CONTACT_HAS_CONTACTS', async () => {
@@ -86,7 +86,7 @@ describe('borrado de contactos y empresas cliente', () => {
   });
 
   it('un contacto no se puede vincular a una empresa cliente borrada: 400 INVALID_COMPANY_CONTACT', async () => {
-    const deletedCompanyContact = await persistCompanyContact(company.tenant.id, { deleted: DeletedState.Inactive });
+    const deletedCompanyContact = await persistCompanyContact(company.tenant.id, { deleted: DeletedState.INACTIVE });
 
     const response = await request(app)
       .post(apiPaths.contacts.create)

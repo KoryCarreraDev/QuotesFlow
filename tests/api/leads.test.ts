@@ -53,7 +53,7 @@ describe('API de leads', () => {
       });
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: response.body.id } });
       expect(storedLead.tenantId).toBe(company.tenant.id);
-      expect(storedLead.deleted).toBe(DeletedState.Active);
+      expect(storedLead.deleted).toBe(DeletedState.ACTIVE);
     });
 
     it('la respuesta no expone el tenant', async () => {
@@ -112,7 +112,7 @@ describe('API de leads', () => {
     it('un dueño ve todos los leads activos de su empresa', async () => {
       const assignedLead = await persistLead(company.tenant.id, { assignedToId: company.salesRep.id });
       const unassignedLead = await persistLead(company.tenant.id);
-      await persistLead(company.tenant.id, { deleted: DeletedState.Inactive });
+      await persistLead(company.tenant.id, { deleted: DeletedState.INACTIVE });
 
       const response = await request(app).get(apiPaths.leads.getAll).set('Cookie', ownerCookie);
 
@@ -223,7 +223,7 @@ describe('API de leads', () => {
       expect(deleteResponse.status).toBe(HTTP_OK);
       expect(listResponse.body).toEqual([]);
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } });
-      expect(storedLead.deleted).toBe(DeletedState.Inactive);
+      expect(storedLead.deleted).toBe(DeletedState.INACTIVE);
     });
 
     it('un comercial no puede borrar el lead de otro comercial', async () => {
@@ -233,12 +233,12 @@ describe('API de leads', () => {
 
       expect(response.status).toBeGreaterThanOrEqual(HTTP_BAD_REQUEST);
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } });
-      expect(storedLead.deleted).toBe(DeletedState.Active);
+      expect(storedLead.deleted).toBe(DeletedState.ACTIVE);
     });
 
     it('un lead ya borrado no se puede volver a borrar ni actualizar', async () => {
       const deletedLead = await persistLead(company.tenant.id, {
-        deleted: DeletedState.Inactive,
+        deleted: DeletedState.INACTIVE,
         notes: 'Nota original',
       });
 

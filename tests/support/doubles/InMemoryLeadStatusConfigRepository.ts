@@ -74,7 +74,7 @@ export class InMemoryLeadStatusConfigRepository implements ILeadStatusConfigRepo
       .filter((status) => status.tenantId === storedStatus.tenantId)
       .map((status) => status.order ?? ORDER_WHEN_MISSING);
     const freedOrder = Math.min(...tenantOrders, ORDER_WHEN_MISSING) - 1;
-    this.statusesById.set(statusId, this.copyWith(storedStatus, { order: freedOrder, deleted: DeletedState.Inactive }));
+    this.statusesById.set(statusId, this.copyWith(storedStatus, { order: freedOrder, deleted: DeletedState.INACTIVE }));
   }
 
   async reorder(statusIdsInOrder: string[]): Promise<void> {
@@ -125,6 +125,6 @@ export class InMemoryLeadStatusConfigRepository implements ILeadStatusConfigRepo
   }
 
   private isNotDeleted(status: LeadStatusConfig): boolean {
-    return status.deleted !== DeletedState.Inactive;
+    return status.deleted !== DeletedState.INACTIVE;
   }
 }

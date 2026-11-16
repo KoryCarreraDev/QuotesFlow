@@ -277,7 +277,7 @@ La regla de código comentado da por código un comentario que se puede analizar
 - ESLint falla si un archivo supera el número congelado de una regla. El código nuevo no puede añadir violaciones.
 - Al corregir una, ejecuta `pnpm exec eslint . --prune-suppressions` y sube el archivo actualizado. El archivo solo puede encoger.
 - Prohibido ejecutar `--suppress-all` o `--suppress-rule` para que pase un PR (equivale a debilitar un test, R2). Lo vigila `CODEOWNERS`.
-- Se vacía en F1-T15 y F1-T18.
+- Desde F1-T18 está vacío: el código no tiene ninguna violación congelada. Una violación nueva se corrige; no se congela.
 
 En `src/` un `// eslint-disable-next-line <regla> -- motivo` solo se admite con motivo y para un falso positivo demostrable (por ejemplo, `security/detect-object-injection` sobre una clave validada por lista blanca). En `tests/` no se admite ninguno.
 

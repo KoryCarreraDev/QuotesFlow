@@ -117,7 +117,7 @@ describe('Aislamiento por tenant', () => {
 
       expect(response.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);
       const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: victimLeadId } });
-      expect(storedLead.deleted).toBe(DeletedState.Active);
+      expect(storedLead.deleted).toBe(DeletedState.ACTIVE);
     });
 
     it('PATCH /api/contact/update/:id no modifica el contacto', async () => {

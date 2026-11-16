@@ -7,6 +7,9 @@ import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { persistLead, persistLeadStatus, persistTenant } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
+const UPDATED_STATUS_ORDER = 5;
+const LEADS_USING_THE_STATUS = 2;
+
 describe('PrismaLeadStatusConfigRepository', () => {
   let tenantId: string;
   let otherTenantId: string;
@@ -36,13 +39,13 @@ describe('PrismaLeadStatusConfigRepository', () => {
       order: 3,
       isDefault: false,
       color: '#0EA5E9',
-      deleted: DeletedState.Active,
+      deleted: DeletedState.ACTIVE,
     });
   });
 
   it('findById devuelve null si el estado no existe, es de otra empresa o está borrado', async () => {
     const foreignStatus = await persistLeadStatus(otherTenantId);
-    const deletedStatus = await persistLeadStatus(tenantId, { deleted: DeletedState.Inactive });
+    const deletedStatus = await persistLeadStatus(tenantId, { deleted: DeletedState.INACTIVE });
 
     await expect(leadStatusRepository.findById(NON_EXISTENT_ID)).resolves.toBeNull();
     await expect(leadStatusRepository.findById(foreignStatus.id)).resolves.toBeNull();
@@ -53,7 +56,7 @@ describe('PrismaLeadStatusConfigRepository', () => {
     await persistLeadStatus(tenantId, { name: 'Tercero', order: 3 });
     await persistLeadStatus(tenantId, { name: 'Primero', order: 1 });
     await persistLeadStatus(tenantId, { name: 'Segundo', order: 2 });
-    await persistLeadStatus(tenantId, { name: 'Borrado', order: 4, deleted: DeletedState.Inactive });
+    await persistLeadStatus(tenantId, { name: 'Borrado', order: 4, deleted: DeletedState.INACTIVE });
     await persistLeadStatus(otherTenantId, { name: 'Ajeno', order: 1 });
 
     const statuses = await leadStatusRepository.findAllByTenant(tenantId);
@@ -82,7 +85,7 @@ describe('PrismaLeadStatusConfigRepository', () => {
     const changes = new LeadStatusConfig(
       storedStatus.id,
       'Primer contacto',
-      5,
+      UPDATED_STATUS_ORDER,
       true,
       new Date(),
       storedStatus.createdAt,
@@ -130,7 +133,7 @@ describe('PrismaLeadStatusConfigRepository', () => {
     await persistLead(tenantId, { statusId: usedStatus.id });
     await persistLead(tenantId, { statusId: usedStatus.id });
 
-    await expect(leadStatusRepository.countLeadByStatus(usedStatus.id)).resolves.toBe(2);
+    await expect(leadStatusRepository.countLeadByStatus(usedStatus.id)).resolves.toBe(LEADS_USING_THE_STATUS);
     await expect(leadStatusRepository.countLeadByStatus(unusedStatus.id)).resolves.toBe(0);
   });
 

@@ -2,20 +2,20 @@ import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
-import { leadController } from '../../infrastructure/web/controllers/leadControllers.js';
+import { LeadController } from '../../infrastructure/web/controllers/leadControllers.js';
 import { createLeadSchema } from '../schemas/leadSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { changeLeadStatusSchema, updateLeadSchema } from '../schemas/leadSchema.js';
 import { Request } from 'express';
 
-function getLeadController(req: Request): leadController {
+function getLeadController(req: Request): LeadController {
   const getLeadsUseCase = req.container!.leads.getGetLeadsUseCase();
   const listFilteredUseCase = req.container!.leads.getListFilteredLeadsUseCase();
   const createUseCase = req.container!.leads.getCreateLeadUseCase();
   const updateUseCase = req.container!.leads.getUpdateLeadUseCase();
   const deleteUseCase = req.container!.leads.getDeleteLeadUseCase();
   const changeStatusUseCase = req.container!.leads.getChangeLeadStatusUseCase();
-  return new leadController(
+  return new LeadController(
     getLeadsUseCase,
     listFilteredUseCase,
     createUseCase,

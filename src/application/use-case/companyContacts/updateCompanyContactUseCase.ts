@@ -18,13 +18,16 @@ import { ICompanyContactMapper } from '@/application/ports/mappers/ICompanyConta
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { CompanyContact } from '@/domain/entities/CompanyContact.js';
 
+/**
+ * Modifica una empresa cliente: un comercial solo las suyas; solo gestión cambia el responsable.
+ */
 export class UpdateCompanyContactUseCase {
   constructor(
-    private readonly companyContactRepo: ICompanyContactRepository,
-    private readonly companyContactMap: ICompanyContactMapper,
+    private readonly companyContactRepository: ICompanyContactRepository,
+    private readonly companyContactMapper: ICompanyContactMapper,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
-    private readonly userRepo: IUserRepository,
+    private readonly userRepository: IUserRepository,
   ) {}
 
   /**
@@ -41,7 +44,7 @@ export class UpdateCompanyContactUseCase {
       throw new Error('Tenant ID is required');
     }
 
-    const existingCompanyContact = await this.companyContactRepo.findById(companyContactId);
+    const existingCompanyContact = await this.companyContactRepository.findById(companyContactId);
     if (!existingCompanyContact) {
       throw new NotFoundError(ErrorCode.COMPANY_CONTACT_NOT_FOUND, 'Company contact not found');
     }
@@ -54,7 +57,7 @@ export class UpdateCompanyContactUseCase {
       updateCompanyContact.ownerId,
       existingCompanyContact.ownerId,
       Action.COMPANY_CONTACT_ASSIGN_OWNER,
-      this.userRepo,
+      this.userRepository,
     );
     const changesTaxNumber =
       updateCompanyContact.taxNumber !== undefined &&
@@ -63,7 +66,7 @@ export class UpdateCompanyContactUseCase {
       ? CompanyContact.documentNumberFrom(updateCompanyContact.taxNumber)
       : existingCompanyContact.documentNumber;
     if (changesTaxNumber && documentNumber) {
-      const holder = await this.companyContactRepo.findActiveByDocumentNumber(documentNumber);
+      const holder = await this.companyContactRepository.findActiveByDocumentNumber(documentNumber);
       if (holder && holder.id !== existingCompanyContact.id) {
         throw new ConflictError(
           ErrorCode.DOCUMENT_ALREADY_REGISTERED,
@@ -91,7 +94,7 @@ export class UpdateCompanyContactUseCase {
       documentNumber,
     );
 
-    await this.companyContactRepo.update(existingCompanyContact.id, updatedCompanyContact);
+    await this.companyContactRepository.update(existingCompanyContact.id, updatedCompanyContact);
     await this.auditLogger.record({
       action: AuditAction.COMPANY_CONTACT_UPDATED,
       entity: AuditEntity.COMPANY_CONTACT,
@@ -99,6 +102,6 @@ export class UpdateCompanyContactUseCase {
       metadata: { changedFields: changedFieldNames(updateCompanyContact) },
     });
 
-    return this.companyContactMap.toDTO(updatedCompanyContact);
+    return this.companyContactMapper.toDTO(updatedCompanyContact);
   }
 }

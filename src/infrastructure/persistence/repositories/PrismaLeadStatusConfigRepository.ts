@@ -28,8 +28,8 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     );
   }
 
-  async update(statusid: string, data: LeadStatusConfig): Promise<void> {
-    await this.translateOrderConflict(() => this.updateRecord(statusid, data));
+  async update(statusId: string, data: LeadStatusConfig): Promise<void> {
+    await this.translateOrderConflict(() => this.updateRecord(statusId, data));
   }
 
   async delete(statusId: string): Promise<void> {
@@ -63,10 +63,10 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     }
   }
 
-  private async updateRecord(statusid: string, data: LeadStatusConfig): Promise<void> {
+  private async updateRecord(statusId: string, data: LeadStatusConfig): Promise<void> {
     await this.prisma.leadStatusConfig.update({
       where: {
-        id: statusid,
+        id: statusId,
         tenantId: this.tenantId,
       },
       data: {
@@ -95,10 +95,10 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     }
   }
 
-  async findAllByTenant(assignedTenant: string): Promise<LeadStatusConfig[]> {
+  async findAllByTenant(tenantId: string): Promise<LeadStatusConfig[]> {
     const record = await this.prisma.leadStatusConfig.findMany({
       where: {
-        tenantId: assignedTenant,
+        tenantId: tenantId,
         deleted: StoredDeletedState.INUSE,
       },
       orderBy: {
@@ -138,10 +138,10 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     return record?._count.leads ?? 0;
   }
 
-  async findDefaultByTenant(assignedTenant: string): Promise<LeadStatusConfig | null> {
+  async findDefaultByTenant(tenantId: string): Promise<LeadStatusConfig | null> {
     const record = await this.prisma.leadStatusConfig.findFirst({
       where: {
-        tenantId: assignedTenant,
+        tenantId: tenantId,
         deleted: StoredDeletedState.INUSE,
         isDefault: true,
       },

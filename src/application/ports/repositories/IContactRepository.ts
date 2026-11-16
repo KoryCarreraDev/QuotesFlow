@@ -1,6 +1,9 @@
 import { Contact } from '../../../domain/entities/Contact.js';
 import { IFilterableRepository } from './IFilterableRepository.js';
 
+/**
+ * Persistencia de contactos (personas). Toda operación queda acotada al tenant de la sesión y a registros no borrados (R5).
+ */
 export interface IContactRepository extends IFilterableRepository<Contact> {
   /** Contactos activos del tenant; con `ownerId`, solo los de ese responsable. */
   findByTenant(ownerId?: string): Promise<Contact[]>;

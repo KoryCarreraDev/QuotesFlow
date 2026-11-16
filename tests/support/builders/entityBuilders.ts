@@ -53,7 +53,7 @@ export function buildLead(overrides: Partial<LeadBuilderProps> = {}): Lead {
     estimatedValue: DEFAULT_ESTIMATED_VALUE,
     createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
-    deleted: DeletedState.Active,
+    deleted: DeletedState.ACTIVE,
     ...overrides,
   };
 
@@ -99,7 +99,7 @@ export function buildLeadStatusConfig(overrides: Partial<LeadStatusConfigBuilder
     color: '#3B82F6',
     createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
-    deleted: DeletedState.Active,
+    deleted: DeletedState.ACTIVE,
     ...overrides,
   };
 

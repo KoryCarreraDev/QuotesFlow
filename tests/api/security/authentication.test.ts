@@ -15,6 +15,9 @@ import {
 } from '@tests/support/http/apiRoutes.js';
 import { itKnownDefect } from '@tests/support/knownDefect.js';
 
+const MILLISECONDS_PER_SECOND = 1000;
+const TWO_HOURS = 2;
+
 const HTTP_OK = 200;
 const HTTP_UNAUTHORIZED = 401;
 const FIRST_ERROR_STATUS = 400;
@@ -47,7 +50,7 @@ describe('Autenticación de las rutas protegidas', () => {
 
   it('no atiende una petición con un token caducado', async () => {
     const company = await persistTenantWithTeam();
-    const issuedTwoHoursAgo = Math.floor(Date.now() / 1000) - 2 * ONE_HOUR_IN_SECONDS;
+    const issuedTwoHoursAgo = Math.floor(Date.now() / MILLISECONDS_PER_SECOND) - TWO_HOURS * ONE_HOUR_IN_SECONDS;
     const expiredToken = jwt.sign(
       {
         sub: company.owner.id,

@@ -1,4 +1,4 @@
 export enum DeletedState {
-  Active = 'INUSE',
-  Inactive = 'DELETED',
+  ACTIVE = 'INUSE',
+  INACTIVE = 'DELETED',
 }

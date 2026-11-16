@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import { Role } from '../enums/Role.js';
 
+/**
+ * Usuario de una empresa, con su rol y si está activo. El correo es único en toda la plataforma.
+ */
 export class User {
   constructor(
     public readonly id: string,

@@ -108,7 +108,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
     const deleteLeadUseCase = new DeleteLeadUseCase(leadRepository, contextWithoutTenant, new RecordingAuditLogger());
 
     await expect(deleteLeadUseCase.execute(storedLead.id, randomUUID(), Role.OWNER)).rejects.toThrow();
-    expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.Active);
+    expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.ACTIVE);
   });
 
   it('GetLeadStatusConfigUseCase no devuelve estados', async () => {
@@ -235,7 +235,7 @@ describe('UpdateLeadUseCase ante un repositorio que devolviera un lead borrado',
   it('rechaza la actualización: un lead borrado no se modifica aunque el repositorio lo entregue', async () => {
     const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
     const leadRepository = new InMemoryLeadRepository(tenantContext);
-    const deletedLead = buildLead({ deleted: DeletedState.Inactive, notes: 'Nota original' });
+    const deletedLead = buildLead({ deleted: DeletedState.INACTIVE, notes: 'Nota original' });
     leadRepository.seed(deletedLead);
     vi.spyOn(leadRepository, 'findById').mockResolvedValue(deletedLead);
     const updateLeadUseCase = new UpdateLeadUseCase(

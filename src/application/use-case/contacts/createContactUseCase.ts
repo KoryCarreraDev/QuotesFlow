@@ -14,14 +14,17 @@ import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { ForbiddenError } from '../../../domain/errors/ForbiddenError.js';
 import { ValidationError } from '../../../domain/errors/ValidationError.js';
 
+/**
+ * Crea un contacto con su responsable (D-18), su empresa cliente (del tenant y visible para quien lo crea) y su documento normalizado y único en la empresa (D-19).
+ */
 export class CreateContactUseCase {
   constructor(
-    private readonly contactRepo: IContactRepository,
-    private readonly contactMap: IContactMapper,
+    private readonly contactRepository: IContactRepository,
+    private readonly contactMapper: IContactMapper,
     private readonly tenantContext: ITenantContext,
-    private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly companyContactRepository: ICompanyContactRepository,
     private readonly auditLogger: IAuditLogger,
-    private readonly userRepo: IUserRepository,
+    private readonly userRepository: IUserRepository,
   ) {}
 
   /**
@@ -42,7 +45,7 @@ export class CreateContactUseCase {
       actor,
       createContact.ownerId,
       Action.CONTACT_ASSIGN_OWNER,
-      this.userRepo,
+      this.userRepository,
     );
     const documentNumber = normalizeClientDocument(createContact.documentType, createContact.documentNumber);
     if (documentNumber) await this.ensureDocumentIsFree(documentNumber);
@@ -59,25 +62,25 @@ export class CreateContactUseCase {
       documentNumber,
     });
 
-    await this.contactRepo.create(contactEntity);
+    await this.contactRepository.create(contactEntity);
     await this.auditLogger.record({
       action: AuditAction.CONTACT_CREATED,
       entity: AuditEntity.CONTACT,
       entityId: contactEntity.id,
     });
-    return this.contactMap.toDTO(contactEntity);
+    return this.contactMapper.toDTO(contactEntity);
   }
 
   /** La empresa cliente tiene que ser del tenant, no estar borrada (H9) y ser visible para el actor (D-18). */
   private async ensureVisibleCompanyContact(companyContactId: string, actor: Actor): Promise<void> {
-    const companyContact = await this.companyContactRepo.findById(companyContactId);
+    const companyContact = await this.companyContactRepository.findById(companyContactId);
     if (!companyContact || !canSeeClient(actor, Action.COMPANY_CONTACT_LIST, companyContact.ownerId)) {
       throw new ValidationError(ErrorCode.INVALID_COMPANY_CONTACT, 'Invalid companyId: does not belong to this tenant');
     }
   }
 
   private async ensureDocumentIsFree(documentNumber: string): Promise<void> {
-    if (await this.contactRepo.findActiveByDocumentNumber(documentNumber)) {
+    if (await this.contactRepository.findActiveByDocumentNumber(documentNumber)) {
       throw new ConflictError(ErrorCode.DOCUMENT_ALREADY_REGISTERED, 'Another client of the company has this document');
     }
   }

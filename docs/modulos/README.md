@@ -2,7 +2,13 @@
 
 Un archivo por módulo funcional: `docs/modulos/<modulo>.md` (regla R12 de `PLAN.md`). Se entrega en el mismo PR que el módulo; sin documentación no hay merge.
 
-Los módulos existentes (auth, leads, estados, contactos y filtrado) se documentan en la tarea F1-T18.
+| Módulo | Archivo |
+|---|---|
+| Autenticación | [auth.md](auth.md) |
+| Leads | [leads.md](leads.md) |
+| Estados de lead | [estados-de-lead.md](estados-de-lead.md) |
+| Contactos y empresas cliente | [contactos.md](contactos.md) |
+| Filtrado genérico | [filtrado.md](filtrado.md) |
 
 ## Plantilla
 

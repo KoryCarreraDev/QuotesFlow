@@ -8,7 +8,7 @@ import { ForbiddenError } from '../../../domain/errors/ForbiddenError.js';
 /** Empresas cliente; un comercial solo ve aquellas de las que es responsable (D-18). */
 export class GetCompanyContactsUseCase {
   constructor(
-    private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly companyContactRepository: ICompanyContactRepository,
     private readonly companyContactMapper: ICompanyContactMapper,
   ) {}
 
@@ -17,7 +17,9 @@ export class GetCompanyContactsUseCase {
     if (scope.kind === 'none') {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
-    const companyContacts = await this.companyContactRepo.findByTenant(scope.kind === 'own' ? scope.userId : undefined);
+    const companyContacts = await this.companyContactRepository.findByTenant(
+      scope.kind === 'own' ? scope.userId : undefined,
+    );
     return companyContacts.map((entity) => this.companyContactMapper.toDTO(entity));
   }
 }
