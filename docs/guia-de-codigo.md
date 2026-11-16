@@ -82,10 +82,10 @@ Las reglas de negocio con nombre propio se leen solas:
 // Malo (deleteLeadUseCase.ts)
 if (role === Role.SALES_REP && existingRepo.assignedToId !== userId) { ... }
 
-// Bueno
-if (!canManageLead(user, existingLead)) { ... }
+// Bueno (así quedó en F1-T04)
+if (!can({ role, userId }, Action.LEAD_DELETE, { ownerUserId: existingLead.assignedToId })) { ... }
 ```
-(F1-T04 centraliza estas comprobaciones en `application/policies`.)
+Desde F1-T04 ningún caso de uso ni controller compara roles: pregunta a `can` o a `scopeFor` de `application/policies/authorizationPolicy.ts`. Un permiso nuevo es una fila nueva en `permissionMatrix`, su descripción en `scripts/docs/permissionMatrixDocument.ts` y `pnpm docs:permissions`; la matriz cambiada vuelve a necesitar la firma del responsable de seguridad.
 
 ---
 

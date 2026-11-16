@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T03-transaction-manager` (sobre F1-T02, F1-T01 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T04-authorization-policies` (apilada sobre F1-T01 a F1-T03 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 553 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 619 tests (unit, integración con PostgreSQL efímero, API, build). 16 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -99,6 +99,7 @@ src/
   application/constants/     defaultLeadStatuses.ts
   application/dtos/          [Entidad]DTO, Create…DTO, Update…DTO, FilterCriteriaDTO, PaginatedResultDTO, LoginDTO, RegisterCompanyDTO
   application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadConfigStatusMapper
+  application/policies/      authorizationPolicy.ts: matriz de permisos, can, scopeFor (F1-T04)
   application/ports/         repositories/I*, services/I*, mappers/I*
   application/use-case/      auth/, leads/, LeadStatusConfig/, contacts/, companyContacts/, filter/, (messaging/ y pricing/ vacíos)
   infrastructure/persistence/prisma/PrismaService.ts          singleton PrismaClient
@@ -148,6 +149,8 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 ## 6. Reglas de negocio vigentes
 
 **Roles:** `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP`. Solo Leads y LeadStatusConfig aplican roles.
+
+**Autorización (F1-T04).** Una sola matriz, `permissionMatrix` en `src/application/policies/authorizationPolicy.ts`: por acción y rol, `all`, `own` (solo los recursos de los que es responsable) o `none`. Los casos de uso preguntan `can(actor, action, resource)`; los listados usan `scopeFor(actor, action)`. Un rol fuera de la matriz no tiene permisos, y un permiso `own` sin usuario o sin recurso se deniega. `docs/security/matriz-permisos.md` se genera con `pnpm docs:permissions` y un test falla si no coincide con el código. Las acciones de contactos, empresas cliente y `lead-status:list` aún no consultan la política (hoy se permiten a todos).
 
 **Leads**
 | Acción | SALES_REP | Otros roles |
@@ -278,7 +281,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 - Prisma con driver adapter `pg` (pool nativo).
 - Whitelist de campos/operadores en `filterConfig`: imposible filtrar por columnas internas.
 - Soft delete (`deleted = 'DELETED'`) en vez de borrado físico; las consultas filtran `INUSE`.
-- Roles evaluados en use cases (leads/estados) o controller (filtro de listados).
+- Roles evaluados solo por la política de `application/policies` (F1-T04). El alcance del listado filtrado de leads aún se aplica en el controller, preguntando a `scopeFor`; F1-T12 lo pasa al caso de uso.
 
 ---
 
@@ -311,6 +314,7 @@ pnpm typecheck      # src/ y tests/
 pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format corrigen)
 pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
 pnpm check:context develop   # R3: CONTEXT.md actualizado respecto a la rama base
+pnpm docs:permissions        # regenera docs/security/matriz-permisos.md desde la matriz del código
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # DESARROLLO (Dockerfile.dev): db (host 3363), backend (4000), prisma-studio (3364)
@@ -352,3 +356,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T01 | pendiente | Variables de entorno validadas con Zod al arrancar (`parseEnvironment`, `InvalidEnvironmentError`). `JWT_SECRET` obligatorio de 32 caracteres o más, sin valor por defecto (H1); `NODE_ENV` y `DATABASE_URL` obligatorias; formato de `JWT_EXPIRATION` y `PORT` comprobado. Fuera el `any` de `JwtTokenService` (una supresión menos). 18 tests unitarios y 1 de build (el servidor compilado no arranca sin `JWT_SECRET`). |
 | 2026-11-16 | F1-T02 | pendiente | Jerarquía de errores en `src/domain/errors/` (`ApplicationError`, `NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`, `ErrorCode`) y manejador global con formato único `{ error: { code, message, details? } }`, sin trazas, más 404 JSON para rutas inexistentes (H5). `validateBody` pasa al manejador los errores que no son de Zod (H24). Filtros con campo u operador no permitido responden 400. Mensajes de error en inglés (R11). 13 tests de H5 y 1 de H11 pasan a regresión; 39 tests nuevos. Cambian 2 aserciones existentes por el formato nuevo (`body.errors` pasa a `body.error.details`). |
 | 2026-11-16 | F1-T03 | pendiente | Puerto `ITransactionManager` y adaptador `PrismaTransactionManager` (`$transaction` interactivo + `AsyncLocalStorage`); `BasePrismaRepository.prisma` usa la transacción abierta. Registro atómico (H8): empresa, dueño y estados en una transacción, con bcrypt fuera. `PrismaUserRepository.create` traduce el correo duplicado (P2002) a 409. 12 tests nuevos (unitarios, integración contra PostgreSQL y API con fallo simulado y registros simultáneos). La construcción del caso de uso en `unit/application/use-case/auth.test.ts` recibe el nuevo parámetro. |
+| 2026-11-16 | F1-T04 | pendiente | Políticas de autorización centralizadas (H12): `permissionMatrix`, `can` y `scopeFor` en `src/application/policies/authorizationPolicy.ts`; los casos de uso de leads y estados y el filtrado de leads dejan de comparar roles. Deniega por defecto (rol desconocido, `own` sin usuario). Antes un `SALES_REP` sin `userId` habría visto todos los leads. `docs/security/matriz-permisos.md` generado con `pnpm docs:permissions` (`scripts/docs/`) y comprobado por test. 66 tests nuevos (sobre todo combinaciones rol × acción); la matriz de roles de la API pasa sin cambios. |

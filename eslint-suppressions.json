@@ -14,11 +14,6 @@
       "count": 2
     }
   },
-  "src/application/use-case/leads/getLeadsUseCase.ts": {
-    "eqeqeq": {
-      "count": 1
-    }
-  },
   "src/domain/entities/Lead.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1

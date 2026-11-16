@@ -9,6 +9,7 @@
     "lint:fix": "eslint . --fix && prettier --write .",
     "format": "prettier --write .",
     "check:context": "tsx scripts/ci/checkContextUpdate.ts",
+    "docs:permissions": "tsx scripts/docs/generatePermissionMatrix.ts",
     "arch:check": "depcruise src --config .dependency-cruiser.cjs --output-type err-long",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tests/tsconfig.json",
     "start": "node dist/server.js",

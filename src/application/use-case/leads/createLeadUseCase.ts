@@ -1,3 +1,5 @@
+import { Action, can } from '@/application/policies/authorizationPolicy.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -44,14 +46,20 @@ export class CreateLeadUseCase {
       }
     }
 
-    if (createLead.assignedToId && role !== Role.SALES_REP) {
+    const actor = { role, userId };
+    if (!can(actor, Action.LEAD_CREATE)) {
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
+    }
+    const mayAssignToOthers = can(actor, Action.LEAD_ASSIGN_TO_OTHERS);
+
+    if (createLead.assignedToId && mayAssignToOthers) {
       const findUser = await this.userRepo.findById(createLead.assignedToId);
       if (!findUser) {
         throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
       }
     }
 
-    const assignedToId = role === Role.SALES_REP ? userId : createLead.assignedToId;
+    const assignedToId = mayAssignToOthers ? createLead.assignedToId : userId;
 
     const leadEntity = Lead.create({
       tenantId: tenantId,
