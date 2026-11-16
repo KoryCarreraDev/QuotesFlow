@@ -123,7 +123,7 @@ Bloqueada por: D-01 a D-05.
 - F0-T06 `[O]` CI en GitHub Actions: typecheck, lint, capas, tests con PostgreSQL, cobertura con umbral, `pnpm audit`, escaneo de secretos (gitleaks), verificación de `CONTEXT.md`.
 - F0-T07 `[S]` Verificar y corregir H20 (build de producción con alias). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Se confirmó que `tsc` no reescribe `@/`: se añadió `tsc-alias`. Regresión en `tests/build/`.
 - F0-T08 `[S]` Dockerfile multi-etapa de producción (no root, pnpm fijado, `--frozen-lockfile`), Node LTS vigente; compose de desarrollo aparte.
-- F0-T09 `[S]` Limpiar dependencias sin uso que no entren en fases próximas (según decisiones).
+- F0-T09 `[S]` Limpiar dependencias sin uso que no entren en fases próximas (según decisiones). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Fuera `nodemailer` (D-30), `node-cron` (D-27) y `http-status-codes`; `axios` fijado (D-49); dependencias actualizadas; pnpm fijado a 11.28.10.
 - F0-T10 `[O]` `docs/audits/00-linea-base.md` con los hallazgos de la sección 4, severidad y tarea asignada.
 - **Humano:** protección de ramas `develop` y `main` (checks obligatorios + 1 aprobación), Dependabot o Renovate.
 
