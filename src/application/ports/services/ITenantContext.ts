@@ -1,3 +1,3 @@
 export interface ITenantContext {
-    getTenantId(): string;
+  getTenantId(): string;
 }

@@ -120,9 +120,7 @@ describe('UpdateContactUseCase', () => {
   it('falla si falta el id del contacto', async () => {
     const { updateContactUseCase } = setupContactUseCases();
 
-    await expect(updateContactUseCase.execute('', { lastName: 'Ruiz' })).rejects.toThrow(
-      'All information is required',
-    );
+    await expect(updateContactUseCase.execute('', { lastName: 'Ruiz' })).rejects.toThrow('All information is required');
   });
 
   it('falla si el contacto no existe', async () => {
@@ -245,9 +243,9 @@ describe('UpdateCompanyContactUseCase', () => {
     const foreignCompanyContact = buildCompanyContact({ tenantId: OTHER_TENANT_ID, city: 'Bogotá' });
     companyContactRepository.seed(foreignCompanyContact);
 
-    await expect(
-      updateCompanyContactUseCase.execute(foreignCompanyContact.id, { city: 'Medellín' }),
-    ).rejects.toThrow('Company contact not found');
+    await expect(updateCompanyContactUseCase.execute(foreignCompanyContact.id, { city: 'Medellín' })).rejects.toThrow(
+      'Company contact not found',
+    );
     expect(companyContactRepository.findStoredById(foreignCompanyContact.id)?.city).toBe('Bogotá');
   });
 });

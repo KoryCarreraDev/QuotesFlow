@@ -159,7 +159,7 @@ Prohibido bajarlos o activar `thresholds.autoUpdate` (R2). Si un cambio baja la 
 
 ## Qué no hacer (R2)
 
-- `.skip`, `.only`, `.todo`, comentar un test o borrar uno que estorba.
+- `.skip`, `.only`, `.todo`, comentar un test o borrar uno que estorba. ESLint lo bloquea (`pnpm lint`) y en `tests/` no admite comentarios `eslint-disable`.
 - Debilitar una aserción para que pase. Si un test existente debe cambiar, el PR lo declara y un humano lo aprueba.
 - Importar algo de `src/` en los archivos de `tests/setup/` de forma estática: se cargaría antes de fijar el entorno y los tests podrían apuntar a la base de desarrollo.
 - Tocar la base de datos desde un test unitario. `unit.setup.ts` apunta `DATABASE_URL` a una dirección inalcanzable a propósito.

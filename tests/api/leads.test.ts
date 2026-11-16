@@ -35,16 +35,13 @@ describe('API de leads', () => {
 
   describe('POST /api/lead/create', () => {
     it('crea el lead en la empresa del usuario con el estado predeterminado y responde 201', async () => {
-      const response = await request(app)
-        .post(apiPaths.leads.create)
-        .set('Cookie', ownerCookie)
-        .send({
-          contactName: 'Ana Gómez',
-          companyName: 'Vidrios del Norte',
-          email: 'ana@example.com',
-          estimatedValue: 2_500_000,
-          expectedCloseDate: '2026-06-30T00:00:00.000Z',
-        });
+      const response = await request(app).post(apiPaths.leads.create).set('Cookie', ownerCookie).send({
+        contactName: 'Ana Gómez',
+        companyName: 'Vidrios del Norte',
+        email: 'ana@example.com',
+        estimatedValue: 2_500_000,
+        expectedCloseDate: '2026-06-30T00:00:00.000Z',
+      });
 
       expect(response.status).toBe(HTTP_CREATED);
       expect(response.body).toMatchObject({
@@ -307,9 +304,7 @@ describe('API de leads', () => {
       const response = await request(app)
         .get(apiPaths.leads.filtered)
         .query({
-          filters: serializeFilters([
-            { field: 'assignedToId', operator: 'equals', value: company.otherSalesRep.id },
-          ]),
+          filters: serializeFilters([{ field: 'assignedToId', operator: 'equals', value: company.otherSalesRep.id }]),
         })
         .set('Cookie', salesRepCookie);
 

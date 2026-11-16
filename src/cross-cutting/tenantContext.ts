@@ -5,16 +5,16 @@ import { ITenantContext } from '../application/ports/services/ITenantContext.js'
 const als = new AsyncLocalStorage<{ tenantId: string }>();
 
 export class TenantContext implements ITenantContext {
-    getTenantId(): string {
-        const store = als.getStore();
-        if (!store?.tenantId) {
-            throw new Error('Contexto Tenant no valido')
-        }
-        return store.tenantId;
+  getTenantId(): string {
+    const store = als.getStore();
+    if (!store?.tenantId) {
+      throw new Error('Contexto Tenant no valido');
     }
+    return store.tenantId;
+  }
 
-    //Metodo para ejecutar un callback con un tenantId especifico
-    static run(tenantId: string, fn: () => void): void{
-        als.run({ tenantId }, fn);
-    }
+  //Metodo para ejecutar un callback con un tenantId especifico
+  static run(tenantId: string, fn: () => void): void {
+    als.run({ tenantId }, fn);
+  }
 }

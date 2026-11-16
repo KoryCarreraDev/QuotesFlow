@@ -1,0 +1,9 @@
+dist/
+coverage/
+node_modules/
+pnpm-lock.yaml
+prisma/migrations/
+Claude outputs/
+eslint-suppressions.json
+# La documentación tiene tablas alineadas a mano; Prettier las reescribiría enteras.
+*.md

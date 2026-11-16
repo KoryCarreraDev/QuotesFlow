@@ -11,11 +11,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeEach, inject } from 'vitest';
-import {
-  TEST_DATABASE_NAME_PREFIX,
-  closeTestDatabasePool,
-  resetDatabase,
-} from '../support/database/testDatabase.js';
+import { TEST_DATABASE_NAME_PREFIX, closeTestDatabasePool, resetDatabase } from '../support/database/testDatabase.js';
 
 const maintenanceDatabaseUrl = inject('testDatabaseAdminUrl');
 const templateDatabaseName = inject('testDatabaseTemplateName');

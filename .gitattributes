@@ -1,0 +1,7 @@
+# Fin de línea LF en el repositorio y en la copia de trabajo, también en Windows.
+# Prettier, los hooks de git y la imagen Docker esperan LF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary

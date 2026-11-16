@@ -43,9 +43,7 @@ function runPrismaCli(prismaArguments: string[], databaseUrl: string): void {
     });
   } catch (error) {
     const processOutput = error as { stdout?: Buffer; stderr?: Buffer };
-    const details = [processOutput.stdout, processOutput.stderr]
-      .map((output) => output?.toString() ?? '')
-      .join('\n');
+    const details = [processOutput.stdout, processOutput.stderr].map((output) => output?.toString() ?? '').join('\n');
     throw new Error(`"prisma ${prismaArguments.join(' ')}" failed for the test database:\n${details}`, {
       cause: error,
     });
@@ -69,10 +67,9 @@ async function startContainerWithMigratedTemplate(): Promise<StartedPostgreSqlCo
       .withPassword(DATABASE_PASSWORD)
       .start();
   } catch (error) {
-    throw new Error(
-      'Could not start the PostgreSQL test container. Integration and API tests need Docker running.',
-      { cause: error },
-    );
+    throw new Error('Could not start the PostgreSQL test container. Integration and API tests need Docker running.', {
+      cause: error,
+    });
   }
 
   try {

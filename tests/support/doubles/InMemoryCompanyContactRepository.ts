@@ -80,8 +80,6 @@ export class InMemoryCompanyContactRepository implements ICompanyContactReposito
   }
 
   private listCompanyContactsOfCurrentTenant(): CompanyContact[] {
-    return this.listStored().filter(
-      (companyContact) => companyContact.tenantId === this.tenantContext.getTenantId(),
-    );
+    return this.listStored().filter((companyContact) => companyContact.tenantId === this.tenantContext.getTenantId());
   }
 }

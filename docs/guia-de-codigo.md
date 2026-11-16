@@ -234,9 +234,32 @@ Hasta F1-T02 los casos de uso lanzan `Error`. Desde F1-T02, solo las clases tipa
 
 ---
 
-## 11. Formato
+## 11. Formato y lint
 
-Lo fija Prettier (F0-T03); no se discute en revisión. Se ejecuta con `pnpm format`.
+El formato lo fija Prettier (`.prettierrc.json`) y no se discute en revisión. `pnpm format` lo aplica.
+`pnpm lint` ejecuta ESLint (`eslint.config.js`) y comprueba el formato. `pnpm lint:fix` corrige lo que se puede corregir solo.
+
+Qué comprueba ESLint:
+
+| Regla | Origen |
+|---|---|
+| Sin `any` (`@typescript-eslint/no-explicit-any`) | R13 |
+| Sin números mágicos, salvo `-1`, `0` y `1` (`@typescript-eslint/no-magic-numbers`) | R13 |
+| Convención de nombres de la sección 2 (`@typescript-eslint/naming-convention`) | R13 |
+| Sin código comentado (regla local `local/no-commented-out-code`, en `eslint-rules/`) | R13 |
+| Reglas de `eslint-plugin-security` como error | R8 |
+| Sin `$queryRawUnsafe` ni `$executeRawUnsafe` | R8 |
+| En tests: sin `.skip`, `.only`, `.todo` ni tests comentados, y sin comentarios `eslint-disable` | R2 |
+
+La regla de código comentado da por código un comentario que se puede analizar como TypeScript y contiene algo más que palabras sueltas. Si alguna vez marca prosa, reescribe la frase; no la desactives.
+
+**Violaciones heredadas.** Las que ya existían el 2026-11-16 están congeladas en `eslint-suppressions.json` (supresiones masivas de ESLint):
+- ESLint falla si un archivo supera el número congelado de una regla. El código nuevo no puede añadir violaciones.
+- Al corregir una, ejecuta `pnpm exec eslint . --prune-suppressions` y sube el archivo actualizado. El archivo solo puede encoger.
+- Prohibido ejecutar `--suppress-all` o `--suppress-rule` para que pase un PR (equivale a debilitar un test, R2). Lo vigila `CODEOWNERS`.
+- Se vacía en F1-T15 y F1-T18.
+
+En `src/` un `// eslint-disable-next-line <regla> -- motivo` solo se admite con motivo y para un falso positivo demostrable (por ejemplo, `security/detect-object-injection` sobre una clave validada por lista blanca). En `tests/` no se admite ninguno.
 
 ---
 

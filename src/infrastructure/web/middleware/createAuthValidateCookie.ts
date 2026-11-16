@@ -1,23 +1,23 @@
-import { Request, Response, NextFunction } from "express";
-import { IAuthTokenService } from "../../../application/ports/services/IAuthTokenService.js";
+import { Request, Response, NextFunction } from 'express';
+import { IAuthTokenService } from '../../../application/ports/services/IAuthTokenService.js';
 
 export function createAuthValidateCookie(tokenService: IAuthTokenService) {
-    return (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const token = req.cookies?.accessToken;
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = req.cookies?.accessToken;
 
-            if (!token) return res.status(401).json({ error: 'Not Token' });
-            const payload = tokenService.verifyToken(token);
+      if (!token) return res.status(401).json({ error: 'Not Token' });
+      const payload = tokenService.verifyToken(token);
 
-            req.user = {
-                userId: payload.sub,
-                tenantId: payload.tenantId,
-                role: payload.role,
-            };
+      req.user = {
+        userId: payload.sub,
+        tenantId: payload.tenantId,
+        role: payload.role,
+      };
 
-            next();
-        } catch (error) {
-            next(error);
-        }
+      next();
+    } catch (error) {
+      next(error);
     }
+  };
 }

@@ -49,6 +49,8 @@ TypeScript (ESM, imports terminan en `.js`) · Node 20 en el `Dockerfile` (Node 
 
 **Tests (devDependencies, versiones exactas, añadidas el 2026-11-16 en F0-T02):** `vitest` 5.1.0 · `@vitest/coverage-v8` 5.1.0 · `supertest` 7.3.2 · `@types/supertest` 7.2.1 · `@testcontainers/postgresql` 12.2.1 (necesita Docker). Se quitaron `jest`, `ts-jest` y `@types/jest` (decisión D-01).
 
+**Calidad (F0-T03):** ESLint 10 (`eslint.config.js`: typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, regla local `eslint-rules/no-commented-out-code.js`) y Prettier (`.prettierrc.json`: comillas simples, 120 columnas, LF; los `.md` no se formatean). Las violaciones heredadas están congeladas en `eslint-suppressions.json` (77 el 2026-11-16: 59 números mágicos, 6 nombres, 5 variables sin usar, 4 `any`, otras 3). Ese archivo solo puede encoger (ver `docs/guia-de-codigo.md`, sección 11). `.gitattributes` fuerza LF. El commit de formato masivo está en `.git-blame-ignore-revs`.
+
 `pnpm-workspace.yaml`: `allowBuilds` niega las compilaciones nativas opcionales de testcontainers (`cpu-features`, `protobufjs`, `ssh2`) y `overrides` fuerza `brace-expansion` 2.1.7 (versión corregida; la arrastra testcontainers).
 
 Alias `@/` = `src/` (en `tsconfig.json`, `paths` sin `baseUrl`). En el código se mezclan imports `@/...` y relativos. `pnpm build` ejecuta `tsc` y después `tsc-alias` (1.9.10, F0-T07), que reescribe `@/` a rutas relativas en `dist/`; sin ese paso `node dist/server.js` no arranca. En los tests además `@tests/` = `tests/` (en `vitest.config.ts` y `tests/tsconfig.json`).
@@ -261,6 +263,7 @@ pnpm test:api
 pnpm test:coverage  # todos + cobertura; falla bajo 80 % global o 90 % en domain/application
 pnpm test:build     # compila como producción y arranca el servidor compilado (sin Docker)
 pnpm typecheck      # src/ y tests/
+pnpm lint           # ESLint + prettier --check   (pnpm lint:fix / pnpm format corrigen)
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # db (host 3363), backend (4000), prisma-studio (3364)
@@ -290,3 +293,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T02 | pendiente | Framework de tests (Vitest), dobles en memoria, fábricas de datos, base de datos efímera y 453 tests sobre el código existente. Sin cambios en `src/` ni en `prisma/`. |
 | 2026-11-16 | F0-T07 | pendiente | Build de producción reparado (H20): `paths` sin `baseUrl`, conversión de `settings` a JSON de Prisma en `PrismaTenantRepository`, `tsc-alias` en `pnpm build`. Script `pnpm typecheck`. Proyecto de tests `build` (2 tests). |
 | 2026-11-16 | F0-T09 | pendiente | Fuera `nodemailer`, `@types/nodemailer` (D-30), `node-cron` (D-27) y `http-status-codes` (sin uso ni plan). Actualización dentro de rangos (express 5.3.0, prisma 7.10.1, zod 4.6.7, multer 2.5.0…), `axios` fijado a 1.21.1 (D-49) y pnpm fijado a 11.28.10. `pnpm audit`: de 94 avisos a 2 moderados de desarrollo. |
+| 2026-11-16 | F0-T03 | pendiente | ESLint + Prettier. Todo el código formateado con Prettier (solo formato, commit `ebbe7e1`). 77 violaciones heredadas congeladas en `eslint-suppressions.json`. 14 tests de la regla local. Sin cambios de lógica en `src/`. |

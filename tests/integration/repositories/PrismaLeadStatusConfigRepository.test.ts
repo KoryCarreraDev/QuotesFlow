@@ -4,11 +4,7 @@ import { LeadStatusConfig } from '@/domain/entities/LeadStatusConfig.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
-import {
-  persistLead,
-  persistLeadStatus,
-  persistTenant,
-} from '@tests/support/database/persistenceFactories.js';
+import { persistLead, persistLeadStatus, persistTenant } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
 describe('PrismaLeadStatusConfigRepository', () => {

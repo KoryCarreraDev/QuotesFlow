@@ -4,28 +4,28 @@ import { Tenant } from '../../../domain/entities/Tenant.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 
 export class PrismaTenantRepository extends BasePrismaRepository implements ITenantRepository {
-    async create(tenant: Tenant): Promise<void> {
-        await this.prisma.tenant.create({
-            data: {
-                id: tenant.id,
-                name: tenant.name,
-                logoUrl: tenant.logoUrl,
-                // El dominio no conoce los tipos JSON de Prisma; el adaptador hace la conversión.
-                settings: (tenant.settings ?? undefined) as Prisma.InputJsonObject | undefined,
-            },
-        });
-    }
+  async create(tenant: Tenant): Promise<void> {
+    await this.prisma.tenant.create({
+      data: {
+        id: tenant.id,
+        name: tenant.name,
+        logoUrl: tenant.logoUrl,
+        // El dominio no conoce los tipos JSON de Prisma; el adaptador hace la conversión.
+        settings: (tenant.settings ?? undefined) as Prisma.InputJsonObject | undefined,
+      },
+    });
+  }
 
-    async findById(id: string): Promise<Tenant | null> {
-        const record = await this.prisma.tenant.findUnique({ where: { id } });
-        if (!record) return null;
-        return new Tenant(
-            record.id,
-            record.name,
-            record.logoUrl,
-            record.settings as Record<string, unknown> | null,
-            record.createdAt,
-            record.updatedAt
-        )
-    }
+  async findById(id: string): Promise<Tenant | null> {
+    const record = await this.prisma.tenant.findUnique({ where: { id } });
+    if (!record) return null;
+    return new Tenant(
+      record.id,
+      record.name,
+      record.logoUrl,
+      record.settings as Record<string, unknown> | null,
+      record.createdAt,
+      record.updatedAt,
+    );
+  }
 }

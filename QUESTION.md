@@ -61,6 +61,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-008 · Violaciones de lint heredadas congeladas en un archivo de supresiones
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F0-T03, R2, R13
+- **Bloquea:** No
+- **Pregunta:** ¿Se acepta congelar en `eslint-suppressions.json` las 77 violaciones que el código ya tenía, hasta corregirlas en F1-T15 y F1-T18?
+- **Contexto:** Con las reglas de R13 el código actual tiene 77 errores: 59 números mágicos (sobre todo códigos HTTP en controllers y números en tests), 6 nombres, 5 variables sin usar, 4 `any` y 3 más. Corregirlos en F0-T03 mezclaría cambios de lógica con la configuración, y F1-T15/F1-T18 ya tienen asignada esa limpieza. ESLint falla si un archivo supera su número congelado, así que el código nuevo no puede añadir violaciones. El archivo está en `CODEOWNERS`.
+- **Opciones:** a) Aceptar las supresiones; el archivo solo puede encoger. b) Corregir las 77 antes de fusionar F0-T03. c) Bajar esas reglas a aviso hasta F1.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas

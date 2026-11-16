@@ -1,0 +1,182 @@
+{
+  "src/app.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 4
+    }
+  },
+  "src/application/use-case/LeadStatusConfig/updateLeadStatusConfigUseCase.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/application/use-case/filter/GenericListFilteredUseCase.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "src/application/use-case/leads/getLeadsUseCase.ts": {
+    "eqeqeq": {
+      "count": 1
+    }
+  },
+  "src/domain/entities/Lead.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/domain/enums/DeletedState.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    }
+  },
+  "src/infrastructure/persistence/repositories/BasePrismaRepository.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-function-type": {
+      "count": 1
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/persistence/repositories/PrismaLeadRepository.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/persistence/repositories/PrismaUserRepository.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/services/BcryptHashService.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/services/JwtTokenService.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/web/controllers/AuthControllers.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 7
+    }
+  },
+  "src/infrastructure/web/controllers/companyContactControllers.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 5
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/web/controllers/contactControllers.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 5
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/web/controllers/leadControllers.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 6
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/web/controllers/leadStatusConfigControllers.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 3
+    }
+  },
+  "src/infrastructure/web/middleware/createAuthValidateCookie.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "src/infrastructure/web/middleware/validateBody.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    },
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "src/presentation/schemas/authSchema.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "tests/api/security/authentication.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "tests/api/security/hardening.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "tests/integration/repositories/PrismaContactRepositories.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "tests/integration/repositories/PrismaLeadRepository.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 4
+    }
+  },
+  "tests/integration/repositories/PrismaLeadStatusConfigRepository.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "tests/unit/application/use-case/genericListFiltered.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 3
+    }
+  },
+  "tests/unit/application/use-case/leads.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "tests/unit/domain/entities.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "tests/unit/infrastructure/filterEngine.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  },
+  "tests/unit/infrastructure/services.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 2
+    }
+  },
+  "tests/unit/presentation/schemas.test.ts": {
+    "@typescript-eslint/no-magic-numbers": {
+      "count": 1
+    }
+  }
+}

@@ -9,5 +9,11 @@
 /src/config/ @KoryCarreraDev
 /prisma/ @KoryCarreraDev
 /.github/ @KoryCarreraDev
+
+# Configuración que protege R2 (tests insaltables) y R13: cambiarla exige aprobación humana expresa.
+/vitest.config.ts @KoryCarreraDev
+/eslint.config.js @KoryCarreraDev
+/eslint-rules/ @KoryCarreraDev
+/eslint-suppressions.json @KoryCarreraDev
 /docs/security/ @KoryCarreraDev
 /docs/audits/ @KoryCarreraDev

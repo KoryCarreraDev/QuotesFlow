@@ -18,11 +18,7 @@ const shouldRevealKnownDefects = process.env.SHOW_KNOWN_DEFECTS === SHOW_KNOWN_D
  * @param findingId Hallazgo o tarea que lo corrige (por ejemplo `H3` o `F1-T14`).
  * @param expectedBehavior Qué debe ocurrir cuando esté corregido.
  */
-export function itKnownDefect(
-  findingId: string,
-  expectedBehavior: string,
-  testBody: () => Promise<void> | void,
-): void {
+export function itKnownDefect(findingId: string, expectedBehavior: string, testBody: () => Promise<void> | void): void {
   const title = `[defecto conocido ${findingId}] ${expectedBehavior}`;
 
   if (shouldRevealKnownDefects) {

@@ -110,9 +110,9 @@ describe('CreateLeadUseCase', () => {
     const { createLeadUseCase, leadStatusRepository, leadRepository, defaultStatus } = setupLeadUseCases();
     leadStatusRepository.seed(buildLeadStatusConfig({ id: defaultStatus.id, isDefault: false }));
 
-    await expect(
-      createLeadUseCase.execute({ contactName: 'Ana Gómez' }, randomUUID(), Role.OWNER),
-    ).rejects.toThrow('Default lead status not configured for this tenant');
+    await expect(createLeadUseCase.execute({ contactName: 'Ana Gómez' }, randomUUID(), Role.OWNER)).rejects.toThrow(
+      'Default lead status not configured for this tenant',
+    );
     expect(leadRepository.listStored()).toHaveLength(0);
   });
 
@@ -407,9 +407,7 @@ describe('DeleteLeadUseCase', () => {
     const foreignLead = buildLead({ tenantId: OTHER_TENANT_ID });
     leadRepository.seed(foreignLead);
 
-    await expect(deleteLeadUseCase.execute(foreignLead.id, randomUUID(), Role.OWNER)).rejects.toThrow(
-      'Lead not found',
-    );
+    await expect(deleteLeadUseCase.execute(foreignLead.id, randomUUID(), Role.OWNER)).rejects.toThrow('Lead not found');
     expect(leadRepository.findStoredById(foreignLead.id)?.deleted).toBe(DeletedState.Active);
   });
 
