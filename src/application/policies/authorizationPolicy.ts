@@ -27,9 +27,11 @@ export enum Action {
   CONTACT_LIST = 'contact:list',
   CONTACT_CREATE = 'contact:create',
   CONTACT_UPDATE = 'contact:update',
+  CONTACT_DELETE = 'contact:delete',
   COMPANY_CONTACT_LIST = 'company-contact:list',
   COMPANY_CONTACT_CREATE = 'company-contact:create',
   COMPANY_CONTACT_UPDATE = 'company-contact:update',
+  COMPANY_CONTACT_DELETE = 'company-contact:delete',
 }
 
 /**
@@ -86,9 +88,12 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.CONTACT_LIST]: everyone,
   [Action.CONTACT_CREATE]: everyone,
   [Action.CONTACT_UPDATE]: everyone,
+  // Borrar clientes queda para gestión mientras no tengan responsable (Q-012; F1-T17 añade ownerId).
+  [Action.CONTACT_DELETE]: managementOnly,
   [Action.COMPANY_CONTACT_LIST]: everyone,
   [Action.COMPANY_CONTACT_CREATE]: everyone,
   [Action.COMPANY_CONTACT_UPDATE]: everyone,
+  [Action.COMPANY_CONTACT_DELETE]: managementOnly,
 };
 
 // Con Map, un rol con un nombre inesperado (`__proto__`, `constructor`) nunca resuelve a una propiedad

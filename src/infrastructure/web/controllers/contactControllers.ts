@@ -1,3 +1,6 @@
+import { DeleteContactUseCase } from '@/application/use-case/contacts/deleteContactUseCase.js';
+import { Role } from '@/domain/enums/Role.js';
+import { HttpStatus } from '@/infrastructure/web/errors/errorResponse.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { Request, Response, NextFunction } from 'express';
@@ -13,7 +16,18 @@ export class contactController {
     private readonly listFilteredContactsUseCase: ListFilteredContactsUseCase,
     private readonly createContactUseCase: CreateContactUseCase,
     private readonly updateContactUseCase: UpdateContactUseCase,
+    private readonly deleteContactUseCase: DeleteContactUseCase,
   ) {}
+
+  delete = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const actor = { role: req.user?.role as Role, userId: req.user?.userId };
+      await this.deleteContactUseCase.execute(req.params.id as string, actor);
+      res.status(HttpStatus.OK).json({ message: 'Deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {

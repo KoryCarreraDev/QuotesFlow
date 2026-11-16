@@ -15,6 +15,9 @@ import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCas
 import { DeleteLeadUseCase } from '@/application/use-case/leads/deleteLeadUseCase.js';
 import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js';
 import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCase.js';
+import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
+import { DeleteContactUseCase } from '@/application/use-case/contacts/deleteContactUseCase.js';
+import { DeleteCompanyContactUseCase } from '@/application/use-case/companyContacts/deleteCompanyContactUseCase.js';
 import { ScopedContainer } from '@/cross-cutting/container.js';
 import { Role } from '@/domain/enums/Role.js';
 import { DEFAULT_TEST_TENANT_ID } from '@tests/support/builders/entityBuilders.js';
@@ -35,6 +38,13 @@ describe('ScopedContainer', () => {
     ['leads.getCreateLeadUseCase', () => container.leads.getCreateLeadUseCase(), CreateLeadUseCase],
     ['leads.getUpdateLeadUseCase', () => container.leads.getUpdateLeadUseCase(), UpdateLeadUseCase],
     ['leads.getDeleteLeadUseCase', () => container.leads.getDeleteLeadUseCase(), DeleteLeadUseCase],
+    ['leads.getChangeLeadStatusUseCase', () => container.leads.getChangeLeadStatusUseCase(), ChangeLeadStatusUseCase],
+    ['contacts.getDeleteContactUseCase', () => container.contacts.getDeleteContactUseCase(), DeleteContactUseCase],
+    [
+      'companyContacts.getDeleteCompanyContactUseCase',
+      () => container.companyContacts.getDeleteCompanyContactUseCase(),
+      DeleteCompanyContactUseCase,
+    ],
     [
       'leads.getListFilteredLeadsUseCase',
       () => container.leads.getListFilteredLeadsUseCase(),

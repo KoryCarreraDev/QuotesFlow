@@ -11,6 +11,8 @@ import { paginateInMemory } from './inMemoryPagination.js';
  */
 export class InMemoryCompanyContactRepository implements ICompanyContactRepository {
   private readonly companyContactsById = new Map<string, CompanyContact>();
+  // La entidad no lleva la marca de borrado; el doble la guarda aparte, como hace la base.
+  private readonly deletedCompanyContactIds = new Set<string>();
 
   constructor(private readonly tenantContext: ITenantContext) {}
 
@@ -41,12 +43,20 @@ export class InMemoryCompanyContactRepository implements ICompanyContactReposito
 
   async findById(id: string): Promise<CompanyContact | null> {
     const companyContact = this.companyContactsById.get(id);
-    return companyContact && companyContact.tenantId === this.tenantContext.getTenantId() ? companyContact : null;
+    return companyContact && this.isVisible(companyContact) ? companyContact : null;
+  }
+
+  async delete(companyContactId: string): Promise<void> {
+    const storedCompanyContact = this.companyContactsById.get(companyContactId);
+    if (!storedCompanyContact || storedCompanyContact.tenantId !== this.tenantContext.getTenantId()) {
+      throw new Error('Record to delete not found');
+    }
+    this.deletedCompanyContactIds.add(companyContactId);
   }
 
   async update(companyContactId: string, data: CompanyContact): Promise<void> {
     const storedCompanyContact = this.companyContactsById.get(companyContactId);
-    if (!storedCompanyContact || storedCompanyContact.tenantId !== this.tenantContext.getTenantId()) {
+    if (!storedCompanyContact || !this.isVisible(storedCompanyContact)) {
       throw new Error('Record to update not found');
     }
 
@@ -79,7 +89,14 @@ export class InMemoryCompanyContactRepository implements ICompanyContactReposito
     return this.listCompanyContactsOfCurrentTenant().length;
   }
 
+  private isVisible(companyContact: CompanyContact): boolean {
+    return (
+      companyContact.tenantId === this.tenantContext.getTenantId() &&
+      !this.deletedCompanyContactIds.has(companyContact.id)
+    );
+  }
+
   private listCompanyContactsOfCurrentTenant(): CompanyContact[] {
-    return this.listStored().filter((companyContact) => companyContact.tenantId === this.tenantContext.getTenantId());
+    return this.listStored().filter((companyContact) => this.isVisible(companyContact));
   }
 }

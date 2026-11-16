@@ -40,7 +40,7 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
     const record = await this.prisma.companyContact.findUnique({
       where: {
         id: id,
-        tenantId: this.tenantId,
+        ...this.tenantWhere(),
       },
       include: {
         contacts: true,
@@ -50,11 +50,15 @@ export class PrismaCompanyContactRepository extends BasePrismaRepository impleme
     return record ? CompanyContact.fromPrisma(record) : null;
   }
 
+  async delete(companyContactId: string): Promise<void> {
+    await this.softDeleteRegister(this.prisma.companyContact, companyContactId);
+  }
+
   async update(companyContactId: string, data: CompanyContact): Promise<void> {
     await this.prisma.companyContact.update({
       where: {
         id: companyContactId,
-        tenantId: this.tenantId,
+        ...this.tenantWhere(),
       },
       data: {
         name: data.name,

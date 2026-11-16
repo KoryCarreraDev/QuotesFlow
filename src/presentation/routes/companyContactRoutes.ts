@@ -12,7 +12,14 @@ function getCompanyContactController(req: Request): companyContactController {
   const listFilteredUseCase = req.container!.companyContacts.getListFilteredCompanyContactsUseCase();
   const createUseCase = req.container!.companyContacts.getCreateCompanyContactUseCase();
   const updateUseCase = req.container!.companyContacts.getUpdateCompanyContactUseCase();
-  return new companyContactController(getCompanyContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase);
+  const deleteUseCase = req.container!.companyContacts.getDeleteCompanyContactUseCase();
+  return new companyContactController(
+    getCompanyContactsUseCase,
+    listFilteredUseCase,
+    createUseCase,
+    updateUseCase,
+    deleteUseCase,
+  );
 }
 
 export function companyContactRouter(jwtService: IAuthTokenService): Router {
@@ -46,6 +53,10 @@ export function companyContactRouter(jwtService: IAuthTokenService): Router {
 
   router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
     getCompanyContactController(req).getFiltered(req, res, next);
+  });
+
+  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getCompanyContactController(req).delete(req, res, next);
   });
 
   return router;

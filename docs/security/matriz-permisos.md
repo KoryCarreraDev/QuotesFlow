@@ -24,9 +24,11 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `contact:list` | Listar contactos | Sí | Sí | Sí | Sí |
 | `contact:create` | Crear un contacto | Sí | Sí | Sí | Sí |
 | `contact:update` | Modificar un contacto | Sí | Sí | Sí | Sí |
+| `contact:delete` | Borrar (suave) un contacto | Sí | Sí | Sí | No |
 | `company-contact:list` | Listar empresas cliente | Sí | Sí | Sí | Sí |
 | `company-contact:create` | Crear una empresa cliente | Sí | Sí | Sí | Sí |
 | `company-contact:update` | Modificar una empresa cliente | Sí | Sí | Sí | Sí |
+| `company-contact:delete` | Borrar (suave) una empresa cliente sin contactos activos | Sí | Sí | Sí | No |
 
 Comportamientos que la tabla no muestra:
 
@@ -36,7 +38,7 @@ Comportamientos que la tabla no muestra:
 
 Pendiente de decisiones ya tomadas: la visibilidad de contactos por responsable (D-18) llega con F1-T17, y la gestión de usuarios por el líder comercial (D-17) con F2.
 
-Limitación conocida: las acciones `contact:*`, `company-contact:*` y `lead-status:list` todavía no consultan la política en el código, porque hoy se permiten a todos los roles. Para ellas no se cumple aún que un rol desconocido no tenga permisos. Se conectan a la política en F1-T16 y F1-T17, cuando su regla deje de ser la misma para todos.
+Limitación conocida: `contact:list`, `contact:create`, `contact:update`, sus equivalentes `company-contact:*` y `lead-status:list` todavía no consultan la política en el código, porque hoy se permiten a todos los roles. Para ellas no se cumple aún que un rol desconocido no tenga permisos. Se conectan en F1-T17, cuando la visibilidad por responsable (D-18) cambie su regla. Los borrados (`contact:delete`, `company-contact:delete`) sí consultan la política desde F1-T16.
 
 Las pruebas de esta matriz contra la API están en `tests/api/security/roles.test.ts`.
 

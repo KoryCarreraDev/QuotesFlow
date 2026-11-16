@@ -148,7 +148,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
 
   it('CreateContactUseCase no crea el contacto', async () => {
     const { contextWithoutTenant, contactRepository } = setupWithoutTenant();
-    const createContactUseCase = new CreateContactUseCase(contactRepository, new ContactMapper(), contextWithoutTenant);
+    const createContactUseCase = new CreateContactUseCase(
+      contactRepository,
+      new ContactMapper(),
+      contextWithoutTenant,
+      new InMemoryCompanyContactRepository(contextWithoutTenant),
+    );
 
     await expect(createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez' })).rejects.toThrow();
     expect(contactRepository.listStored()).toHaveLength(1);
@@ -156,7 +161,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
 
   it('UpdateContactUseCase no modifica el contacto', async () => {
     const { contextWithoutTenant, contactRepository, storedContact } = setupWithoutTenant();
-    const updateContactUseCase = new UpdateContactUseCase(contactRepository, new ContactMapper(), contextWithoutTenant);
+    const updateContactUseCase = new UpdateContactUseCase(
+      contactRepository,
+      new ContactMapper(),
+      contextWithoutTenant,
+      new InMemoryCompanyContactRepository(contextWithoutTenant),
+    );
 
     await expect(updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' })).rejects.toThrow();
     expect(contactRepository.findStoredById(storedContact.id)?.lastName).toBe('Martínez');

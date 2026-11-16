@@ -68,6 +68,15 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   ],
 
   [
+    `POST ${apiPaths.contacts.delete(':id')}`,
+    { action: Action.CONTACT_DELETE, resource: 'contact', operation: 'delete' },
+  ],
+
+  [
+    `POST ${apiPaths.companyContacts.delete(':id')}`,
+    { action: Action.COMPANY_CONTACT_DELETE, resource: 'companyContact', operation: 'delete' },
+  ],
+  [
     `GET ${apiPaths.companyContacts.getAll}`,
     { action: Action.COMPANY_CONTACT_LIST, resource: 'companyContact', operation: 'list' },
   ],

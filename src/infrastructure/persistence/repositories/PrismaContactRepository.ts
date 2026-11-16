@@ -35,7 +35,7 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
     const record = await this.prisma.contact.findUnique({
       where: {
         id: id,
-        tenantId: this.tenantId,
+        ...this.tenantWhere(),
       },
       include: {
         company: true,
@@ -45,11 +45,19 @@ export class PrismaContactRepository extends BasePrismaRepository implements ICo
     return record ? Contact.fromPrisma(record) : null;
   }
 
+  async delete(contactId: string): Promise<void> {
+    await this.softDeleteRegister(this.prisma.contact, contactId);
+  }
+
+  async countActiveByCompany(companyContactId: string): Promise<number> {
+    return this.prisma.contact.count({ where: { ...this.tenantWhere(), companyId: companyContactId } });
+  }
+
   async update(contactId: string, data: Contact): Promise<void> {
     await this.prisma.contact.update({
       where: {
         id: contactId,
-        tenantId: this.tenantId,
+        ...this.tenantWhere(),
       },
       data: {
         firstName: data.firstName,

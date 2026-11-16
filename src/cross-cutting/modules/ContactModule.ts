@@ -3,6 +3,8 @@ import { CreateContactUseCase } from '../../application/use-case/contacts/create
 import { GetContactsUseCase } from '../../application/use-case/contacts/getContactsUseCase.js';
 import { ListFilteredContactsUseCase } from '../../application/use-case/contacts/listFilteredContactsUseCase.js';
 import { UpdateContactUseCase } from '../../application/use-case/contacts/updateContactUseCase.js';
+import { DeleteContactUseCase } from '../../application/use-case/contacts/deleteContactUseCase.js';
+import { PrismaCompanyContactRepository } from '../../infrastructure/persistence/repositories/PrismaCompanyContactRepository.js';
 import { GenericListFilteredUseCase } from '../../application/use-case/filter/GenericListFilteredUseCase.js';
 import { contactFilterConfig } from '../../infrastructure/persistence/filters/contactFilterConfig.js';
 import { PrismaContactRepository } from '../../infrastructure/persistence/repositories/PrismaContactRepository.js';
@@ -22,11 +24,16 @@ export class ContactModule {
     return new GetContactsUseCase(this.createContactRepository(), this.contactMapper);
   }
 
+  private createCompanyContactRepository(): PrismaCompanyContactRepository {
+    return new PrismaCompanyContactRepository(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
   getCreateContactUseCase(): CreateContactUseCase {
     return new CreateContactUseCase(
       this.createContactRepository(),
       this.contactMapper,
       this.dependencies.tenantContext,
+      this.createCompanyContactRepository(),
     );
   }
 
@@ -35,7 +42,12 @@ export class ContactModule {
       this.createContactRepository(),
       this.contactMapper,
       this.dependencies.tenantContext,
+      this.createCompanyContactRepository(),
     );
+  }
+
+  getDeleteContactUseCase(): DeleteContactUseCase {
+    return new DeleteContactUseCase(this.createContactRepository());
   }
 
   getListFilteredContactsUseCase(): ListFilteredContactsUseCase {

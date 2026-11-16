@@ -3,6 +3,8 @@ import { CreateCompanyContactUseCase } from '../../application/use-case/companyC
 import { GetCompanyContactsUseCase } from '../../application/use-case/companyContacts/getCompanyContactsUseCase.js';
 import { ListFilteredCompanyContactsUseCase } from '../../application/use-case/companyContacts/listFilteredCompanyContactsUseCase.js';
 import { UpdateCompanyContactUseCase } from '../../application/use-case/companyContacts/updateCompanyContactUseCase.js';
+import { DeleteCompanyContactUseCase } from '../../application/use-case/companyContacts/deleteCompanyContactUseCase.js';
+import { PrismaContactRepository } from '../../infrastructure/persistence/repositories/PrismaContactRepository.js';
 import { GenericListFilteredUseCase } from '../../application/use-case/filter/GenericListFilteredUseCase.js';
 import { companyContactFilterConfig } from '../../infrastructure/persistence/filters/companyContactFilterConfig.js';
 import { PrismaCompanyContactRepository } from '../../infrastructure/persistence/repositories/PrismaCompanyContactRepository.js';
@@ -35,6 +37,13 @@ export class CompanyContactModule {
       this.createCompanyContactRepository(),
       this.companyContactMapper,
       this.dependencies.tenantContext,
+    );
+  }
+
+  getDeleteCompanyContactUseCase(): DeleteCompanyContactUseCase {
+    return new DeleteCompanyContactUseCase(
+      this.createCompanyContactRepository(),
+      new PrismaContactRepository(this.dependencies.prisma, this.dependencies.tenantContext),
     );
   }
 

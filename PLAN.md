@@ -158,7 +158,7 @@ Leads y estados:
 - F1-T18 `[S]` Poner el código existente al día con R11 a R13: renombrar identificadores poco claros (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`), JSDoc en puertos, casos de uso y entidades, y `docs/modulos/` de auth, leads, estados, contactos y filtrado.
 
 Contactos y empresas:
-- F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9).
+- F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Quién borra y qué pasa con los contactos de una empresa borrada: Q-012.
 - F1-T17 `[O]` Migración: `ownerId` (comercial responsable) en `Contact` y `CompanyContact`; `documentType` y `documentNumber` en `Contact`; documento normalizado en ambos (solo dígitos, sin dígito de verificación). Visibilidad por rol según D-18, unicidad según D-19. Es la base de la cartera.
 
 ### F2 — Identidad, sesiones y usuarios
