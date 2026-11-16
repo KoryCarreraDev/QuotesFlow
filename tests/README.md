@@ -6,10 +6,11 @@ Reglas de fondo: R1 (tests obligatorios), R2 (tests insaltables) y R5 (aislamien
 ## Cómo ejecutarlos
 
 ```bash
-pnpm test               # todo: unit + integration + api
+pnpm test               # todo: unit + integration + api + build
 pnpm test:unit          # solo unitarios (no necesita Docker, ~1 s)
 pnpm test:integration   # repositorios contra PostgreSQL real
 pnpm test:api           # API completa con supertest
+pnpm test:build         # compila como `pnpm build` y arranca el servidor compilado (no necesita Docker)
 pnpm test:coverage      # todo + cobertura; falla bajo el umbral
 pnpm test:watch         # unitarios en modo observación
 pnpm typecheck:tests    # tipos de tests/ y de lo que importan de src/
@@ -27,7 +28,7 @@ pnpm exec vitest run -t "SALES_REP no puede"
 ## Estructura
 
 ```
-vitest.config.ts               tres proyectos (unit, integration, api), alias y umbrales de cobertura
+vitest.config.ts               cuatro proyectos (unit, integration, api, build), alias y umbrales de cobertura
 tests/
   setup/                       arranque: entorno, contenedor de PostgreSQL, base de datos por archivo
   support/
@@ -38,6 +39,7 @@ tests/
     knownDefect.ts             `itKnownDefect`: defectos conocidos pendientes de corregir
   unit/                        dominio, casos de uso, mappers, esquemas Zod, middleware, motor de filtrado
   integration/                 repositorios Prisma y esquema, contra PostgreSQL real
+  build/                       build de producción y arranque del servidor compilado
   api/                         endpoints de extremo a extremo
     security/                  inventario de rutas, autenticación, aislamiento por tenant, roles, endurecimiento
 ```
@@ -47,6 +49,7 @@ tests/
 | `unit` | Reglas de negocio de `domain` y `application`, y piezas puras de infraestructura | Dobles en memoria y constructores de entidades | Base de datos, red, Express |
 | `integration` | Que cada repositorio lee y escribe bien, filtra por tenant y por borrado | PostgreSQL real con las migraciones de `prisma/migrations` | Express |
 | `api` | Lo que ve un cliente: códigos, cuerpos, cookies, permisos | La aplicación real (`src/app.ts`) + PostgreSQL real | Dobles |
+| `build` | Que el build de producción compila, reescribe el alias `@/` y el servidor compilado arranca (H20) | `tsc` + `tsc-alias` en `node_modules/.cache/production-build-test` | Base de datos |
 
 ## Cómo funciona la base de datos de test
 
