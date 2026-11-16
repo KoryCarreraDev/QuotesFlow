@@ -105,4 +105,40 @@ describe('build de producción (H20)', () => {
 
     expect(response.status).toBe(HTTP_OK);
   });
+
+  // Regresión de H1: sin JWT_SECRET la API arrancaba firmando tokens con 'default-secret'.
+  it('el servidor compilado se niega a arrancar sin JWT_SECRET y nombra la variable que falta', async () => {
+    const environmentWithoutSecret: NodeJS.ProcessEnv = { ...process.env, PORT: String(await findFreePort()) };
+    delete environmentWithoutSecret.JWT_SECRET;
+
+    const { exitCode, standardError } = await runUntilExit(path.join(buildOutputDirectory, 'server.js'), {
+      env: environmentWithoutSecret,
+    });
+
+    // `null` significaría que siguió en marcha hasta que el test lo mató.
+    expect(exitCode).not.toBeNull();
+    expect(exitCode).not.toBe(0);
+    expect(standardError).toContain('JWT_SECRET');
+  });
 });
+
+async function runUntilExit(
+  scriptPath: string,
+  options: { env: NodeJS.ProcessEnv },
+): Promise<{ exitCode: number | null; standardError: string }> {
+  return new Promise((resolve, reject) => {
+    const childProcess = spawn(process.execPath, [scriptPath], {
+      env: options.env,
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    const errorChunks: Buffer[] = [];
+    const killTimer = setTimeout(() => childProcess.kill(), SERVER_START_TIMEOUT_MS);
+
+    childProcess.stderr?.on('data', (chunk: Buffer) => errorChunks.push(chunk));
+    childProcess.once('error', reject);
+    childProcess.once('close', (exitCode) => {
+      clearTimeout(killTimer);
+      resolve({ exitCode, standardError: Buffer.concat(errorChunks).toString('utf8') });
+    });
+  });
+}

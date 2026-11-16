@@ -85,6 +85,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-010 · Empezar F1 con la puerta de F0 abierta
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1, sección 11 de `PLAN.md`
+- **Bloquea:** No
+- **Pregunta:** ¿Se pueden preparar las ramas de F1 mientras la puerta de F0 sigue abierta?
+- **Contexto:** La sección 11 dice "No se escribe funcionalidad nueva hasta cerrar la puerta de F0". El 2026-11-16 faltan los PR de F0-T03, T04, T05, T06, T08 y T10, la firma de `docs/audits/00-linea-base.md` y `F0-seguridad.md` y la protección de ramas. F1 no añade funcionalidad: endurece y corrige lo existente. Sus ramas salen de `feat/F0-T10-baseline-audit`, porque necesitan el lint, los hooks y la CI de F0.
+- **Opciones:** a) Sí: preparar F1 en ramas apiladas, sin abrir sus PR hasta fusionar F0. b) No: esperar a cerrar la puerta de F0.
+- **Supuesto mientras tanto:** a). Ninguna rama de F1 se fusiona antes que las de F0.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas

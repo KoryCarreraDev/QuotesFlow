@@ -55,11 +55,6 @@
       "count": 1
     }
   },
-  "src/infrastructure/services/JwtTokenService.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/infrastructure/web/controllers/AuthControllers.ts": {
     "@typescript-eslint/no-magic-numbers": {
       "count": 7

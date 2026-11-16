@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: ramas de la fase F0 (`feat/F0-*`), 2026-11-16.
+> Última revisión: rama `feat/F1-T01-env-validation` (sobre las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,7 +27,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 453 tests (unit, integración con PostgreSQL efímero, API). 30 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 502 tests (unit, integración con PostgreSQL efímero, API, build). 30 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22), la cookie de sesión caduca siempre a los 7 días (H23) y `validateBody` puede responder `{ errors: undefined }` (H24).
@@ -264,7 +264,17 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 
 ## 11. Entorno
 
-`.env` (ver `.env.example`): `DATABASE_URL`, `JWT_SECRET` (default inseguro `default-secret` si falta), `JWT_EXPIRATION` (7d), `PORT` (default 4000), `NODE_ENV`. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
+`.env` (ver `.env.example`). `src/config/env.ts` valida las variables con Zod al importarse (F1-T01): si alguna falta o es inválida, la API no arranca y lanza `InvalidEnvironmentError` con el nombre de cada variable y el problema, nunca su valor.
+
+| Variable | Regla | Por defecto |
+|---|---|---|
+| `NODE_ENV` | `development`, `test` o `production` | Ninguno: obligatoria |
+| `DATABASE_URL` | Empieza por `postgres://` o `postgresql://` | Ninguno: obligatoria |
+| `JWT_SECRET` | Al menos 32 caracteres (H1) | Ninguno: obligatoria |
+| `JWT_EXPIRATION` | Número + unidad (`ms`, `s`, `m`, `h`, `d`, `w`, `y`), p. ej. `15m` | `7d` |
+| `PORT` | Entero entre 1 y 65535 | `4000` |
+
+Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
 ```bash
 pnpm install
@@ -319,3 +329,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F0-T05 | pendiente | Hooks de git con lefthook: pre-commit (ESLint + Prettier), pre-push (typecheck, arquitectura, tests unitarios). `allowBuilds` permite el `postinstall` de lefthook. |
 | 2026-11-16 | F0-T08 | pendiente | `Dockerfile` de producción multi-etapa (Node 24.18.0 por digest, no root, pnpm fijado, `--frozen-lockfile`, healthcheck, etapa `migrator`) y `Dockerfile.dev` + compose de desarrollo. Probado de extremo a extremo: migraciones, registro (201) y lectura autenticada (200) contra la imagen. H16 y H17 resueltos. |
 | 2026-11-16 | F0-T06 | pendiente | CI en GitHub Actions: calidad, tests con cobertura, auditoría de dependencias, gitleaks, comprobación de R3 y prueba de la imagen Docker. Script `pnpm check:context` con 6 tests. Validado con actionlint; aún no se ha ejecutado en GitHub. |
+| 2026-11-16 | F1-T01 | pendiente | Variables de entorno validadas con Zod al arrancar (`parseEnvironment`, `InvalidEnvironmentError`). `JWT_SECRET` obligatorio de 32 caracteres o más, sin valor por defecto (H1); `NODE_ENV` y `DATABASE_URL` obligatorias; formato de `JWT_EXPIRATION` y `PORT` comprobado. Fuera el `any` de `JwtTokenService` (una supresión menos). 18 tests unitarios y 1 de build (el servidor compilado no arranca sin `JWT_SECRET`). |

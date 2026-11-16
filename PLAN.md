@@ -136,7 +136,7 @@ Bloqueada por: D-01 a D-05.
 Bloqueada por: D-06, D-07, D-15 a D-19.
 
 Transversal:
-- F1-T01 `[O]` Variables de entorno validadas con Zod al arrancar; sin valores por defecto para secretos (H1).
+- F1-T01 `[O]` Variables de entorno validadas con Zod al arrancar; sin valores por defecto para secretos (H1). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `parseEnvironment` en `src/config/env.ts`; `JWT_SECRET` de 32 caracteres o más y `NODE_ENV` obligatorias.
 - F1-T02 `[O]` Jerarquía de errores (`NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthorizedError`) en dominio/aplicación + manejador global en infraestructura con formato único y sin stack trace (H5). Sustituir los `throw new Error` existentes. `validateBody` pasa al manejador los errores que no sean de Zod (H24).
 - F1-T03 `[O]` Puerto `ITransactionManager` (adaptador Prisma `$transaction`) y registro atómico (H8).
 - F1-T04 `[O]` Políticas de autorización centralizadas en `application/policies` (`can(usuario, acción, recurso)`); retirar los `if (role …)` dispersos (H12). Generar `docs/security/matriz-permisos.md`.
