@@ -8,6 +8,7 @@ import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { UnauthorizedError } from '@/domain/errors/UnauthorizedError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { createErrorHandler, createRouteNotFoundHandler } from '@/infrastructure/web/middleware/errorHandler.js';
+import { RecordingLogger } from '@tests/support/doubles/RecordingLogger.js';
 
 // Regresión de H5: sin manejador global, "no encontrado" o "sin permiso" respondían 500 y,
 // en desarrollo, la traza del error llegaba al cliente.
@@ -34,9 +35,10 @@ function createResponseDouble(headersSent = false) {
 function handle(error: unknown, headersSent = false) {
   const response = createResponseDouble(headersSent);
   const next = vi.fn();
-  createErrorHandler()(error, {} as Request, response as unknown as Response, next as NextFunction);
+  const logger = new RecordingLogger();
+  createErrorHandler(logger)(error, {} as Request, response as unknown as Response, next as NextFunction);
   const [body] = (response.json.mock.calls[0] ?? []) as [ErrorResponseBody | undefined];
-  return { response, next, body };
+  return { response, next, body, logger };
 }
 
 /** Error con la forma que lanza el parser de `express.json()` (body-parser). */
@@ -74,7 +76,6 @@ describe('createErrorHandler', () => {
 
   it('un error inesperado responde 500 genérico, sin su mensaje ni la traza', () => {
     const unexpectedError = new Error('connect ECONNREFUSED 10.0.0.5:5432 password=secret');
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const { response, body } = handle(unexpectedError);
 
@@ -85,16 +86,13 @@ describe('createErrorHandler', () => {
 
   it('registra en el servidor el error inesperado para poder diagnosticarlo', () => {
     const unexpectedError = new Error('unexpected failure');
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    handle(unexpectedError);
+    const { logger } = handle(unexpectedError);
 
-    expect(consoleError).toHaveBeenCalledWith(expect.any(String), unexpectedError);
+    expect(logger.entries).toEqual([expect.objectContaining({ level: 'error', error: unexpectedError })]);
   });
 
   it('un valor lanzado que no es un Error también responde 500 genérico', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
     const { response, body } = handle('a thrown string');
 
     expect(response.status).toHaveBeenCalledWith(HTTP_INTERNAL_SERVER_ERROR);

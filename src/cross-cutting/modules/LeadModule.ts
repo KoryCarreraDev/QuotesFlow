@@ -1,3 +1,4 @@
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { Action } from '../../application/policies/authorizationPolicy.js';
 import { LeadMapper } from '../../application/mappers/LeadMapper.js';
 import { GenericListFilteredUseCase } from '../../application/use-case/filter/GenericListFilteredUseCase.js';
@@ -21,6 +22,10 @@ export class LeadModule {
 
   constructor(private readonly dependencies: ModuleDependencies) {}
 
+  private createAuditLogger(): PrismaAuditLogger {
+    return new PrismaAuditLogger(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
   private createLeadRepository(): PrismaLeadRepository {
     return new PrismaLeadRepository(this.dependencies.prisma, this.dependencies.tenantContext);
   }
@@ -37,6 +42,7 @@ export class LeadModule {
       tenantContext,
       new PrismaLeadStatusConfigRepository(prisma, tenantContext),
       new PrismaUserRepository(prisma, tenantContext),
+      this.createAuditLogger(),
     );
   }
 
@@ -47,6 +53,7 @@ export class LeadModule {
       this.leadMapper,
       tenantContext,
       new PrismaUserRepository(prisma, tenantContext),
+      this.createAuditLogger(),
     );
   }
 
@@ -59,11 +66,16 @@ export class LeadModule {
       new PrismaTransactionManager(prisma),
       this.leadMapper,
       tenantContext,
+      this.createAuditLogger(),
     );
   }
 
   getDeleteLeadUseCase(): DeleteLeadUseCase {
-    return new DeleteLeadUseCase(this.createLeadRepository(), this.dependencies.tenantContext);
+    return new DeleteLeadUseCase(
+      this.createLeadRepository(),
+      this.dependencies.tenantContext,
+      this.createAuditLogger(),
+    );
   }
 
   getListFilteredLeadsUseCase(): ListFilteredLeadsUseCase {

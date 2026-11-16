@@ -21,6 +21,7 @@ import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 
@@ -57,9 +58,16 @@ function setupLeadUseCases() {
       tenantContext,
       leadStatusRepository,
       userRepository,
+      new RecordingAuditLogger(),
     ),
-    updateLeadUseCase: new UpdateLeadUseCase(leadRepository, leadMapper, tenantContext, userRepository),
-    deleteLeadUseCase: new DeleteLeadUseCase(leadRepository, tenantContext),
+    updateLeadUseCase: new UpdateLeadUseCase(
+      leadRepository,
+      leadMapper,
+      tenantContext,
+      userRepository,
+      new RecordingAuditLogger(),
+    ),
+    deleteLeadUseCase: new DeleteLeadUseCase(leadRepository, tenantContext, new RecordingAuditLogger()),
   };
 }
 

@@ -13,6 +13,7 @@ import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMem
 import { InMemoryTenantRepository } from '@tests/support/doubles/InMemoryTenantRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
 
@@ -28,7 +29,7 @@ describe('LoginUseCase', () => {
     });
     userRepository.seed(registeredUser);
 
-    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService);
+    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
     return { loginUseCase, authTokenService, registeredUser };
   }
 
@@ -77,7 +78,7 @@ describe('LoginUseCase con cuentas que no pueden iniciar sesión (H3)', () => {
       }),
     );
     const authTokenService = new FakeAuthTokenService();
-    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService);
+    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
 
     await expect(
       loginUseCase.execute({ email: 'inactive@example.com', password: PLAIN_PASSWORD }),
@@ -109,6 +110,7 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
       hashService,
       leadStatusRepository,
       transactionManager,
+      new RecordingAuditLogger(),
     );
     return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService, transactionManager };
   }

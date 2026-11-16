@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -13,6 +14,7 @@ export class CreateContactUseCase {
     private readonly contactMap: IContactMapper,
     private readonly tenantContext: ITenantContext,
     private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(createContact: CreateContactDTO) {
@@ -34,6 +36,11 @@ export class CreateContactUseCase {
     });
 
     await this.contactRepo.create(contactEntity);
+    await this.auditLogger.record({
+      action: AuditAction.CONTACT_CREATED,
+      entity: AuditEntity.CONTACT,
+      entityId: contactEntity.id,
+    });
     return this.contactMap.toDTO(contactEntity);
   }
   /** La empresa cliente del contacto tiene que existir, no estar borrada y ser de la misma empresa (H9). */

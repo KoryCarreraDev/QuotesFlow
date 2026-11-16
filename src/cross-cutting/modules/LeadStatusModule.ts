@@ -1,3 +1,4 @@
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { LeadStatusConfigMapper } from '../../application/mappers/LeadConfigStatusMapper.js';
 import { CreateLeadStatusConfigUseCase } from '../../application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js';
 import { GetLeadStatusConfigUseCase } from '../../application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js';
@@ -10,6 +11,10 @@ export class LeadStatusModule {
   private readonly leadStatusMapper = new LeadStatusConfigMapper();
 
   constructor(private readonly dependencies: ModuleDependencies) {}
+
+  private createAuditLogger(): PrismaAuditLogger {
+    return new PrismaAuditLogger(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
 
   private createLeadStatusRepository(): PrismaLeadStatusConfigRepository {
     return new PrismaLeadStatusConfigRepository(this.dependencies.prisma, this.dependencies.tenantContext);
@@ -28,6 +33,7 @@ export class LeadStatusModule {
       this.createLeadStatusRepository(),
       this.leadStatusMapper,
       this.dependencies.tenantContext,
+      this.createAuditLogger(),
     );
   }
 
@@ -36,6 +42,7 @@ export class LeadStatusModule {
       this.createLeadStatusRepository(),
       this.leadStatusMapper,
       this.dependencies.tenantContext,
+      this.createAuditLogger(),
     );
   }
 }

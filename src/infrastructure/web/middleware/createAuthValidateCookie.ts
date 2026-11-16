@@ -3,6 +3,7 @@ import { IAuthTokenService } from '../../../application/ports/services/IAuthToke
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { UnauthorizedError } from '../../../domain/errors/UnauthorizedError.js';
 import { sendApplicationError } from '../errors/errorResponse.js';
+import { bindSessionToRequestContext } from '../../../cross-cutting/requestContext.js';
 
 export function createAuthValidateCookie(tokenService: IAuthTokenService) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -21,6 +22,7 @@ export function createAuthValidateCookie(tokenService: IAuthTokenService) {
         tenantId: payload.tenantId,
         role: payload.role,
       };
+      bindSessionToRequestContext(payload.sub, payload.tenantId);
     } catch (verificationError) {
       // Firma inválida, token caducado o mal formado: al cliente le basta saber que la sesión no vale.
       next(

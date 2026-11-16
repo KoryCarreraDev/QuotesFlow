@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { UnauthorizedError } from '@/domain/errors/UnauthorizedError.js';
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
@@ -10,6 +11,7 @@ export class LoginUseCase {
     private userRepo: IUserRepository,
     private hashService: IHashService,
     private authTokenService: IAuthTokenService,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(dto: LoginDTO): Promise<{ token: string }> {
@@ -23,7 +25,15 @@ export class LoginUseCase {
 
     const isPasswordValid = await this.hashService.compare(dto.password, user.passwordHash);
 
+    const publicActor = { userId: user.id, tenantId: user.tenantId };
     if (!isPasswordValid) {
+      // Un correo que no existe no se audita: no hay usuario ni empresa a la que asociarlo.
+      await this.auditLogger.record({
+        action: AuditAction.LOGIN_FAILED,
+        entity: AuditEntity.USER,
+        entityId: user.id,
+        publicActor,
+      });
       throw new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials');
     }
 
@@ -31,6 +41,13 @@ export class LoginUseCase {
       sub: user.id.toString(),
       tenantId: user.tenantId.toString(),
       role: user.role,
+    });
+
+    await this.auditLogger.record({
+      action: AuditAction.LOGIN_SUCCEEDED,
+      entity: AuditEntity.USER,
+      entityId: user.id,
+      publicActor,
     });
 
     return { token };

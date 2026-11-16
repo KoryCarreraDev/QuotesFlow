@@ -127,6 +127,15 @@ const environmentSchema = z.object({
   TRUST_PROXY: nonNegativeInteger(DEFAULT_TRUSTED_PROXY_HOPS),
   RATE_LIMIT_GLOBAL_MAX_REQUESTS: positiveInteger(DEFAULT_GLOBAL_RATE_LIMIT),
   RATE_LIMIT_AUTH_MAX_REQUESTS: positiveInteger(DEFAULT_AUTH_RATE_LIMIT),
+  // `silent` solo tiene sentido en los tests: en producción un error sin registrar no se puede investigar.
+  LOG_LEVEL: z.preprocess(
+    treatEmptyAsMissing,
+    z
+      .enum(['debug', 'info', 'warn', 'error', 'silent'], {
+        error: 'must be one of: debug, info, warn, error, silent',
+      })
+      .default('info'),
+  ),
 });
 
 /** Configuración del proceso ya validada. */

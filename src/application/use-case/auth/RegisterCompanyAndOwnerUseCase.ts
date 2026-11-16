@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ITenantRepository } from '../../ports/repositories/ITenantRepository.js';
@@ -19,6 +20,7 @@ export class RegisterCompanyAndOwnerUseCase {
     private hashService: IHashService,
     private statusRepo: ILeadStatusConfigRepository,
     private readonly transactionManager: ITransactionManager,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(dto: RegisterCompanyDTO) {
@@ -55,6 +57,13 @@ export class RegisterCompanyAndOwnerUseCase {
         });
         await this.statusRepo.create(status);
       }
+
+      await this.auditLogger.record({
+        action: AuditAction.COMPANY_REGISTERED,
+        entity: AuditEntity.TENANT,
+        entityId: tenant.id,
+        publicActor: { userId: owner.id, tenantId: tenant.id },
+      });
     });
 
     return { tenantId: tenant.id, ownerId: owner.id };

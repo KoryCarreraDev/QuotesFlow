@@ -1,3 +1,9 @@
+import {
+  AuditAction,
+  AuditEntity,
+  IAuditLogger,
+  changedFieldNames,
+} from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -17,6 +23,7 @@ export class UpdateLeadUseCase {
     private readonly leadmap: ILeadMapper,
     private readonly tenantContext: ITenantContext,
     private readonly userRepo: IUserRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(leadId: string, updateLead: UpdateLeadDTO, role: string, userId: string) {
@@ -66,6 +73,12 @@ export class UpdateLeadUseCase {
     );
 
     await this.leadRepo.update(leadProperty.id, updatedLead);
+    await this.auditLogger.record({
+      action: AuditAction.LEAD_UPDATED,
+      entity: AuditEntity.LEAD,
+      entityId: leadProperty.id,
+      metadata: { changedFields: changedFieldNames(updateLead) },
+    });
 
     return this.leadmap.toDTO(updatedLead);
   }

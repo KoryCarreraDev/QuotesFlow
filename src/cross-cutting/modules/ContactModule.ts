@@ -1,3 +1,4 @@
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { ContactMapper } from '../../application/mappers/ContactMapper.js';
 import { CreateContactUseCase } from '../../application/use-case/contacts/createContactUseCase.js';
 import { GetContactsUseCase } from '../../application/use-case/contacts/getContactsUseCase.js';
@@ -15,6 +16,10 @@ export class ContactModule {
   private readonly contactMapper = new ContactMapper();
 
   constructor(private readonly dependencies: ModuleDependencies) {}
+
+  private createAuditLogger(): PrismaAuditLogger {
+    return new PrismaAuditLogger(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
 
   private createContactRepository(): PrismaContactRepository {
     return new PrismaContactRepository(this.dependencies.prisma, this.dependencies.tenantContext);
@@ -34,6 +39,7 @@ export class ContactModule {
       this.contactMapper,
       this.dependencies.tenantContext,
       this.createCompanyContactRepository(),
+      this.createAuditLogger(),
     );
   }
 
@@ -43,11 +49,12 @@ export class ContactModule {
       this.contactMapper,
       this.dependencies.tenantContext,
       this.createCompanyContactRepository(),
+      this.createAuditLogger(),
     );
   }
 
   getDeleteContactUseCase(): DeleteContactUseCase {
-    return new DeleteContactUseCase(this.createContactRepository());
+    return new DeleteContactUseCase(this.createContactRepository(), this.createAuditLogger());
   }
 
   getListFilteredContactsUseCase(): ListFilteredContactsUseCase {

@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '../../ports/services/IAuditLogger.js';
 import { IContactRepository } from '../../ports/repositories/IContactRepository.js';
 import { Action, type Actor, can } from '../../policies/authorizationPolicy.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
@@ -6,7 +7,10 @@ import { NotFoundError } from '../../../domain/errors/NotFoundError.js';
 
 /** Borrado suave de un contacto (F1-T16): deja de verse y de poder modificarse; la fila se conserva. */
 export class DeleteContactUseCase {
-  constructor(private readonly contactRepository: IContactRepository) {}
+  constructor(
+    private readonly contactRepository: IContactRepository,
+    private readonly auditLogger: IAuditLogger,
+  ) {}
 
   /**
    * @throws {ForbiddenError} Si el rol no puede borrar contactos.
@@ -23,5 +27,10 @@ export class DeleteContactUseCase {
     }
 
     await this.contactRepository.delete(contactId);
+    await this.auditLogger.record({
+      action: AuditAction.CONTACT_DELETED,
+      entity: AuditEntity.CONTACT,
+      entityId: contactId,
+    });
   }
 }

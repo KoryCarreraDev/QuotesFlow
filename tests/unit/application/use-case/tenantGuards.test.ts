@@ -32,6 +32,7 @@ import { InMemoryContactRepository } from '@tests/support/doubles/InMemoryContac
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const MISSING_TENANT_ID = '';
 
@@ -78,6 +79,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       leadStatusRepository,
       userRepository,
+      new RecordingAuditLogger(),
     );
 
     await expect(createLeadUseCase.execute({ contactName: 'Ana Gómez' }, randomUUID(), Role.OWNER)).rejects.toThrow();
@@ -91,6 +93,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new LeadMapper(),
       contextWithoutTenant,
       new InMemoryUserRepository(contextWithoutTenant),
+      new RecordingAuditLogger(),
     );
 
     await expect(
@@ -101,7 +104,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
 
   it('DeleteLeadUseCase no borra el lead', async () => {
     const { contextWithoutTenant, leadRepository, storedLead } = setupWithoutTenant();
-    const deleteLeadUseCase = new DeleteLeadUseCase(leadRepository, contextWithoutTenant);
+    const deleteLeadUseCase = new DeleteLeadUseCase(leadRepository, contextWithoutTenant, new RecordingAuditLogger());
 
     await expect(deleteLeadUseCase.execute(storedLead.id, randomUUID(), Role.OWNER)).rejects.toThrow();
     expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.Active);
@@ -124,6 +127,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       leadStatusRepository,
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
+      new RecordingAuditLogger(),
     );
 
     await expect(
@@ -138,6 +142,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       leadStatusRepository,
       new LeadStatusConfigMapper(),
       contextWithoutTenant,
+      new RecordingAuditLogger(),
     );
 
     await expect(
@@ -153,6 +158,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new ContactMapper(),
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
+      new RecordingAuditLogger(),
     );
 
     await expect(createContactUseCase.execute({ firstName: 'Laura', lastName: 'Martínez' })).rejects.toThrow();
@@ -166,6 +172,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new ContactMapper(),
       contextWithoutTenant,
       new InMemoryCompanyContactRepository(contextWithoutTenant),
+      new RecordingAuditLogger(),
     );
 
     await expect(updateContactUseCase.execute(storedContact.id, { lastName: 'Ruiz' })).rejects.toThrow();
@@ -178,6 +185,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       companyContactRepository,
       new CompanyContactMapper(),
       contextWithoutTenant,
+      new RecordingAuditLogger(),
     );
 
     await expect(createCompanyContactUseCase.execute({ name: 'Constructora El Roble' })).rejects.toThrow();
@@ -190,6 +198,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       companyContactRepository,
       new CompanyContactMapper(),
       contextWithoutTenant,
+      new RecordingAuditLogger(),
     );
 
     await expect(updateCompanyContactUseCase.execute(storedCompanyContact.id, { city: 'Medellín' })).rejects.toThrow();
@@ -209,6 +218,7 @@ describe('UpdateLeadUseCase ante un repositorio que devolviera un lead borrado',
       new LeadMapper(),
       tenantContext,
       new InMemoryUserRepository(tenantContext),
+      new RecordingAuditLogger(),
     );
 
     await expect(

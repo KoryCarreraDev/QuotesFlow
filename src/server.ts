@@ -1,5 +1,6 @@
 import app from './app.js';
 import { env } from './config/env.js';
+import { appLogger } from './infrastructure/logging/appLogger.js';
 import { PrismaService } from './infrastructure/persistence/prisma/PrismaService.js';
 import { createGracefulShutdown } from './infrastructure/web/gracefulShutdown.js';
 
@@ -10,20 +11,20 @@ const STARTUP_FAILURE_EXIT_CODE = 1;
 const start = () => {
   try {
     const server = app.listen(env.PORT, () => {
-      console.log(`Servidor corriendo en puerto ${env.PORT} [${env.NODE_ENV}]`);
+      appLogger.info('Server started', { port: env.PORT, nodeEnv: env.NODE_ENV });
     });
 
     const shutdown = createGracefulShutdown({
       server,
       disconnectDatabase: () => PrismaService.getInstance().client.$disconnect(),
       exitProcess: (exitCode) => process.exit(exitCode),
-      log: (message, error) => (error ? console.error(message, error) : console.log(message)),
+      log: (message, error) => (error ? appLogger.error(message, error) : appLogger.info(message)),
       timeoutMs: SHUTDOWN_TIMEOUT_MS,
     });
     process.on('SIGTERM', (signal) => void shutdown(signal));
     process.on('SIGINT', (signal) => void shutdown(signal));
   } catch (error) {
-    console.error('Error al iniciar el servidor:', error);
+    appLogger.error('Server failed to start', error);
     process.exit(STARTUP_FAILURE_EXIT_CODE);
   }
 };

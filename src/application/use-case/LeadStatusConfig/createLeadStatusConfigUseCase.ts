@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -13,6 +14,7 @@ export class CreateLeadStatusConfigUseCase {
     private readonly statusRepo: ILeadStatusConfigRepository,
     private readonly statusMap: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(createLeadStatus: CreateLeadStatusConfigDTO, role: string) {
@@ -54,6 +56,11 @@ export class CreateLeadStatusConfigUseCase {
     });
 
     await this.statusRepo.create(leadStatusEntity);
+    await this.auditLogger.record({
+      action: AuditAction.LEAD_STATUS_CONFIG_CREATED,
+      entity: AuditEntity.LEAD_STATUS_CONFIG,
+      entityId: leadStatusEntity.id,
+    });
     return this.statusMap.toDTO(leadStatusEntity);
   }
 }

@@ -1,3 +1,4 @@
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { LoginUseCase } from '../../application/use-case/auth/LoginUseCase.js';
 import { RegisterCompanyAndOwnerUseCase } from '../../application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
@@ -15,6 +16,10 @@ export class AuthModule {
 
   constructor(private readonly dependencies: ModuleDependencies) {}
 
+  private createAuditLogger(): PrismaAuditLogger {
+    return new PrismaAuditLogger(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
   getRegisterCompanyUseCase(): RegisterCompanyAndOwnerUseCase {
     const { prisma, tenantContext } = this.dependencies;
     return new RegisterCompanyAndOwnerUseCase(
@@ -23,11 +28,17 @@ export class AuthModule {
       this.hashService,
       new PrismaLeadStatusConfigRepository(prisma, tenantContext),
       new PrismaTransactionManager(prisma),
+      this.createAuditLogger(),
     );
   }
 
   getLoginUseCase(): LoginUseCase {
     const { prisma, tenantContext } = this.dependencies;
-    return new LoginUseCase(new PrismaUserRepository(prisma, tenantContext), this.hashService, this.authTokenService);
+    return new LoginUseCase(
+      new PrismaUserRepository(prisma, tenantContext),
+      this.hashService,
+      this.authTokenService,
+      this.createAuditLogger(),
+    );
   }
 }

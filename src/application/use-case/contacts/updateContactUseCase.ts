@@ -1,3 +1,9 @@
+import {
+  AuditAction,
+  AuditEntity,
+  IAuditLogger,
+  changedFieldNames,
+} from '@/application/ports/services/IAuditLogger.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
@@ -14,6 +20,7 @@ export class UpdateContactUseCase {
     private readonly contactMap: IContactMapper,
     private readonly tenantContext: ITenantContext,
     private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(contactId: string, updateContact: UpdateContactDTO) {
@@ -48,6 +55,12 @@ export class UpdateContactUseCase {
     );
 
     await this.contactRepo.update(existingContact.id, updatedContact);
+    await this.auditLogger.record({
+      action: AuditAction.CONTACT_UPDATED,
+      entity: AuditEntity.CONTACT,
+      entityId: existingContact.id,
+      metadata: { changedFields: changedFieldNames(updateContact) },
+    });
 
     return this.contactMap.toDTO(updatedContact);
   }

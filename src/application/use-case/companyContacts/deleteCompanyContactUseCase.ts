@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '../../ports/services/IAuditLogger.js';
 import { ICompanyContactRepository } from '../../ports/repositories/ICompanyContactRepository.js';
 import { IContactRepository } from '../../ports/repositories/IContactRepository.js';
 import { Action, type Actor, can } from '../../policies/authorizationPolicy.js';
@@ -16,6 +17,7 @@ export class DeleteCompanyContactUseCase {
   constructor(
     private readonly companyContactRepository: ICompanyContactRepository,
     private readonly contactRepository: IContactRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   /**
@@ -41,5 +43,10 @@ export class DeleteCompanyContactUseCase {
     }
 
     await this.companyContactRepository.delete(companyContactId);
+    await this.auditLogger.record({
+      action: AuditAction.COMPANY_CONTACT_DELETED,
+      entity: AuditEntity.COMPANY_CONTACT,
+      entityId: companyContactId,
+    });
   }
 }

@@ -17,6 +17,7 @@ import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepos
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
 import { InMemoryLeadStatusHistoryRepository } from '@tests/support/doubles/InMemoryLeadStatusHistoryRepository.js';
 import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 // F1-T13: el estado de un lead cambia con su propio caso de uso, que deja constancia en el historial.
 // Antes `PATCH /api/lead/update/:id` aceptaba `statusId` y lo ignoraba en silencio.
@@ -48,6 +49,7 @@ function setup() {
     transactionManager,
     new LeadMapper(),
     tenantContext,
+    new RecordingAuditLogger(),
   );
 
   return {

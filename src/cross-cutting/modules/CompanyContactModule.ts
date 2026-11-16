@@ -1,3 +1,4 @@
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { CompanyContactMapper } from '../../application/mappers/CompanyContactMapper.js';
 import { CreateCompanyContactUseCase } from '../../application/use-case/companyContacts/createCompanyContactUseCase.js';
 import { GetCompanyContactsUseCase } from '../../application/use-case/companyContacts/getCompanyContactsUseCase.js';
@@ -16,6 +17,10 @@ export class CompanyContactModule {
 
   constructor(private readonly dependencies: ModuleDependencies) {}
 
+  private createAuditLogger(): PrismaAuditLogger {
+    return new PrismaAuditLogger(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
   private createCompanyContactRepository(): PrismaCompanyContactRepository {
     return new PrismaCompanyContactRepository(this.dependencies.prisma, this.dependencies.tenantContext);
   }
@@ -29,6 +34,7 @@ export class CompanyContactModule {
       this.createCompanyContactRepository(),
       this.companyContactMapper,
       this.dependencies.tenantContext,
+      this.createAuditLogger(),
     );
   }
 
@@ -37,6 +43,7 @@ export class CompanyContactModule {
       this.createCompanyContactRepository(),
       this.companyContactMapper,
       this.dependencies.tenantContext,
+      this.createAuditLogger(),
     );
   }
 
@@ -44,6 +51,7 @@ export class CompanyContactModule {
     return new DeleteCompanyContactUseCase(
       this.createCompanyContactRepository(),
       new PrismaContactRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      this.createAuditLogger(),
     );
   }
 

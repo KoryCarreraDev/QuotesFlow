@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '../../ports/services/IAuditLogger.js';
 import { ChangeLeadStatusDTO } from '../../dtos/ChangeLeadStatusDTO.js';
 import { LeadDTO } from '../../dtos/LeadDTO.js';
 import { ILeadMapper } from '../../ports/mappers/ILeadMapper.js';
@@ -28,6 +29,7 @@ export class ChangeLeadStatusUseCase {
     private readonly transactionManager: ITransactionManager,
     private readonly leadMapper: ILeadMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   /**
@@ -69,6 +71,13 @@ export class ChangeLeadStatusUseCase {
           note: statusChange.note,
         }),
       );
+
+      await this.auditLogger.record({
+        action: AuditAction.LEAD_STATUS_CHANGED,
+        entity: AuditEntity.LEAD,
+        entityId: lead.id,
+        metadata: { oldStatusId: lead.statusId ?? null, newStatusId: newStatus.id },
+      });
 
       return this.leadMapper.toDTO(updatedLead);
     });

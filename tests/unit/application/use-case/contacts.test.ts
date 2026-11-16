@@ -23,6 +23,7 @@ import {
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { InMemoryCompanyContactRepository } from '@tests/support/doubles/InMemoryCompanyContactRepository.js';
 import { InMemoryContactRepository } from '@tests/support/doubles/InMemoryContactRepository.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 
@@ -46,14 +47,16 @@ function setupContactUseCases() {
       contactMapper,
       tenantContext,
       companyContactRepository,
+      new RecordingAuditLogger(),
     ),
     updateContactUseCase: new UpdateContactUseCase(
       contactRepository,
       contactMapper,
       tenantContext,
       companyContactRepository,
+      new RecordingAuditLogger(),
     ),
-    deleteContactUseCase: new DeleteContactUseCase(contactRepository),
+    deleteContactUseCase: new DeleteContactUseCase(contactRepository, new RecordingAuditLogger()),
   };
 }
 
@@ -67,17 +70,23 @@ function setupCompanyContactUseCases() {
   return {
     companyContactRepository,
     contactRepository,
-    deleteCompanyContactUseCase: new DeleteCompanyContactUseCase(companyContactRepository, contactRepository),
+    deleteCompanyContactUseCase: new DeleteCompanyContactUseCase(
+      companyContactRepository,
+      contactRepository,
+      new RecordingAuditLogger(),
+    ),
     getCompanyContactsUseCase: new GetCompanyContactsUseCase(companyContactRepository, companyContactMapper),
     createCompanyContactUseCase: new CreateCompanyContactUseCase(
       companyContactRepository,
       companyContactMapper,
       tenantContext,
+      new RecordingAuditLogger(),
     ),
     updateCompanyContactUseCase: new UpdateCompanyContactUseCase(
       companyContactRepository,
       companyContactMapper,
       tenantContext,
+      new RecordingAuditLogger(),
     ),
   };
 }

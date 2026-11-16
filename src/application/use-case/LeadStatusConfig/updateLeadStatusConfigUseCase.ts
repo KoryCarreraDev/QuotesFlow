@@ -1,3 +1,9 @@
+import {
+  AuditAction,
+  AuditEntity,
+  IAuditLogger,
+  changedFieldNames,
+} from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
@@ -17,6 +23,7 @@ export class UpdateLeadStatusConfigUseCase {
     private readonly statusRepo: ILeadStatusConfigRepository,
     private readonly statusMap: ILeadStatusConfigMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(statusId: string, statusUpdate: UpdateLeadStatusConfigDTO, role: Role, userId: string) {
@@ -77,6 +84,12 @@ export class UpdateLeadStatusConfigUseCase {
     );
 
     await this.statusRepo.update(statusProperty.id, updateStatus);
+    await this.auditLogger.record({
+      action: AuditAction.LEAD_STATUS_CONFIG_UPDATED,
+      entity: AuditEntity.LEAD_STATUS_CONFIG,
+      entityId: statusProperty.id,
+      metadata: { changedFields: changedFieldNames(statusUpdate) },
+    });
 
     return this.statusMap.toDTO(updateStatus);
   }

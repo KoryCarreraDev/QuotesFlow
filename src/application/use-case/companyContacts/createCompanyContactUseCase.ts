@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { CreateCompanyContactDTO } from '../../../application/dtos/CreateCompanyContactDTO.js';
 import { ICompanyContactRepository } from '../../../application/ports/repositories/ICompanyContactRepository.js';
 import { ICompanyContactMapper } from '../../../application/ports/mappers/ICompanyContactMapper.js';
@@ -9,6 +10,7 @@ export class CreateCompanyContactUseCase {
     private readonly companyContactRepo: ICompanyContactRepository,
     private readonly companyContactMap: ICompanyContactMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(createCompanyContact: CreateCompanyContactDTO) {
@@ -33,6 +35,11 @@ export class CreateCompanyContactUseCase {
     });
 
     await this.companyContactRepo.create(companyContactEntity);
+    await this.auditLogger.record({
+      action: AuditAction.COMPANY_CONTACT_CREATED,
+      entity: AuditEntity.COMPANY_CONTACT,
+      entityId: companyContactEntity.id,
+    });
     return this.companyContactMap.toDTO(companyContactEntity);
   }
 }

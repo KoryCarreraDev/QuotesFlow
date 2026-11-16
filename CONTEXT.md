@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T12-filter-validation` (apilada sobre F1-T01 a F1-T16 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T07-logging-and-audit` (apilada sobre F1-T01 a F1-T12 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -24,10 +24,10 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Contactos empresa | ✅ CRUD + filtered + borrado suave (F1-T16) | Borrar solo gestión y sin contactos activos |
 | Motor de filtrado genérico | ✅ | Sección 8 |
 | Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
-| AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
+| AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
-| Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 868 tests (unit, integración con PostgreSQL efímero, API, build). 4 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Mensajería, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07. `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
+| Tests | ✅ | Vitest: 905 tests (unit, integración con PostgreSQL efímero, API, build). 4 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
@@ -231,6 +231,15 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
 | GET/POST/PATCH | `/api/companyContact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` |
 | POST | `/api/companyContact/delete/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
 
+### Logs y auditoría (F1-T07)
+
+- **Logs técnicos:** puerto `ILogger` (`application/ports/services/ILogger.ts`), adaptador `WinstonLogger` (una línea JSON por entrada a la salida estándar), instancia `appLogger` con `LOG_LEVEL`. Cada entrada lleva `requestId`, `userId` y `tenantId` de la petición en curso. `redactSensitiveData` sustituye por `[REDACTED]` cualquier clave que contenga `password`, `token`, `secret`, `cookie`, `authorization`, `apikey`/`api-key` o `database_url`, y quita usuario y contraseña de las URLs de conexión dentro de textos y errores.
+- **Id de petición:** `createRequestContextMiddleware` (primero en `app.ts`) acepta un `X-Request-Id` entrante si tiene de 8 a 64 caracteres `[A-Za-z0-9-]`, si no genera un UUID; lo devuelve en la respuesta y lo guarda en `cross-cutting/requestContext.ts` (`AsyncLocalStorage`). La autenticación añade ahí el usuario y el tenant.
+- **Log de acceso:** una entrada por petición con método, ruta sin query, código y duración.
+- **Prisma (H25):** fuera de desarrollo solo `warn` y `error`; en desarrollo, además, el texto SQL y la duración de cada consulta a nivel `debug`, nunca sus parámetros.
+- **Auditoría de negocio:** puerto `IAuditLogger` con `AuditAction` y `AuditEntity`, adaptador `PrismaAuditLogger`. Lo reciben todos los casos de uso que modifican datos, más registro y login. Autor y empresa salen de la sesión; solo registro y login indican `publicActor`. `metadata` guarda `requestId` y, en modificaciones, `changedFields` (nombres, nunca valores). Un login con correo inexistente no se audita (no hay usuario ni empresa): queda solo en el log técnico. `tests/api/security/auditTrail.test.ts` recorre todas las rutas que modifican datos y exige su registro.
+- **Limitación conocida:** en registro y cambio de estado la auditoría va dentro de la transacción; en las demás modificaciones se escribe justo después. Si esa escritura falla, la modificación ya ocurrió y la petición responde 500. Envolver cada modificación en una transacción es una mejora pendiente.
+
 ### Errores (F1-T02)
 
 Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto técnico en inglés>", "details"?: [{ "path": [...], "message": "..." }] } }`. Sin trazas.
@@ -243,7 +252,7 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 | 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
 | 409 | `EMAIL_ALREADY_IN_USE`, `DEFAULT_LEAD_STATUS_MISSING`, `DEFAULT_LEAD_STATUS_REQUIRED` |
 | 413 | `PAYLOAD_TOO_LARGE` |
-| 500 | `INTERNAL_ERROR` (mensaje genérico; el detalle se registra con `console.error` hasta F1-T07) |
+| 500 | `INTERNAL_ERROR` (mensaje genérico; el detalle va al log técnico con `appLogger.error`) |
 
 Un recurso de otro tenant responde igual que uno inexistente (404).
 
@@ -315,6 +324,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `TRUST_PROXY` | Número entero de proxies de confianza | `0` |
 | `RATE_LIMIT_GLOBAL_MAX_REQUESTS` | Entero positivo | `100` |
 | `RATE_LIMIT_AUTH_MAX_REQUESTS` | Entero positivo | `10` |
+| `LOG_LEVEL` | `debug`, `info`, `warn`, `error` o `silent` (solo tests) | `info` |
 
 Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
@@ -384,3 +394,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/lead/status/:id`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |
 | 2026-11-16 | F1-T16 | pendiente | Borrado suave de contactos y empresas cliente (`DeleteContactUseCase`, `DeleteCompanyContactUseCase`, `POST /api/contact/delete/:id`, `POST /api/companyContact/delete/:id`), solo para gestión (acciones nuevas `contact:delete` y `company-contact:delete`); una empresa con contactos activos no se borra (409). `findById` y `update` filtran `deleted` (H10). El `companyId` de un contacto debe ser una empresa cliente del tenant (H9). Suite de permisos por rol repartida en dos archivos por el cupo de peticiones. H10 (3) y H9 en contactos (1) pasan a regresión; 43 tests nuevos. Cambia la preparación de 2 archivos de tests unitarios (nuevo parámetro y empresas cliente sembradas). |
 | 2026-11-16 | F1-T12 | pendiente | Validación de la query de los listados filtrados (H11) en `parseFilterQuery`: tipo de cada valor según `type` del campo (`text`, `number`, `date`, `id`), `in` con lista, límites de tamaño, orden por lista blanca (`sortBy`, `sortDir`, campos `sortable`) con orden por defecto estable. Códigos `INVALID_FILTER_VALUE` y `SORT_FIELD_NOT_ALLOWED`. El alcance por rol pasa del controller a `GenericListFilteredUseCase` (`ownershipScope`). El último defecto conocido de H11 pasa a regresión; 31 tests nuevos. Las configuraciones de filtros de 2 tests unitarios ganan el campo `type`, ahora obligatorio. |
+| 2026-11-16 | F1-T07 | pendiente | Logger estructurado (H13): puerto `ILogger`, `WinstonLogger` en JSON, redacción de datos sensibles, `X-Request-Id` y contexto de petición con `AsyncLocalStorage`, log de acceso. Prisma ya no registra consultas con datos (H25). Auditoría de negocio: puerto `IAuditLogger`, `PrismaAuditLogger`, registro en toda modificación, registro de empresa y login. Variable `LOG_LEVEL`. `console.*` sustituido por el logger. 35 tests nuevos. Cambia la construcción de 25 casos de uso en 6 archivos de tests unitarios (nuevo parámetro), el test de `errorHandler` usa un logger falso en lugar de espiar `console.error` y el test de configuración completa añade `LOG_LEVEL`. |
