@@ -1,3 +1,4 @@
+import { HttpStatus } from '@/infrastructure/web/errors/errorResponse.js';
 import { Action, scopeFor } from '@/application/policies/authorizationPolicy.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -8,6 +9,7 @@ import { Role } from '@/domain/enums/Role.js';
 import { CreateLeadUseCase } from '@/application/use-case/leads/createLeadUseCase.js';
 import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCase.js';
 import { DeleteLeadUseCase } from '@/application/use-case/leads/deleteLeadUseCase.js';
+import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
 import { ListFilteredLeadsUseCase } from '@/application/use-case/leads/listFilteredLeadsUseCase.js';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 
@@ -18,14 +20,25 @@ export class leadController {
     private readonly createLeadUseCase: CreateLeadUseCase,
     private readonly updateLeadUseCase: UpdateLeadUseCase,
     private readonly deleteLeadUseCase: DeleteLeadUseCase,
+    private readonly changeLeadStatusUseCase: ChangeLeadStatusUseCase,
   ) {}
+
+  changeStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const actor = { role: req.user?.role as Role, userId: req.user?.userId };
+      const lead = await this.changeLeadStatusUseCase.execute(req.params.id as string, req.body, actor);
+      res.status(HttpStatus.OK).json(lead);
+    } catch (error) {
+      next(error);
+    }
+  };
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.userId;
       const role = req.user?.role;
       const leads = await this.getLeadsUseCase.execute(role as Role, userId);
-      res.status(200).json(leads);
+      res.status(HttpStatus.OK).json(leads);
     } catch (error) {
       next(error);
     }
@@ -36,7 +49,7 @@ export class leadController {
       const userId = req.user?.userId;
       const role = req.user?.role;
       const lead = await this.createLeadUseCase.execute(req.body, userId!, role as Role);
-      res.status(201).json(lead);
+      res.status(HttpStatus.CREATED).json(lead);
     } catch (error) {
       next(error);
     }
@@ -48,7 +61,7 @@ export class leadController {
       const role = req.user?.role;
       const leadId = req.params.id as string;
       const lead = await this.updateLeadUseCase.execute(leadId, req.body, role as Role, userId!);
-      res.status(200).json(lead);
+      res.status(HttpStatus.OK).json(lead);
     } catch (error) {
       next(error);
     }
@@ -96,7 +109,7 @@ export class leadController {
       const result = await this.listFilteredLeadsUseCase.execute(criteria);
 
       //respuesta estandarizada
-      res.status(200).json(result);
+      res.status(HttpStatus.OK).json(result);
     } catch (error) {
       next(error);
     }
@@ -108,7 +121,7 @@ export class leadController {
       const role = req.user?.role;
       const leadId = req.params.id as string;
       await this.deleteLeadUseCase.execute(leadId, userId!, role as Role);
-      res.status(200).json({ message: 'Lead deleted successfully' });
+      res.status(HttpStatus.OK).json({ message: 'Lead deleted successfully' });
     } catch (error) {
       next(error);
     }

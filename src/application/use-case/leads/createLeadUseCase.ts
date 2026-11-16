@@ -54,7 +54,8 @@ export class CreateLeadUseCase {
 
     if (createLead.assignedToId && mayAssignToOthers) {
       const findUser = await this.userRepo.findById(createLead.assignedToId);
-      if (!findUser) {
+      // Un usuario desactivado no puede recibir leads nuevos (H9).
+      if (!findUser?.isActive) {
         throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
       }
     }

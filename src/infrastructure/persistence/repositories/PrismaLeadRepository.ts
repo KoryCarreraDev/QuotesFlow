@@ -86,6 +86,13 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
     });
   }
 
+  async updateStatus(leadId: string, statusId: string): Promise<void> {
+    await this.prisma.lead.update({
+      where: { id: leadId, tenantId: this.tenantId, deleted: 'INUSE' },
+      data: { statusId },
+    });
+  }
+
   async findFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<Lead[]> {
     const where = this.buildFilterWhere(criteria, config);
     const { skip, take } = this.buildPagination(criteria);

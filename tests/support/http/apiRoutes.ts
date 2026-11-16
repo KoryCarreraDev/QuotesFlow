@@ -36,6 +36,7 @@ export const apiPaths = {
     filtered: `${LEAD_BASE_PATH}/filtered`,
     update: (leadId: string) => `${LEAD_BASE_PATH}/update/${leadId}`,
     delete: (leadId: string) => `${LEAD_BASE_PATH}/delete/${leadId}`,
+    changeStatus: (leadId: string) => `${LEAD_BASE_PATH}/status/${leadId}`,
   },
   leadStatusConfigs: {
     getAll: `${LEAD_STATUS_CONFIG_BASE_PATH}/getAll`,
@@ -67,6 +68,7 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.leads.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leads.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leads.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.leads.changeStatus(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.leadStatusConfigs.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leadStatusConfigs.create, access: 'authenticated' },

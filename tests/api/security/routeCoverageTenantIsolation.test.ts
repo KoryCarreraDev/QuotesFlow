@@ -21,7 +21,7 @@ import {
   persistScenarioResource,
   readScenarioResource,
   scenarioFor,
-  updateBody,
+  scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
 
 const HTTP_OK = 200;
@@ -88,7 +88,10 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
 
     const response =
       route.method === 'PATCH'
-        ? await request(app).patch(path).set('Cookie', intruderCookie).send(updateBody(scenario.resource))
+        ? await request(app)
+            .patch(path)
+            .set('Cookie', intruderCookie)
+            .send(scenarioUpdateBody(scenario, intruderCompany))
         : await request(app).post(path).set('Cookie', intruderCookie);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);

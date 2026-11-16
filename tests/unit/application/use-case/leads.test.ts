@@ -8,6 +8,8 @@ import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js
 import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCase.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
+import { ValidationError } from '@/domain/errors/ValidationError.js';
 import {
   DEFAULT_TEST_TENANT_ID,
   NON_EXISTENT_ID,
@@ -56,7 +58,7 @@ function setupLeadUseCases() {
       leadStatusRepository,
       userRepository,
     ),
-    updateLeadUseCase: new UpdateLeadUseCase(leadRepository, leadMapper, tenantContext),
+    updateLeadUseCase: new UpdateLeadUseCase(leadRepository, leadMapper, tenantContext, userRepository),
     deleteLeadUseCase: new DeleteLeadUseCase(leadRepository, tenantContext),
   };
 }
@@ -440,5 +442,55 @@ describe('DeleteLeadUseCase', () => {
     await deleteLeadUseCase.execute(lead.id, randomUUID(), role);
 
     expect(leadRepository.findStoredById(lead.id)?.deleted).toBe(DeletedState.Inactive);
+  });
+});
+
+// Regresión de H9: reasignar un lead aceptaba cualquier `assignedToId`, incluso de otra empresa.
+describe('UpdateLeadUseCase: validación del nuevo responsable (H9)', () => {
+  it('rechaza reasignar a un usuario de otra empresa con ValidationError ASSIGNED_USER_NOT_FOUND', async () => {
+    const { updateLeadUseCase, leadRepository, userRepository, salesRep } = setupLeadUseCases();
+    const foreignUser = buildUser({ tenantId: OTHER_TENANT_ID });
+    userRepository.seed(foreignUser);
+    const lead = buildLead({ assignedToId: salesRep.id });
+    leadRepository.seed(lead);
+
+    await expect(
+      updateLeadUseCase.execute(lead.id, { assignedToId: foreignUser.id }, Role.OWNER, randomUUID()),
+    ).rejects.toMatchObject({ code: ErrorCode.ASSIGNED_USER_NOT_FOUND });
+    expect(leadRepository.findStoredById(lead.id)?.assignedToId).toBe(salesRep.id);
+  });
+
+  it('rechaza reasignar a un usuario desactivado', async () => {
+    const { updateLeadUseCase, leadRepository, userRepository, salesRep } = setupLeadUseCases();
+    const inactiveUser = buildUser({ isActive: false });
+    userRepository.seed(inactiveUser);
+    const lead = buildLead({ assignedToId: salesRep.id });
+    leadRepository.seed(lead);
+
+    await expect(
+      updateLeadUseCase.execute(lead.id, { assignedToId: inactiveUser.id }, Role.OWNER, randomUUID()),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('rechaza reasignar a un id que no existe', async () => {
+    const { updateLeadUseCase, leadRepository } = setupLeadUseCases();
+    const lead = buildLead();
+    leadRepository.seed(lead);
+
+    await expect(
+      updateLeadUseCase.execute(lead.id, { assignedToId: NON_EXISTENT_ID }, Role.OWNER, randomUUID()),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe('CreateLeadUseCase: el responsable tiene que estar activo (H9)', () => {
+  it('rechaza crear un lead asignado a un usuario desactivado', async () => {
+    const { createLeadUseCase, userRepository } = setupLeadUseCases();
+    const inactiveUser = buildUser({ isActive: false });
+    userRepository.seed(inactiveUser);
+
+    await expect(
+      createLeadUseCase.execute({ contactName: 'Ana Gómez', assignedToId: inactiveUser.id }, randomUUID(), Role.OWNER),
+    ).rejects.toMatchObject({ code: ErrorCode.ASSIGNED_USER_NOT_FOUND });
   });
 });

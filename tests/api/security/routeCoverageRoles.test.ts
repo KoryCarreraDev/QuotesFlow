@@ -21,7 +21,7 @@ import {
   creationBody,
   persistScenarioResource,
   scenarioFor,
-  updateBody,
+  scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
 
 const HTTP_OK = 200;
@@ -67,7 +67,7 @@ describe('Permisos por rol en cada ruta protegida', () => {
     const path = id ? buildConcretePath(route, id) : route.pattern;
     if (route.method === 'GET') return request(app).get(path).set('Cookie', cookie);
     if (route.method === 'PATCH')
-      return request(app).patch(path).set('Cookie', cookie).send(updateBody(scenario.resource));
+      return request(app).patch(path).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
     const body = scenario.operation === 'create' ? creationBody(scenario.resource) : undefined;
     return request(app).post(path).set('Cookie', cookie).send(body);
   }

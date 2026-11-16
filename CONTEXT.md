@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T10-tenant-id-history-items` (apilada sobre F1-T01 a F1-T09 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T13-lead-status-change` (apilada sobre F1-T01 a F1-T10 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,19 +27,19 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 755 tests (unit, integración con PostgreSQL efímero, API, build). 13 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 794 tests (unit, integración con PostgreSQL efímero, API, build). 9 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
 - **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
-- `UpdateLeadUseCase` **ignora `statusId`**: el estado no se puede cambiar por PATCH (aunque el schema Zod lo acepta). El cambio de estado y su historial (`LeadStatusHistory`) no existen.
+- **Cambio de estado (F1-T13).** Solo por `PATCH /api/lead/status/:id` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/lead/update/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
 - `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
 - `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
 - `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
 - `PrismaLeadRepository.findByTenant` y `PrismaLeadStatusConfigRepository.findAllByTenant` filtran por `deleted: 'INUSE'`. `PrismaUserRepository`, `PrismaContactRepository`, etc. aún no están pensados para soft delete.
 - `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
 - **Crear un estado predeterminado con `order` repetido deja a la empresa sin predeterminado**: `CreateLeadStatusConfigUseCase` desmarca el anterior antes de crear el nuevo y no hay transacción; si la creación falla, no se revierte. Test: `tests/api/leadStatusConfig.test.ts` (defecto conocido F1-T14).
-- Reasignar un lead (`PATCH /api/lead/update/:id`) o crear un contacto con `companyId` acepta ids de **otro tenant** (H9, verificado con tests).
+- Crear un contacto con `companyId` acepta ids de **otro tenant** (H9, verificado con tests; se corrige en F1-T16). En leads, desde F1-T13, crear o reasignar exige un usuario activo de la misma empresa.
 - `pnpm audit` (2026-11-16, tras F0-T09): `pnpm audit --prod` sin avisos. Quedan 2 moderados solo de desarrollo, `glob` 10.5.0 y `minimatch` 5.1.9/9.0.9, que arrastra `@testcontainers/postgresql` 12.2.1 vía `archiver` 7. No tienen versión corregida en su rama mayor y testcontainers aún no admite `archiver` 8, por eso no se fuerzan. Antes eran 94 avisos (1 crítico).
 
 ---
@@ -160,7 +160,8 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 |---|---|---|
 | Listar (`getAll`/`filtered`) | Solo `assignedToId === userId` (en `filtered` el controller fuerza el filtro y descarta el que envíe el cliente) | Todos del tenant |
 | Crear | `assignedToId` se fuerza a su propio `userId` | `assignedToId` opcional; si viene, el usuario debe existir en el tenant |
-| Actualizar | Solo sus leads; no puede reasignar | Cualquiera; puede reasignar (sin validar que el usuario exista) |
+| Actualizar | Solo sus leads; no puede reasignar | Cualquiera; puede reasignar a un usuario activo de la empresa (si no, 400 `ASSIGNED_USER_NOT_FOUND`) |
+| Cambiar estado | Solo sus leads | Cualquiera |
 | Eliminar (soft) | Solo sus leads | Cualquiera |
 
 - Crear sin `statusId` → usa el estado `isDefault` del tenant (error si no hay). Con `statusId` → debe existir en el tenant.
@@ -174,6 +175,7 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 - Al registrar una empresa se crean 5 estados (`application/constants/defaultLeadStatuses.ts`): Nuevo (default, #3B82F6), Contactado, Calificado, Ganado, Perdido.
 
 **Auth**
+- Login: solo usuarios activos, no borrados y de una empresa no borrada (`findActiveByEmail`, H3). Cualquier otro caso responde 401 `INVALID_CREDENTIALS`, igual que una contraseña incorrecta.
 - Register: 409 `EMAIL_ALREADY_IN_USE` si el email ya existe. Crea Tenant → User(OWNER) → 5 estados en una transacción: si algo falla, no queda nada (H8). Con dos registros simultáneos del mismo correo, la restricción única de la base decide y `PrismaUserRepository` la traduce a 409. Devuelve `{ tenantId, ownerId }`.
 
 ---
@@ -217,7 +219,8 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
 | POST | `/api/auth/login` | `{ email, password }` |
 | GET | `/api/lead/getAll` | — |
 | POST | `/api/lead/create` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
-| PATCH | `/api/lead/update/:id` | mismos campos, todos opcionales (`statusId` ignorado) |
+| PATCH | `/api/lead/update/:id` | mismos campos salvo `statusId`, todos opcionales |
+| PATCH | `/api/lead/status/:id` | `{ statusId (uuid, requerido), note? (máx. 500) }`: cambia el estado y lo registra en `LeadStatusHistory` |
 | POST | `/api/lead/delete/:id` | — (soft delete; es POST, no DELETE) |
 | GET | `/api/lead/filtered` | `?search=&filters=[...]&page=&limit=` |
 | GET | `/api/leadStatusConfig/getAll` | — (ordenado por `order` asc) |
@@ -347,7 +350,7 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 13 (H2, H3, H7, H9, H10, H11 y F1-T14), listados en `tests/README.md`. H15 pasó a regresión en F1-T10. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 9 (H2, H7, H9 en contactos, H10, H11 y F1-T14), listados en `tests/README.md`. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
 - **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/auth` (los tests suben ese cupo desde 10).
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
@@ -374,3 +377,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T08 | pendiente | `GET /ready` (la base de datos responde en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE` sin detalles) junto a `GET /health`, que no toca la base. Apagado ordenado en `server.ts` con `createGracefulShutdown`: deja de aceptar conexiones, termina las peticiones en curso, cierra Prisma y sale con 0; a los 10 s corta las conexiones y sale con 1. 7 tests nuevos; `/ready` añadida al inventario de rutas. |
 | 2026-11-16 | F1-T09 | pendiente | `ScopedContainer` dividido por módulo en `src/cross-cutting/modules/` (`AuthModule`, `LeadModule`, `LeadStatusModule`, `ContactModule`, `CompanyContactModule`, con `ModuleDependencies`); las rutas piden `req.container!.<módulo>.get…UseCase()`. Sin cambio de comportamiento. 20 tests nuevos del contenedor. |
 | 2026-11-16 | F1-T10 | pendiente | Migración `add_tenant_id_to_history_and_quote_items` (H15): `tenantId` en `LeadStatusHistory` y `QuoteItem`, relleno desde el registro padre, NOT NULL, FK a `Tenant` en cascada e índice. Verificada contra una base con datos y con `prisma migrate diff` (sin diferencias). H15 pasa a regresión; 2 tests nuevos de esquema (ningún `tenantId` nullable, todos con FK). Pendiente: aplicarla en producción (Operaciones, R6). |
+| 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/lead/status/:id`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |

@@ -5,6 +5,9 @@ import { DeleteLeadUseCase } from '../../application/use-case/leads/deleteLeadUs
 import { GetLeadsUseCase } from '../../application/use-case/leads/getLeadsUseCase.js';
 import { ListFilteredLeadsUseCase } from '../../application/use-case/leads/listFilteredLeadsUseCase.js';
 import { UpdateLeadUseCase } from '../../application/use-case/leads/updateLeadUseCase.js';
+import { ChangeLeadStatusUseCase } from '../../application/use-case/leads/changeLeadStatusUseCase.js';
+import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
+import { PrismaLeadStatusHistoryRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusHistoryRepository.js';
 import { leadFilterConfig } from '../../infrastructure/persistence/filters/leadFilterConfig.js';
 import { PrismaLeadRepository } from '../../infrastructure/persistence/repositories/PrismaLeadRepository.js';
 import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
@@ -37,7 +40,25 @@ export class LeadModule {
   }
 
   getUpdateLeadUseCase(): UpdateLeadUseCase {
-    return new UpdateLeadUseCase(this.createLeadRepository(), this.leadMapper, this.dependencies.tenantContext);
+    const { prisma, tenantContext } = this.dependencies;
+    return new UpdateLeadUseCase(
+      this.createLeadRepository(),
+      this.leadMapper,
+      tenantContext,
+      new PrismaUserRepository(prisma, tenantContext),
+    );
+  }
+
+  getChangeLeadStatusUseCase(): ChangeLeadStatusUseCase {
+    const { prisma, tenantContext } = this.dependencies;
+    return new ChangeLeadStatusUseCase(
+      this.createLeadRepository(),
+      new PrismaLeadStatusConfigRepository(prisma, tenantContext),
+      new PrismaLeadStatusHistoryRepository(prisma, tenantContext),
+      new PrismaTransactionManager(prisma),
+      this.leadMapper,
+      tenantContext,
+    );
   }
 
   getDeleteLeadUseCase(): DeleteLeadUseCase {

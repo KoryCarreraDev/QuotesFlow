@@ -86,7 +86,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
 
   it('UpdateLeadUseCase no modifica el lead', async () => {
     const { contextWithoutTenant, leadRepository, storedLead } = setupWithoutTenant();
-    const updateLeadUseCase = new UpdateLeadUseCase(leadRepository, new LeadMapper(), contextWithoutTenant);
+    const updateLeadUseCase = new UpdateLeadUseCase(
+      leadRepository,
+      new LeadMapper(),
+      contextWithoutTenant,
+      new InMemoryUserRepository(contextWithoutTenant),
+    );
 
     await expect(
       updateLeadUseCase.execute(storedLead.id, { notes: 'Nota nueva' }, Role.OWNER, randomUUID()),
@@ -189,7 +194,12 @@ describe('UpdateLeadUseCase ante un repositorio que devolviera un lead borrado',
     const deletedLead = buildLead({ deleted: DeletedState.Inactive, notes: 'Nota original' });
     leadRepository.seed(deletedLead);
     vi.spyOn(leadRepository, 'findById').mockResolvedValue(deletedLead);
-    const updateLeadUseCase = new UpdateLeadUseCase(leadRepository, new LeadMapper(), tenantContext);
+    const updateLeadUseCase = new UpdateLeadUseCase(
+      leadRepository,
+      new LeadMapper(),
+      tenantContext,
+      new InMemoryUserRepository(tenantContext),
+    );
 
     await expect(
       updateLeadUseCase.execute(deletedLead.id, { notes: 'Nota nueva' }, Role.OWNER, randomUUID()),

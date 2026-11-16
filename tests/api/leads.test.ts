@@ -200,7 +200,7 @@ describe('API de leads', () => {
       expect(response.status).toBe(HTTP_NOT_FOUND);
     });
 
-    itKnownDefect('H9', 'no permite reasignar un lead a un usuario de otra empresa', async () => {
+    it('no permite reasignar un lead a un usuario de otra empresa', async () => {
       const otherCompany = await persistTenantWithTeam({ name: 'Otra Empresa SAS' });
       const lead = await persistLead(company.tenant.id, { assignedToId: company.salesRep.id });
 

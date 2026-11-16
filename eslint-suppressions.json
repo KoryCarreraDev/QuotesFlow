@@ -74,9 +74,6 @@
   "src/infrastructure/web/controllers/leadControllers.ts": {
     "@typescript-eslint/naming-convention": {
       "count": 1
-    },
-    "@typescript-eslint/no-magic-numbers": {
-      "count": 5
     }
   },
   "src/infrastructure/web/controllers/leadStatusConfigControllers.ts": {

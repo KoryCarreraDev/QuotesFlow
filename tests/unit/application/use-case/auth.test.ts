@@ -4,6 +4,7 @@ import { RegisterCompanyDTO } from '@/application/dtos/RegisterCompanyDTO.js';
 import { LoginUseCase } from '@/application/use-case/auth/LoginUseCase.js';
 import { RegisterCompanyAndOwnerUseCase } from '@/application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { DEFAULT_TEST_TENANT_ID, buildUser } from '@tests/support/builders/entityBuilders.js';
 import { FakeAuthTokenService } from '@tests/support/doubles/FakeAuthTokenService.js';
 import { FakeHashService } from '@tests/support/doubles/FakeHashService.js';
@@ -59,6 +60,28 @@ describe('LoginUseCase', () => {
     await expect(loginUseCase.execute({ email: 'unknown@example.com', password: PLAIN_PASSWORD })).rejects.toThrow(
       'Invalid Credentials',
     );
+    expect(authTokenService.issuedPayloads).toHaveLength(0);
+  });
+});
+
+// Regresión de H3: el login no comprobaba si la cuenta seguía activa.
+describe('LoginUseCase con cuentas que no pueden iniciar sesión (H3)', () => {
+  it('un usuario desactivado recibe INVALID_CREDENTIALS, igual que una contraseña incorrecta', async () => {
+    const hashService = new FakeHashService();
+    const userRepository = new InMemoryUserRepository(new FixedTenantContext(DEFAULT_TEST_TENANT_ID));
+    userRepository.seed(
+      buildUser({
+        email: 'inactive@example.com',
+        passwordHash: await hashService.hash(PLAIN_PASSWORD),
+        isActive: false,
+      }),
+    );
+    const authTokenService = new FakeAuthTokenService();
+    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService);
+
+    await expect(
+      loginUseCase.execute({ email: 'inactive@example.com', password: PLAIN_PASSWORD }),
+    ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
     expect(authTokenService.issuedPayloads).toHaveLength(0);
   });
 });

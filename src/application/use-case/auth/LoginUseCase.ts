@@ -13,7 +13,9 @@ export class LoginUseCase {
   ) {}
 
   async execute(dto: LoginDTO): Promise<{ token: string }> {
-    const user = await this.userRepo.findByEmail(dto.email);
+    // Una cuenta desactivada, borrada o de una empresa borrada responde igual que unas credenciales
+    // incorrectas (H3): no se revela que la cuenta existe.
+    const user = await this.userRepo.findActiveByEmail(dto.email);
 
     if (!user) {
       throw new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials');
