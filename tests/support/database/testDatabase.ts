@@ -69,6 +69,46 @@ export async function listTablesWithoutColumn(columnName: string): Promise<strin
   return tables.map((table) => table.table_name);
 }
 
+/** Tablas cuya columna `tenantId` admite NULL: un registro así no pertenecería a ninguna empresa. */
+export async function listTablesWithNullableTenantId(): Promise<string[]> {
+  const pool = getTestDatabasePool();
+  const { rows: tables } = await pool.query<{ table_name: string }>(
+    `SELECT c.table_name
+       FROM information_schema.columns c
+      WHERE c.table_schema = 'public'
+        AND c.column_name = 'tenantId'
+        AND c.is_nullable = 'YES'
+      ORDER BY c.table_name`,
+  );
+  return tables.map((table) => table.table_name);
+}
+
+/** Tablas cuya columna `tenantId` no tiene clave foránea hacia `Tenant`. */
+export async function listTablesWithoutTenantForeignKey(): Promise<string[]> {
+  const pool = getTestDatabasePool();
+  const { rows: tables } = await pool.query<{ table_name: string }>(
+    `SELECT c.table_name
+       FROM information_schema.columns c
+      WHERE c.table_schema = 'public'
+        AND c.column_name = 'tenantId'
+        AND NOT EXISTS (
+              SELECT 1
+                FROM information_schema.key_column_usage k
+                JOIN information_schema.referential_constraints r
+                  ON r.constraint_name = k.constraint_name AND r.constraint_schema = k.constraint_schema
+                JOIN information_schema.constraint_column_usage target
+                  ON target.constraint_name = r.unique_constraint_name
+                 AND target.constraint_schema = r.unique_constraint_schema
+               WHERE k.table_schema = c.table_schema
+                 AND k.table_name = c.table_name
+                 AND k.column_name = 'tenantId'
+                 AND target.table_name = 'Tenant'
+            )
+      ORDER BY c.table_name`,
+  );
+  return tables.map((table) => table.table_name);
+}
+
 export async function closeTestDatabasePool(): Promise<void> {
   if (testDatabasePool) {
     await testDatabasePool.end();

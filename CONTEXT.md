@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T06-http-hardening` (apilada sobre F1-T01 a F1-T05 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T07-logging-and-audit` (apilada sobre F1-T01 a F1-T12 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -20,26 +20,26 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto en una sola transacción (F1-T03). Login emite cookie `accessToken` |
 | Leads | ✅ | getAll, create, update, filtered, **delete (soft)**. Reglas por rol (sección 6) |
 | LeadStatusConfig (estados de lead) | ✅ | getAll, create, update. **Sin delete** |
-| Contactos persona | ✅ CRUD + filtered | Sin soft delete ni restricción de rol |
-| Contactos empresa | ✅ CRUD + filtered | Sin soft delete ni restricción de rol |
+| Contactos persona | ✅ CRUD + filtered + borrado suave (F1-T16) | Borrar solo gestión; el resto sin restricción de rol hasta F1-T17 |
+| Contactos empresa | ✅ CRUD + filtered + borrado suave (F1-T16) | Borrar solo gestión y sin contactos activos |
 | Motor de filtrado genérico | ✅ | Sección 8 |
 | Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
-| AuditLog, LeadStatusHistory | ⏳ | Solo modelos; nada los escribe aún |
+| AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
-| Mensajería, winston, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F1 a F6 (sección 6 de `PLAN.md`). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 726 tests (unit, integración con PostgreSQL efímero, API, build). 14 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Mensajería, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07. `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
+| Tests | ✅ | Vitest: 905 tests (unit, integración con PostgreSQL efímero, API, build). 4 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
 - **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
-- `UpdateLeadUseCase` **ignora `statusId`**: el estado no se puede cambiar por PATCH (aunque el schema Zod lo acepta). El cambio de estado y su historial (`LeadStatusHistory`) no existen.
+- **Cambio de estado (F1-T13).** Solo por `PATCH /api/lead/status/:id` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/lead/update/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
 - `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
 - `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
 - `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
-- `PrismaLeadRepository.findByTenant` y `PrismaLeadStatusConfigRepository.findAllByTenant` filtran por `deleted: 'INUSE'`. `PrismaUserRepository`, `PrismaContactRepository`, etc. aún no están pensados para soft delete.
+- Todos los repositorios de negocio filtran `deleted: 'INUSE'` en lecturas y modificaciones; contactos y empresas cliente desde F1-T16 (H10). En los dobles en memoria de contactos la marca de borrado se guarda aparte, porque las entidades `Contact` y `CompanyContact` no la llevan.
 - `countLeadByStatus` existe en el repo de estados pero no se usa todavía (pensado para impedir borrar estados con leads).
 - **Crear un estado predeterminado con `order` repetido deja a la empresa sin predeterminado**: `CreateLeadStatusConfigUseCase` desmarca el anterior antes de crear el nuevo y no hay transacción; si la creación falla, no se revierte. Test: `tests/api/leadStatusConfig.test.ts` (defecto conocido F1-T14).
-- Reasignar un lead (`PATCH /api/lead/update/:id`) o crear un contacto con `companyId` acepta ids de **otro tenant** (H9, verificado con tests).
+- Desde F1-T13 y F1-T16 toda referencia a otro registro se valida dentro del tenant: el responsable de un lead (usuario activo) y la empresa cliente de un contacto (no borrada; si no, 400 `INVALID_COMPANY_CONTACT`).
 - `pnpm audit` (2026-11-16, tras F0-T09): `pnpm audit --prod` sin avisos. Quedan 2 moderados solo de desarrollo, `glob` 10.5.0 y `minimatch` 5.1.9/9.0.9, que arrastra `@testcontainers/postgresql` 12.2.1 vía `archiver` 7. No tienen versión corregida en su rama mayor y testcontainers aún no admite `archiver` 8, por eso no se fuerzan. Antes eran 94 avisos (1 crítico).
 
 ---
@@ -88,10 +88,10 @@ Regla: capas internas nunca importan las externas (`domain` y `application` no c
 ### Mapa de archivos (por módulo)
 ```
 src/
-  server.ts                  arranca app en env.PORT (default 4000)
+  server.ts                  arranca app en env.PORT (default 4000) y registra el apagado ordenado (SIGTERM/SIGINT)
   app.ts                     middlewares globales + montaje de routers
   config/                    env.ts, database.ts
-  cross-cutting/             container.ts (ScopedContainer), tenantContext.ts
+  cross-cutting/             container.ts (ScopedContainer), modules/ (un módulo por área), tenantContext.ts
   domain/entities/           Tenant, User, Lead, LeadStatusConfig, Contact, CompanyContact
   domain/enums/              Role, DeletedState
   domain/errors/             ApplicationError + NotFound/Forbidden/Conflict/Validation/UnauthorizedError, ErrorCode
@@ -108,6 +108,9 @@ src/
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
   infrastructure/services/                                    BcryptHashService, JwtTokenService (clase JwTokenService)
   infrastructure/web/controllers/                             Auth, lead, leadStatusConfig, contact, companyContact
+  infrastructure/web/gracefulShutdown.ts                      cierra el servidor (espera peticiones en curso), luego Prisma; plazo 10 s
+  infrastructure/persistence/prisma/databaseReadiness.ts      SELECT 1 con plazo de 2 s para /ready
+  presentation/routes/healthRoutes.ts                         manejadores de /health y /ready
   infrastructure/web/middleware/                              validateBody, createAuthValidateCookie, createTenantMiddleware, errorHandler (manejador global + 404 de ruta)
   infrastructure/web/errors/                                  errorResponse.ts: clase de error -> HTTP y formato único
   presentation/routes/                                        authRoutes, leadRoutes, leadStatusConfigRouter, contactRoutes, companyContactRoutes
@@ -138,7 +141,7 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
   -> Controller -> UseCase -> Repository (extends BasePrismaRepository)
 ```
 
-- `ScopedContainer` (`cross-cutting/container.ts`): DI manual. `PrismaTransactionManager` se crea en el contenedor y se inyecta al caso de uso como `ITransactionManager`. Un método `get<X>UseCase()` por use case, que instancia repo + mapper + use case. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
+- `ScopedContainer` (`cross-cutting/container.ts`): DI manual, una instancia por petición. `PrismaTransactionManager` se crea en `AuthModule` y se inyecta al caso de uso como `ITransactionManager`. Desde F1-T09 se divide en módulos (`cross-cutting/modules/`): `container.auth`, `.leads`, `.leadStatuses`, `.contacts`, `.companyContacts`. Cada módulo tiene un método `get<X>UseCase()` por caso de uso, que instancia repositorio + mapper + caso de uso; las rutas los piden así: `req.container!.leads.getCreateLeadUseCase()`. Sin tenantId (scope público, `authRouter`) el `tenantContext.getTenantId()` lanza error.
 - `TenantContext` usa `AsyncLocalStorage`; `BasePrismaRepository.tenantId` lo lee.
 - **Transacciones (F1-T03).** El caso de uso envuelve sus escrituras en `ITransactionManager.runInTransaction(work)`. `PrismaTransactionManager` abre `prisma.$transaction` y guarda el cliente de la transacción en otro `AsyncLocalStorage`; `BasePrismaRepository.prisma` es un getter que devuelve ese cliente si hay transacción abierta y, si no, el raíz. Así los repositorios no reciben la transacción como parámetro. Una llamada anidada se une a la transacción exterior. Si `work` lanza, se revierte todo y se relanza el mismo error. No se hace trabajo lento dentro (bcrypt va antes).
 - `BasePrismaRepository` ofrece: `tenantWhere()` (= `{tenantId, deleted:'INUSE'}`), `buildFilterWhere()` (siempre agrega tenantId + `deleted:'INUSE'`), `buildPagination()`, `softDeleteRegister(model, id)` (update `deleted='DELETED'` + `updatedAt`, con `where {id, tenantId}`), `validateTenant()`, `withTenant()`.
@@ -157,7 +160,8 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 |---|---|---|
 | Listar (`getAll`/`filtered`) | Solo `assignedToId === userId` (en `filtered` el controller fuerza el filtro y descarta el que envíe el cliente) | Todos del tenant |
 | Crear | `assignedToId` se fuerza a su propio `userId` | `assignedToId` opcional; si viene, el usuario debe existir en el tenant |
-| Actualizar | Solo sus leads; no puede reasignar | Cualquiera; puede reasignar (sin validar que el usuario exista) |
+| Actualizar | Solo sus leads; no puede reasignar | Cualquiera; puede reasignar a un usuario activo de la empresa (si no, 400 `ASSIGNED_USER_NOT_FOUND`) |
+| Cambiar estado | Solo sus leads | Cualquiera |
 | Eliminar (soft) | Solo sus leads | Cualquiera |
 
 - Crear sin `statusId` → usa el estado `isDefault` del tenant (error si no hay). Con `statusId` → debe existir en el tenant.
@@ -171,6 +175,7 @@ cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId
 - Al registrar una empresa se crean 5 estados (`application/constants/defaultLeadStatuses.ts`): Nuevo (default, #3B82F6), Contactado, Calificado, Ganado, Perdido.
 
 **Auth**
+- Login: solo usuarios activos, no borrados y de una empresa no borrada (`findActiveByEmail`, H3). Cualquier otro caso responde 401 `INVALID_CREDENTIALS`, igual que una contraseña incorrecta.
 - Register: 409 `EMAIL_ALREADY_IN_USE` si el email ya existe. Crea Tenant → User(OWNER) → 5 estados en una transacción: si algo falla, no queda nada (H8). Con dos registros simultáneos del mismo correo, la restricción única de la base decide y `PrismaUserRepository` la traduce a 409. Devuelve `{ tenantId, ownerId }`.
 
 ---
@@ -182,19 +187,21 @@ Todos los modelos tienen `deleted DeletedState @default(INUSE)` (`INUSE` | `DELE
 ```
 Tenant ─┬ User[]  ─ role Role, isActive
         ├ Lead[] ─ status→LeadStatusConfig, assignedTo→User, estimatedValue, expectedCloseDate
-        │   ├ LeadStatusHistory[] (oldStatus/newStatus/changedBy)
+        │   ├ LeadStatusHistory[] (oldStatus/newStatus/changedBy, tenantId desde F1-T10)
         │   └ Quote[]
         ├ LeadStatusConfig[] ─ name, color, order, isDefault   @@unique([tenantId, order])
         ├ Contact[] ─ companyId→CompanyContact
         ├ CompanyContact[]
         ├ Product[] ─ basePrice? | formula?
         ├ Formula[] ─ expression, variables(Json), createdBy
-        ├ Quote[] ─ status QuoteStatus, total, discount, items QuoteItem[]
+        ├ Quote[] ─ status QuoteStatus, total, discount, items QuoteItem[] (QuoteItem con tenantId desde F1-T10)
         ├ TenantSettings (1:1) ─ leadAssignmentStrategy MANUAL|ROUND_ROBIN|LOAD_BALANCED
         └ AuditLog[]
 ```
 Enums: `Role`, `QuoteStatus` (DRAFT/SENT/ACCEPTED/REJECTED), `LeadAssignmentStrategy`, `DeletedState`.
-Migraciones: `init` (2026-07-10) y `add_deleted_to_models` (2026-09-01).
+Migraciones: `init` (2026-07-10), `add_deleted_to_models` (2026-09-01) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
+
+Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, con un `prisma.config` que declare `shadowDatabaseUrl` (Prisma 7 no acepta la URL por parámetro). En producción las aplica Operaciones con la imagen `migrator` (R6).
 
 ---
 
@@ -206,19 +213,32 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/auth/*`).
 
 | Método | Ruta | Body / Query |
 |---|---|---|
-| GET | `/health` | — |
+| GET | `/health` | — (vida: el proceso responde; no toca la base de datos) |
+| GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`) |
 | POST | `/api/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
 | POST | `/api/auth/login` | `{ email, password }` |
 | GET | `/api/lead/getAll` | — |
 | POST | `/api/lead/create` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
-| PATCH | `/api/lead/update/:id` | mismos campos, todos opcionales (`statusId` ignorado) |
+| PATCH | `/api/lead/update/:id` | mismos campos salvo `statusId`, todos opcionales |
+| PATCH | `/api/lead/status/:id` | `{ statusId (uuid, requerido), note? (máx. 500) }`: cambia el estado y lo registra en `LeadStatusHistory` |
 | POST | `/api/lead/delete/:id` | — (soft delete; es POST, no DELETE) |
 | GET | `/api/lead/filtered` | `?search=&filters=[...]&page=&limit=` |
 | GET | `/api/leadStatusConfig/getAll` | — (ordenado por `order` asc) |
 | POST | `/api/leadStatusConfig/create` | `{ name, order, isDefault?, color? }` |
 | PATCH | `/api/leadStatusConfig/update/:id` | `{ name?, order?, isDefault?, color? }` |
-| GET/POST/PATCH | `/api/contact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ firstName, lastName, email?, phone?, companyId? }` |
+| GET/POST/PATCH | `/api/contact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ firstName, lastName, email?, phone?, companyId? }` (`companyId`: empresa cliente del tenant, no borrada) |
+| POST | `/api/contact/delete/:id` | — (borrado suave; solo gestión) |
 | GET/POST/PATCH | `/api/companyContact/getAll`, `/create`, `/update/:id`; GET `/filtered` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country? }` |
+| POST | `/api/companyContact/delete/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
+
+### Logs y auditoría (F1-T07)
+
+- **Logs técnicos:** puerto `ILogger` (`application/ports/services/ILogger.ts`), adaptador `WinstonLogger` (una línea JSON por entrada a la salida estándar), instancia `appLogger` con `LOG_LEVEL`. Cada entrada lleva `requestId`, `userId` y `tenantId` de la petición en curso. `redactSensitiveData` sustituye por `[REDACTED]` cualquier clave que contenga `password`, `token`, `secret`, `cookie`, `authorization`, `apikey`/`api-key` o `database_url`, y quita usuario y contraseña de las URLs de conexión dentro de textos y errores.
+- **Id de petición:** `createRequestContextMiddleware` (primero en `app.ts`) acepta un `X-Request-Id` entrante si tiene de 8 a 64 caracteres `[A-Za-z0-9-]`, si no genera un UUID; lo devuelve en la respuesta y lo guarda en `cross-cutting/requestContext.ts` (`AsyncLocalStorage`). La autenticación añade ahí el usuario y el tenant.
+- **Log de acceso:** una entrada por petición con método, ruta sin query, código y duración.
+- **Prisma (H25):** fuera de desarrollo solo `warn` y `error`; en desarrollo, además, el texto SQL y la duración de cada consulta a nivel `debug`, nunca sus parámetros.
+- **Auditoría de negocio:** puerto `IAuditLogger` con `AuditAction` y `AuditEntity`, adaptador `PrismaAuditLogger`. Lo reciben todos los casos de uso que modifican datos, más registro y login. Autor y empresa salen de la sesión; solo registro y login indican `publicActor`. `metadata` guarda `requestId` y, en modificaciones, `changedFields` (nombres, nunca valores). Un login con correo inexistente no se audita (no hay usuario ni empresa): queda solo en el log técnico. `tests/api/security/auditTrail.test.ts` recorre todas las rutas que modifican datos y exige su registro.
+- **Limitación conocida:** en registro y cambio de estado la auditoría va dentro de la transacción; en las demás modificaciones se escribe justo después. Si esa escritura falla, la modificación ya ocurrió y la petición responde 500. Envolver cada modificación en una transacción es una mejora pendiente.
 
 ### Errores (F1-T02)
 
@@ -226,20 +246,22 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 
 | HTTP | Códigos |
 |---|---|
-| 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED` |
+| 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_COMPANY_CONTACT`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED`, `INVALID_FILTER_VALUE`, `SORT_FIELD_NOT_ALLOWED` |
 | 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `INVALID_SESSION` (token inválido, caducado o sin tenant) |
 | 403 | `INSUFFICIENT_PERMISSIONS` |
 | 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
 | 409 | `EMAIL_ALREADY_IN_USE`, `DEFAULT_LEAD_STATUS_MISSING`, `DEFAULT_LEAD_STATUS_REQUIRED` |
 | 413 | `PAYLOAD_TOO_LARGE` |
-| 500 | `INTERNAL_ERROR` (mensaje genérico; el detalle se registra con `console.error` hasta F1-T07) |
+| 500 | `INTERNAL_ERROR` (mensaje genérico; el detalle va al log técnico con `appLogger.error`) |
 
 Un recurso de otro tenant responde igual que uno inexistente (404).
 
 ### Motor de filtrado genérico
-`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20`
+`GET /api/<entidad>/filtered?search=texto&filters=[{"field":"statusId","operator":"equals","value":"…"}]&page=1&limit=20&sortBy=createdAt&sortDir=desc`
+
+Desde F1-T12 la query la valida `src/infrastructure/web/filters/parseFilterQuery.ts` antes de llegar al caso de uso (H11). Cada campo de `*FilterConfig.ts` declara `type` (`text`, `number`, `date`, `id`) y, si se puede ordenar, `sortable: true`. Un valor de otro tipo (por ejemplo un objeto `{ "not": … }`, que Prisma interpretaría como operador) responde 400 `INVALID_FILTER_VALUE` con `details[].path = ['filters', i, 'value']`. Las fechas aceptan `2026-01-31` o ISO con zona y llegan como `Date`; `in` exige una lista de 1 a 100 valores; un texto, 200 caracteres como máximo; como mucho 20 filtros. Sin `sortBy`, orden por `createdAt` descendente con `id` de desempate; `sortBy` fuera de la lista responde 400 `SORT_FIELD_NOT_ALLOWED`. El alcance por rol (un comercial solo ve sus leads) lo aplica `GenericListFilteredUseCase` con `ownershipScope`, no el controller.
 - `search`: OR `contains` (insensible a mayúsculas) sobre campos con `searchable:true`.
-- `filters`: JSON array. Campo u operador fuera del `filterConfig` → 400 `FILTER_FIELD_NOT_ALLOWED` / `FILTER_OPERATOR_NOT_ALLOWED`; `filters` que no es JSON → 400 `INVALID_FILTERS_FORMAT`. El tipo del valor aún no se valida (H11, F1-T12).
+- `filters`: JSON array. Campo u operador fuera del `filterConfig` → 400 `FILTER_FIELD_NOT_ALLOWED` / `FILTER_OPERATOR_NOT_ALLOWED`; `filters` que no es una lista JSON de `{ field, operator, value }`, o un parámetro repetido → 400 `INVALID_FILTERS_FORMAT`.
 - `page` default 1; `limit` default 20, máx 100 (valores inválidos caen al default).
 - Respuesta: `{ data, total, page, limit }`.
 - Operadores: `contains`, `equals`, `in`, `gt`, `gte`, `lt`, `lte`.
@@ -266,7 +288,7 @@ Checklist (`[E]` = Entidad PascalCase, `[e]` = camelCase):
 6. `application/use-case/[e]s/` — get, create, update, (delete), listFiltered (type alias).
 7. `infrastructure/persistence/repositories/Prisma[E]Repository.ts` — extiende `BasePrismaRepository`; usa `tenantWhere()`; `findById` con `deleted:'INUSE'` y tenant; `delete` → `softDeleteRegister(this.prisma.[e], id)`.
 8. `infrastructure/persistence/filters/[e]FilterConfig.ts`.
-9. `cross-cutting/container.ts` — un `get…UseCase()` por use case.
+9. `cross-cutting/modules/[E]Module.ts` — un `get…UseCase()` por use case — y su propiedad en `cross-cutting/container.ts`.
 10. `infrastructure/web/controllers/[e]Controllers.ts` (`getAll`, `create`, `update`, `getFiltered`, …; roles se leen de `req.user`).
 11. `presentation/schemas/[e]Schema.ts` (Zod) y `presentation/routes/[e]Routes.ts` (patrón de `leadRoutes.ts`).
 12. `app.ts` — `app.use('/api/[e]', [e]Router(jwtService))`.
@@ -283,7 +305,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 - Prisma con driver adapter `pg` (pool nativo).
 - Whitelist de campos/operadores en `filterConfig`: imposible filtrar por columnas internas.
 - Soft delete (`deleted = 'DELETED'`) en vez de borrado físico; las consultas filtran `INUSE`.
-- Roles evaluados solo por la política de `application/policies` (F1-T04). El alcance del listado filtrado de leads aún se aplica en el controller, preguntando a `scopeFor`; F1-T12 lo pasa al caso de uso.
+- Roles evaluados solo por la política de `application/policies` (F1-T04). El alcance del listado filtrado lo aplica el caso de uso (`ownershipScope`, F1-T12).
 
 ---
 
@@ -302,6 +324,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `TRUST_PROXY` | Número entero de proxies de confianza | `0` |
 | `RATE_LIMIT_GLOBAL_MAX_REQUESTS` | Entero positivo | `100` |
 | `RATE_LIMIT_AUTH_MAX_REQUESTS` | Entero positivo | `10` |
+| `LOG_LEVEL` | `debug`, `info`, `warn`, `error` o `silent` (solo tests) | `info` |
 
 Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
@@ -328,7 +351,7 @@ docker build -t quotesflow-api .                        # imagen de PRODUCCIÓN 
 docker build --target migrator -t quotesflow-migrator . # `prisma migrate deploy`; en producción lo lanza Operaciones (R6)
 ```
 
-**Imágenes Docker (F0-T08).** `Dockerfile` es multi-etapa: `build` instala con `--frozen-lockfile`, genera Prisma, compila y poda a producción; `runtime` lleva solo `dist/`, `package.json` y las dependencias de producción, sin pnpm, como usuario `node` (uid 1000), con `HEALTHCHECK` sobre `/health` (unos 570 MB, 180 MB de `node_modules`); `migrator` lleva el CLI de Prisma y las migraciones. pnpm 11.28.10 fijado en todas. Ejecutar la API con `--init` (o `init: true`): sin manejador de SIGTERM hasta F1-T08. La API no aplica migraciones al arrancar. `Dockerfile.dev` + `docker-compose.yml` son solo de desarrollo; el compose exige `JWT_SECRET` en `.env` (sin valor por defecto).
+**Imágenes Docker (F0-T08).** `Dockerfile` es multi-etapa: `build` instala con `--frozen-lockfile`, genera Prisma, compila y poda a producción; `runtime` lleva solo `dist/`, `package.json` y las dependencias de producción, sin pnpm, como usuario `node` (uid 1000), con `HEALTHCHECK` sobre `/health` (unos 570 MB, 180 MB de `node_modules`); `migrator` lleva el CLI de Prisma y las migraciones. pnpm 11.28.10 fijado en todas. La API atiende SIGTERM/SIGINT con apagado ordenado (F1-T08); `--init` (o `init: true`) sigue recomendado. La API no aplica migraciones al arrancar. `Dockerfile.dev` + `docker-compose.yml` son solo de desarrollo; el compose exige `JWT_SECRET` en `.env` (sin valor por defecto).
 Git: rama principal `develop`; ramas `feat/...`; commits en español tipo `feat/ descripción`.
 
 ---
@@ -341,7 +364,7 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
-- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 14 (H2, H3, H7, H9, H10, H11, H15 y F1-T14), listados en `tests/README.md`. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
+- **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 4 (H2, H7 y F1-T14), listados en `tests/README.md`. H11 terminó de pasar a regresión en F1-T12. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
 - **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/auth` (los tests suben ese cupo desde 10).
 - **Cobertura actual:** 98 % de sentencias y 93 % de ramas (umbral: 80 % global, 90 % en `domain` y `application`).
 
@@ -365,3 +388,10 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T04 | pendiente | Políticas de autorización centralizadas (H12): `permissionMatrix`, `can` y `scopeFor` en `src/application/policies/authorizationPolicy.ts`; los casos de uso de leads y estados y el filtrado de leads dejan de comparar roles. Deniega por defecto (rol desconocido, `own` sin usuario). Antes un `SALES_REP` sin `userId` habría visto todos los leads. `docs/security/matriz-permisos.md` generado con `pnpm docs:permissions` (`scripts/docs/`) y comprobado por test. 66 tests nuevos (sobre todo combinaciones rol × acción); la matriz de roles de la API pasa sin cambios. |
 | 2026-11-16 | F1-T05 | pendiente | Suites de seguridad sobre todo el inventario de rutas (R5): `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts`, con escenarios por ruta en `tests/support/http/routeSecurityScenarios.ts`. La suite falla si una ruta protegida no tiene escenario o si un escenario apunta a una ruta que ya no existe. Lo esperado por rol sale de `permissionMatrix`. 82 tests nuevos; sin cambios en `src/`. |
 | 2026-11-16 | F1-T06 | pendiente | CORS con lista blanca y credenciales (H4), `trust proxy` configurable, cuerpo JSON máximo 100 kb (H14) y límite propio de 10 peticiones / 15 min en `/api/auth` además del global (H6), con 429 `TOO_MANY_REQUESTS` en formato único. Variables nuevas validadas en `env.ts`: `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_GLOBAL_MAX_REQUESTS`, `RATE_LIMIT_AUTH_MAX_REQUESTS`. H4 y H14 pasan a regresión. 25 tests nuevos. Cambia la aserción del test de F1-T01 que compara la configuración completa (campos nuevos). |
+| 2026-11-16 | F1-T08 | pendiente | `GET /ready` (la base de datos responde en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE` sin detalles) junto a `GET /health`, que no toca la base. Apagado ordenado en `server.ts` con `createGracefulShutdown`: deja de aceptar conexiones, termina las peticiones en curso, cierra Prisma y sale con 0; a los 10 s corta las conexiones y sale con 1. 7 tests nuevos; `/ready` añadida al inventario de rutas. |
+| 2026-11-16 | F1-T09 | pendiente | `ScopedContainer` dividido por módulo en `src/cross-cutting/modules/` (`AuthModule`, `LeadModule`, `LeadStatusModule`, `ContactModule`, `CompanyContactModule`, con `ModuleDependencies`); las rutas piden `req.container!.<módulo>.get…UseCase()`. Sin cambio de comportamiento. 20 tests nuevos del contenedor. |
+| 2026-11-16 | F1-T10 | pendiente | Migración `add_tenant_id_to_history_and_quote_items` (H15): `tenantId` en `LeadStatusHistory` y `QuoteItem`, relleno desde el registro padre, NOT NULL, FK a `Tenant` en cascada e índice. Verificada contra una base con datos y con `prisma migrate diff` (sin diferencias). H15 pasa a regresión; 2 tests nuevos de esquema (ningún `tenantId` nullable, todos con FK). Pendiente: aplicarla en producción (Operaciones, R6). |
+| 2026-11-16 | F1-T13 | pendiente | Cambio de estado como caso de uso propio (`ChangeLeadStatusUseCase`, `PATCH /api/lead/status/:id`): lead y `LeadStatusHistory` en una transacción, con `ILeadStatusHistoryRepository`, `PrismaLeadStatusHistoryRepository`, entidad `LeadStatusChange` y `ILeadRepository.updateStatus`. `updateLeadSchema` deja de aceptar `statusId`. Crear y reasignar leads exige un usuario activo de la empresa (H9); `PrismaUserRepository.findById` excluye borrados. Login con `findActiveByEmail` (H3). H3 (3) y H9 en leads (1) pasan a regresión; 37 tests nuevos. Cambia la construcción de `UpdateLeadUseCase` en 3 tests unitarios (nuevo parámetro). |
+| 2026-11-16 | F1-T16 | pendiente | Borrado suave de contactos y empresas cliente (`DeleteContactUseCase`, `DeleteCompanyContactUseCase`, `POST /api/contact/delete/:id`, `POST /api/companyContact/delete/:id`), solo para gestión (acciones nuevas `contact:delete` y `company-contact:delete`); una empresa con contactos activos no se borra (409). `findById` y `update` filtran `deleted` (H10). El `companyId` de un contacto debe ser una empresa cliente del tenant (H9). Suite de permisos por rol repartida en dos archivos por el cupo de peticiones. H10 (3) y H9 en contactos (1) pasan a regresión; 43 tests nuevos. Cambia la preparación de 2 archivos de tests unitarios (nuevo parámetro y empresas cliente sembradas). |
+| 2026-11-16 | F1-T12 | pendiente | Validación de la query de los listados filtrados (H11) en `parseFilterQuery`: tipo de cada valor según `type` del campo (`text`, `number`, `date`, `id`), `in` con lista, límites de tamaño, orden por lista blanca (`sortBy`, `sortDir`, campos `sortable`) con orden por defecto estable. Códigos `INVALID_FILTER_VALUE` y `SORT_FIELD_NOT_ALLOWED`. El alcance por rol pasa del controller a `GenericListFilteredUseCase` (`ownershipScope`). El último defecto conocido de H11 pasa a regresión; 31 tests nuevos. Las configuraciones de filtros de 2 tests unitarios ganan el campo `type`, ahora obligatorio. |
+| 2026-11-16 | F1-T07 | pendiente | Logger estructurado (H13): puerto `ILogger`, `WinstonLogger` en JSON, redacción de datos sensibles, `X-Request-Id` y contexto de petición con `AsyncLocalStorage`, log de acceso. Prisma ya no registra consultas con datos (H25). Auditoría de negocio: puerto `IAuditLogger`, `PrismaAuditLogger`, registro en toda modificación, registro de empresa y login. Variable `LOG_LEVEL`. `console.*` sustituido por el logger. 35 tests nuevos. Cambia la construcción de 25 casos de uso en 6 archivos de tests unitarios (nuevo parámetro), el test de `errorHandler` usa un logger falso en lugar de espiar `console.error` y el test de configuración completa añade `LOG_LEVEL`. |

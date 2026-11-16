@@ -1,3 +1,10 @@
+import {
+  AuditAction,
+  AuditEntity,
+  IAuditLogger,
+  changedFieldNames,
+} from '@/application/ports/services/IAuditLogger.js';
+import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -12,6 +19,8 @@ export class UpdateContactUseCase {
     private readonly contactRepo: IContactRepository,
     private readonly contactMap: IContactMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly companyContactRepo: ICompanyContactRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(contactId: string, updateContact: UpdateContactDTO) {
@@ -29,6 +38,10 @@ export class UpdateContactUseCase {
       throw new NotFoundError(ErrorCode.CONTACT_NOT_FOUND, 'Contact not found');
     }
 
+    const changesCompany =
+      updateContact.companyId !== undefined && updateContact.companyId !== existingContact.companyId;
+    if (changesCompany) await this.ensureCompanyContactBelongsToTenant(updateContact.companyId!);
+
     const updatedContact = new Contact(
       existingContact.id,
       existingContact.tenantId,
@@ -42,7 +55,20 @@ export class UpdateContactUseCase {
     );
 
     await this.contactRepo.update(existingContact.id, updatedContact);
+    await this.auditLogger.record({
+      action: AuditAction.CONTACT_UPDATED,
+      entity: AuditEntity.CONTACT,
+      entityId: existingContact.id,
+      metadata: { changedFields: changedFieldNames(updateContact) },
+    });
 
     return this.contactMap.toDTO(updatedContact);
+  }
+  /** La empresa cliente del contacto tiene que existir, no estar borrada y ser de la misma empresa (H9). */
+  private async ensureCompanyContactBelongsToTenant(companyContactId: string): Promise<void> {
+    const companyContact = await this.companyContactRepo.findById(companyContactId);
+    if (!companyContact) {
+      throw new ValidationError(ErrorCode.INVALID_COMPANY_CONTACT, 'Invalid companyId: does not belong to this tenant');
+    }
   }
 }

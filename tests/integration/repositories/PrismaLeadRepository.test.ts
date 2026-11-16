@@ -163,6 +163,28 @@ describe('PrismaLeadRepository', () => {
     });
   });
 
+  describe('updateStatus', () => {
+    it('cambia solo el estado del lead', async () => {
+      const lead = await persistLead(company.tenant.id, { statusId: company.defaultLeadStatus.id, notes: 'Nota' });
+      const [, contactedStatus] = company.leadStatuses;
+
+      await leadRepository.updateStatus(lead.id, contactedStatus.id);
+
+      const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } });
+      expect(storedLead.statusId).toBe(contactedStatus.id);
+      expect(storedLead.notes).toBe('Nota');
+    });
+
+    it('no cambia el estado de un lead de otra empresa', async () => {
+      const foreignLead = await persistLead(otherCompany.tenant.id, { statusId: otherCompany.defaultLeadStatus.id });
+
+      await expect(leadRepository.updateStatus(foreignLead.id, company.defaultLeadStatus.id)).rejects.toThrow();
+
+      const storedLead = await prisma.lead.findUniqueOrThrow({ where: { id: foreignLead.id } });
+      expect(storedLead.statusId).toBe(otherCompany.defaultLeadStatus.id);
+    });
+  });
+
   describe('delete', () => {
     it('borra de forma suave: la fila sigue en la base de datos marcada como DELETED', async () => {
       const storedLead = await persistLead(company.tenant.id);

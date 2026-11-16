@@ -8,11 +8,12 @@ import { validateBody } from '../../infrastructure/web/middleware/validateBody.j
 import { Request } from 'express';
 
 function getContactController(req: Request): contactController {
-  const getContactsUseCase = req.container!.getGetContactsUseCase();
-  const listFilteredUseCase = req.container!.getListFilteredContactsUseCase();
-  const createUseCase = req.container!.getCreateContactUseCase();
-  const updateUseCase = req.container!.getUpdateContactUseCase();
-  return new contactController(getContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase);
+  const getContactsUseCase = req.container!.contacts.getGetContactsUseCase();
+  const listFilteredUseCase = req.container!.contacts.getListFilteredContactsUseCase();
+  const createUseCase = req.container!.contacts.getCreateContactUseCase();
+  const updateUseCase = req.container!.contacts.getUpdateContactUseCase();
+  const deleteUseCase = req.container!.contacts.getDeleteContactUseCase();
+  return new contactController(getContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
 }
 
 export function contactRouter(jwtService: IAuthTokenService): Router {
@@ -34,6 +35,10 @@ export function contactRouter(jwtService: IAuthTokenService): Router {
 
   router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
     getContactController(req).getFiltered(req, res, next);
+  });
+
+  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getContactController(req).delete(req, res, next);
   });
 
   return router;

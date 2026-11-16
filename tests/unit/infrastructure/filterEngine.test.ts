@@ -22,10 +22,10 @@ const TENANT_CONDITION = { tenantId: TENANT_ID };
 const NOT_DELETED_CONDITION = { deleted: DeletedState.Active };
 
 const filterConfig: IFilterFieldConfig = {
-  contactName: { allowedOperators: ['contains', 'equals'], searchable: true },
-  email: { allowedOperators: ['contains', 'equals'], searchable: true },
-  statusId: { allowedOperators: ['equals', 'in'], searchable: false },
-  estimatedValue: { allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'], searchable: false },
+  contactName: { type: 'text', allowedOperators: ['contains', 'equals'], searchable: true },
+  email: { type: 'text', allowedOperators: ['contains', 'equals'], searchable: true },
+  statusId: { type: 'id', allowedOperators: ['equals', 'in'], searchable: false },
+  estimatedValue: { type: 'number', allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'], searchable: false },
 };
 
 /** Expone los métodos protegidos de la clase base para poder probarlos sin base de datos. */
@@ -177,7 +177,7 @@ describe('BasePrismaRepository.buildFilterWhere', () => {
 
   it('ignora la búsqueda libre si ningún campo es buscable', () => {
     const configWithoutSearchableFields: IFilterFieldConfig = {
-      statusId: { allowedOperators: ['equals'], searchable: false },
+      statusId: { type: 'id', allowedOperators: ['equals'], searchable: false },
     };
 
     const where = createRepository().exposeBuildFilterWhere({ search: 'ana' }, configWithoutSearchableFields);

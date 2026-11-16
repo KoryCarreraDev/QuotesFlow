@@ -8,6 +8,8 @@ import { UnauthorizedError } from '../../../domain/errors/UnauthorizedError.js';
 import { ValidationError, type ValidationIssue } from '../../../domain/errors/ValidationError.js';
 
 export enum HttpStatus {
+  OK = 200,
+  CREATED = 201,
   BAD_REQUEST = 400,
   UNAUTHORIZED = 401,
   FORBIDDEN = 403,
@@ -16,6 +18,7 @@ export enum HttpStatus {
   PAYLOAD_TOO_LARGE = 413,
   TOO_MANY_REQUESTS = 429,
   INTERNAL_SERVER_ERROR = 500,
+  SERVICE_UNAVAILABLE = 503,
 }
 
 /** Formato único de toda respuesta de error de la API. */

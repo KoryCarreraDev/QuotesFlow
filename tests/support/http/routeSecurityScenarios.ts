@@ -26,6 +26,8 @@ export interface RouteSecurityScenario {
   action: Action;
   resource: ScenarioResource;
   operation: ScenarioOperation;
+  /** Cuerpo propio para `update`, cuando el genérico del recurso no sirve. Recibe la empresa de quien llama. */
+  updateBody?: (company: TenantWithTeam) => Record<string, unknown>;
 }
 
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
@@ -34,6 +36,15 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`POST ${apiPaths.leads.create}`, { action: Action.LEAD_CREATE, resource: 'lead', operation: 'create' }],
   [`PATCH ${apiPaths.leads.update(':id')}`, { action: Action.LEAD_UPDATE, resource: 'lead', operation: 'update' }],
   [`POST ${apiPaths.leads.delete(':id')}`, { action: Action.LEAD_DELETE, resource: 'lead', operation: 'delete' }],
+  [
+    `PATCH ${apiPaths.leads.changeStatus(':id')}`,
+    {
+      action: Action.LEAD_UPDATE,
+      resource: 'lead',
+      operation: 'update',
+      updateBody: (company) => ({ statusId: company.leadStatuses[1].id }),
+    },
+  ],
 
   [
     `GET ${apiPaths.leadStatusConfigs.getAll}`,
@@ -56,6 +67,15 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
     { action: Action.CONTACT_UPDATE, resource: 'contact', operation: 'update' },
   ],
 
+  [
+    `POST ${apiPaths.contacts.delete(':id')}`,
+    { action: Action.CONTACT_DELETE, resource: 'contact', operation: 'delete' },
+  ],
+
+  [
+    `POST ${apiPaths.companyContacts.delete(':id')}`,
+    { action: Action.COMPANY_CONTACT_DELETE, resource: 'companyContact', operation: 'delete' },
+  ],
   [
     `GET ${apiPaths.companyContacts.getAll}`,
     { action: Action.COMPANY_CONTACT_LIST, resource: 'companyContact', operation: 'list' },
@@ -118,6 +138,11 @@ export function creationBody(resource: ScenarioResource): Record<string, unknown
   }
   if (resource === 'contact') return { firstName: 'Julián', lastName: 'Escenario' };
   return { name: 'Empresa Escenario SAS' };
+}
+
+/** Cuerpo válido para la ruta de modificación del escenario, enviado por un usuario de `company`. */
+export function scenarioUpdateBody(scenario: RouteSecurityScenario, company: TenantWithTeam): Record<string, unknown> {
+  return scenario.updateBody ? scenario.updateBody(company) : updateBody(scenario.resource);
 }
 
 /** Cuerpo válido para modificar el recurso. */

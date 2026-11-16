@@ -116,6 +116,27 @@ export abstract class BasePrismaRepository {
     return { AND: conditions };
   }
 
+  /**
+   * Orden de un listado filtrado. Sin `sortBy`, los más recientes primero; el id desempata para que la
+   * paginación no repita ni salte registros. El campo se vuelve a comprobar contra la lista blanca.
+   */
+  protected buildOrderBy(
+    criteria: FilterCriteriaDTO,
+    config: IFilterFieldConfig,
+  ): Array<Record<string, 'asc' | 'desc'>> {
+    const direction = criteria.sortDir ?? 'desc';
+    if (!criteria.sortBy) return [{ createdAt: direction }, { id: 'asc' }];
+
+    const fieldConfig = new Map(Object.entries(config)).get(criteria.sortBy);
+    if (!fieldConfig?.sortable) {
+      throw new ValidationError(
+        ErrorCode.SORT_FIELD_NOT_ALLOWED,
+        `Field is not allowed for sorting: ${criteria.sortBy}`,
+      );
+    }
+    return [{ [criteria.sortBy]: direction }, { id: 'asc' }];
+  }
+
   //Calcula la paginación con valores seguros por defecto
   protected buildPagination(criteria: FilterCriteriaDTO): { skip: number; take: number } {
     const page = criteria.page && criteria.page > 0 ? criteria.page : 1;

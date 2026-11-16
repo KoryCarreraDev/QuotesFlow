@@ -2,6 +2,7 @@ import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ApplicationError } from '../../../domain/errors/ApplicationError.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { HttpStatus, buildErrorResponseBody, sendApplicationError } from '../errors/errorResponse.js';
+import { ILogger } from '../../../application/ports/services/ILogger.js';
 
 /** Forma de los errores que lanza el parser de `express.json()` (body-parser). */
 interface BodyParserError {
@@ -52,7 +53,7 @@ function bodyParserErrorResponse(error: BodyParserError) {
  * - Cualquier otro: 500 genérico. Su mensaje y su traza solo se registran en el servidor, porque
  *   pueden llevar datos internos (consultas, direcciones, credenciales de conexión).
  */
-export function createErrorHandler(): ErrorRequestHandler {
+export function createErrorHandler(logger: ILogger): ErrorRequestHandler {
   return (error: unknown, _request, response, next) => {
     // Con la respuesta a medias solo Express puede cerrarla bien (corta la conexión).
     if (response.headersSent) {
@@ -71,8 +72,7 @@ export function createErrorHandler(): ErrorRequestHandler {
       return;
     }
 
-    // Hasta F1-T07 no hay logger estructurado; entonces este registro pasa al puerto ILogger.
-    console.error('Unhandled error while processing request:', error);
+    logger.error('Unhandled error while processing request', error);
     response
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
       .json(buildErrorResponseBody(ErrorCode.INTERNAL_ERROR, 'Internal server error'));

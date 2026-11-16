@@ -13,6 +13,14 @@ import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRo
 import { createErrorHandler, createRouteNotFoundHandler } from './infrastructure/web/middleware/errorHandler.js';
 import { createCorsMiddleware, createRateLimiter } from './infrastructure/web/httpSecurity.js';
 import { env } from './config/env.js';
+import { createLivenessHandler, createReadinessHandler } from './presentation/routes/healthRoutes.js';
+import { isDatabaseReachable } from './infrastructure/persistence/prisma/databaseReadiness.js';
+import { PrismaService } from './infrastructure/persistence/prisma/PrismaService.js';
+import { appLogger } from './infrastructure/logging/appLogger.js';
+import {
+  createAccessLogMiddleware,
+  createRequestContextMiddleware,
+} from './infrastructure/web/middleware/requestLogging.js';
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 // Ningún cuerpo legítimo de la API se acerca a esto; uno mayor solo sirve para agotar memoria (H14).
@@ -25,6 +33,9 @@ const publicContainer = new ScopedContainer();
 // Seguridad
 // Sin proxy de confianza (0), X-Forwarded-For se ignora: nadie falsifica su IP ante el limitador (H6).
 app.set('trust proxy', env.TRUST_PROXY);
+// Primero: todo lo que sigue (logs, auditoría, errores) ve el id de la petición (F1-T07).
+app.use(createRequestContextMiddleware());
+app.use(createAccessLogMiddleware(appLogger));
 app.use(helmet());
 app.use(createCorsMiddleware(env.CORS_ALLOWED_ORIGINS));
 
@@ -43,10 +54,13 @@ const authRateLimiter = createRateLimiter({
   windowMs: RATE_LIMIT_WINDOW_MS,
 });
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Sondas de vida y de disponibilidad (F1-T08)
+const prismaClient = PrismaService.getInstance().client;
+app.get('/health', createLivenessHandler());
+app.get(
+  '/ready',
+  createReadinessHandler(() => isDatabaseReachable(prismaClient, appLogger)),
+);
 
 app.use('/api/auth', authRateLimiter, authRouter(publicContainer));
 app.use('/api/lead', leadRouter(jwtService));
@@ -56,6 +70,6 @@ app.use('/api/leadStatusConfig', leadStatusConfigRouter(jwtService));
 
 // Errores: siempre al final, después de todas las rutas (H5).
 app.use(createRouteNotFoundHandler());
-app.use(createErrorHandler());
+app.use(createErrorHandler(appLogger));
 
 export default app;

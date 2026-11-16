@@ -32,6 +32,11 @@ export class InMemoryUserRepository implements IUserRepository {
     return this.listStored().find((user) => user.email === email) ?? null;
   }
 
+  /** La entidad `User` no lleva la marca de borrado: aquí solo cuenta `isActive`. */
+  async findActiveByEmail(email: string): Promise<User | null> {
+    return this.listStored().find((user) => user.email === email && user.isActive) ?? null;
+  }
+
   async findById(id: string): Promise<User | null> {
     const user = this.usersById.get(id);
     return user && user.tenantId === this.tenantContext.getTenantId() ? user : null;

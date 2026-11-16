@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -10,6 +11,7 @@ export class DeleteLeadUseCase {
   constructor(
     private readonly leadRepo: ILeadRepository,
     private readonly tenantContext: ITenantContext,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(leadId: string, userId: string, role: Role): Promise<void> {
@@ -30,5 +32,6 @@ export class DeleteLeadUseCase {
     }
 
     await this.leadRepo.delete(leadId);
+    await this.auditLogger.record({ action: AuditAction.LEAD_DELETED, entity: AuditEntity.LEAD, entityId: leadId });
   }
 }

@@ -109,6 +109,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-012 · Borrado de contactos y empresas cliente
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1-T16
+- **Bloquea:** No
+- **Pregunta:** ¿Quién puede borrar contactos y empresas cliente, y qué pasa con los contactos de una empresa cliente que se borra?
+- **Contexto:** El plan pide borrado suave sin fijar permisos. Contactos y empresas aún no tienen responsable (llega en F1-T17), así que "solo los suyos" no se puede aplicar todavía.
+- **Opciones:** a) Solo gestión (dueño, socio, líder) borra; una empresa con contactos activos no se borra (409). b) También el comercial; borrar la empresa borra en cascada sus contactos. c) Borrar la empresa deja sus contactos sin empresa.
+- **Supuesto mientras tanto:** a). Con F1-T17 se puede revisar si el comercial borra los clientes de los que es responsable.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas

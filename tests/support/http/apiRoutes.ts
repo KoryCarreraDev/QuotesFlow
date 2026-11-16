@@ -25,6 +25,7 @@ const COMPANY_CONTACT_BASE_PATH = '/api/companyContact';
 
 export const apiPaths = {
   health: '/health',
+  ready: '/ready',
   auth: {
     register: '/api/auth/register',
     login: '/api/auth/login',
@@ -35,6 +36,7 @@ export const apiPaths = {
     filtered: `${LEAD_BASE_PATH}/filtered`,
     update: (leadId: string) => `${LEAD_BASE_PATH}/update/${leadId}`,
     delete: (leadId: string) => `${LEAD_BASE_PATH}/delete/${leadId}`,
+    changeStatus: (leadId: string) => `${LEAD_BASE_PATH}/status/${leadId}`,
   },
   leadStatusConfigs: {
     getAll: `${LEAD_STATUS_CONFIG_BASE_PATH}/getAll`,
@@ -46,17 +48,20 @@ export const apiPaths = {
     create: `${CONTACT_BASE_PATH}/create`,
     filtered: `${CONTACT_BASE_PATH}/filtered`,
     update: (contactId: string) => `${CONTACT_BASE_PATH}/update/${contactId}`,
+    delete: (contactId: string) => `${CONTACT_BASE_PATH}/delete/${contactId}`,
   },
   companyContacts: {
     getAll: `${COMPANY_CONTACT_BASE_PATH}/getAll`,
     create: `${COMPANY_CONTACT_BASE_PATH}/create`,
     filtered: `${COMPANY_CONTACT_BASE_PATH}/filtered`,
     update: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/update/${companyContactId}`,
+    delete: (companyContactId: string) => `${COMPANY_CONTACT_BASE_PATH}/delete/${companyContactId}`,
   },
 } as const;
 
 export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.health, access: 'public' },
+  { method: 'GET', pattern: apiPaths.ready, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.register, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.login, access: 'public' },
 
@@ -65,6 +70,7 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.leads.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leads.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leads.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.leads.changeStatus(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.leadStatusConfigs.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leadStatusConfigs.create, access: 'authenticated' },
@@ -74,11 +80,13 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.contacts.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.contacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.contacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.contacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.companyContacts.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.companyContacts.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.companyContacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.companyContacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.companyContacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
 ];
 
 export const authenticatedRoutes = routeInventory.filter((route) => route.access === 'authenticated');

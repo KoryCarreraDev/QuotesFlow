@@ -14,7 +14,6 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { SESSION_COOKIE_NAME } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -190,7 +189,7 @@ describe('POST /api/auth/login', () => {
     expect(response.text).not.toMatch(STACK_TRACE_LINE_PATTERN);
   });
 
-  itKnownDefect('H3', 'un usuario desactivado no puede iniciar sesión', async () => {
+  it('un usuario desactivado no puede iniciar sesión', async () => {
     const tenant = await persistTenant();
     const inactiveUser = await persistUser(tenant.id, { isActive: false });
 
@@ -201,7 +200,7 @@ describe('POST /api/auth/login', () => {
     expect(findSessionCookie(response.headers['set-cookie'])).toBeUndefined();
   });
 
-  itKnownDefect('H3', 'un usuario borrado no puede iniciar sesión', async () => {
+  it('un usuario borrado no puede iniciar sesión', async () => {
     const tenant = await persistTenant();
     const deletedUser = await persistUser(tenant.id, { deleted: DeletedState.Inactive });
 
@@ -212,7 +211,7 @@ describe('POST /api/auth/login', () => {
     expect(findSessionCookie(response.headers['set-cookie'])).toBeUndefined();
   });
 
-  itKnownDefect('H3', 'un usuario de una empresa borrada no puede iniciar sesión', async () => {
+  it('un usuario de una empresa borrada no puede iniciar sesión', async () => {
     const deletedTenant = await persistTenant({ deleted: DeletedState.Inactive });
     const user = await persistUser(deletedTenant.id);
 

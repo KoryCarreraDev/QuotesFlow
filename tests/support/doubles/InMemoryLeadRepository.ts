@@ -55,6 +55,14 @@ export class InMemoryLeadRepository implements ILeadRepository {
     return lead && this.isVisible(lead) ? lead : null;
   }
 
+  async updateStatus(leadId: string, statusId: string): Promise<void> {
+    const storedLead = this.leadsById.get(leadId);
+    if (!storedLead || storedLead.tenantId !== this.tenantContext.getTenantId()) {
+      throw new Error('Record to update not found');
+    }
+    this.leadsById.set(leadId, Object.assign(Object.create(Lead.prototype), storedLead, { statusId }));
+  }
+
   async update(leadId: string, data: Lead): Promise<void> {
     const storedLead = this.leadsById.get(leadId);
     if (!storedLead || storedLead.tenantId !== this.tenantContext.getTenantId()) {

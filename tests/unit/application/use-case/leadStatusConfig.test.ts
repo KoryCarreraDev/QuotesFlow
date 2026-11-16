@@ -13,6 +13,7 @@ import {
 } from '@tests/support/builders/entityBuilders.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const OTHER_TENANT_ID = '99999999-9999-4999-8999-999999999999';
 
@@ -39,8 +40,18 @@ function setupLeadStatusUseCases() {
     contactedStatus,
     listDefaultStatusNames,
     getLeadStatusUseCase: new GetLeadStatusConfigUseCase(leadStatusRepository, leadStatusMapper, tenantContext),
-    createLeadStatusUseCase: new CreateLeadStatusConfigUseCase(leadStatusRepository, leadStatusMapper, tenantContext),
-    updateLeadStatusUseCase: new UpdateLeadStatusConfigUseCase(leadStatusRepository, leadStatusMapper, tenantContext),
+    createLeadStatusUseCase: new CreateLeadStatusConfigUseCase(
+      leadStatusRepository,
+      leadStatusMapper,
+      tenantContext,
+      new RecordingAuditLogger(),
+    ),
+    updateLeadStatusUseCase: new UpdateLeadStatusConfigUseCase(
+      leadStatusRepository,
+      leadStatusMapper,
+      tenantContext,
+      new RecordingAuditLogger(),
+    ),
   };
 }
 

@@ -4,6 +4,7 @@ import { RegisterCompanyDTO } from '@/application/dtos/RegisterCompanyDTO.js';
 import { LoginUseCase } from '@/application/use-case/auth/LoginUseCase.js';
 import { RegisterCompanyAndOwnerUseCase } from '@/application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { DEFAULT_TEST_TENANT_ID, buildUser } from '@tests/support/builders/entityBuilders.js';
 import { FakeAuthTokenService } from '@tests/support/doubles/FakeAuthTokenService.js';
 import { FakeHashService } from '@tests/support/doubles/FakeHashService.js';
@@ -12,6 +13,7 @@ import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMem
 import { InMemoryTenantRepository } from '@tests/support/doubles/InMemoryTenantRepository.js';
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
 
@@ -27,7 +29,7 @@ describe('LoginUseCase', () => {
     });
     userRepository.seed(registeredUser);
 
-    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService);
+    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
     return { loginUseCase, authTokenService, registeredUser };
   }
 
@@ -63,6 +65,28 @@ describe('LoginUseCase', () => {
   });
 });
 
+// Regresión de H3: el login no comprobaba si la cuenta seguía activa.
+describe('LoginUseCase con cuentas que no pueden iniciar sesión (H3)', () => {
+  it('un usuario desactivado recibe INVALID_CREDENTIALS, igual que una contraseña incorrecta', async () => {
+    const hashService = new FakeHashService();
+    const userRepository = new InMemoryUserRepository(new FixedTenantContext(DEFAULT_TEST_TENANT_ID));
+    userRepository.seed(
+      buildUser({
+        email: 'inactive@example.com',
+        passwordHash: await hashService.hash(PLAIN_PASSWORD),
+        isActive: false,
+      }),
+    );
+    const authTokenService = new FakeAuthTokenService();
+    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
+
+    await expect(
+      loginUseCase.execute({ email: 'inactive@example.com', password: PLAIN_PASSWORD }),
+    ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
+    expect(authTokenService.issuedPayloads).toHaveLength(0);
+  });
+});
+
 describe('RegisterCompanyAndOwnerUseCase', () => {
   const registration: RegisterCompanyDTO = {
     companyName: 'Aluminios Andinos SAS',
@@ -86,6 +110,7 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
       hashService,
       leadStatusRepository,
       transactionManager,
+      new RecordingAuditLogger(),
     );
     return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService, transactionManager };
   }

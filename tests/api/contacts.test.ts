@@ -12,7 +12,6 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { serializeFilters, sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -136,7 +135,7 @@ describe('API de contactos', () => {
     expect(response.status).toBe(HTTP_NOT_FOUND);
   });
 
-  itKnownDefect('H9', 'POST /create no permite vincular el contacto a una empresa cliente de otro tenant', async () => {
+  it('POST /create no permite vincular el contacto a una empresa cliente de otro tenant', async () => {
     const otherCompany = await persistTenantWithTeam({ name: 'Otra Empresa SAS' });
     const foreignCompanyContact = await persistCompanyContact(otherCompany.tenant.id);
 
@@ -148,7 +147,7 @@ describe('API de contactos', () => {
     await expect(prisma.contact.count({ where: { companyId: foreignCompanyContact.id } })).resolves.toBe(0);
   });
 
-  itKnownDefect('H10', 'PATCH /update/:id no modifica un contacto borrado', async () => {
+  it('PATCH /update/:id no modifica un contacto borrado', async () => {
     const deletedContact = await persistContact(company.tenant.id, {
       lastName: 'Martínez',
       deleted: DeletedState.Inactive,

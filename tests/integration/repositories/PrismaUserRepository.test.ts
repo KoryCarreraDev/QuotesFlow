@@ -7,6 +7,7 @@ import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { PrismaUserRepository } from '@/infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { persistTenant, persistUser } from '@tests/support/database/persistenceFactories.js';
+import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
 describe('PrismaUserRepository', () => {
@@ -96,5 +97,40 @@ describe('PrismaUserRepository', () => {
 
     await expect(creation).rejects.toBeInstanceOf(ConflictError);
     await expect(creation).rejects.toMatchObject({ code: ErrorCode.EMAIL_ALREADY_IN_USE });
+  });
+
+  describe('findActiveByEmail (H3)', () => {
+    it('encuentra a un usuario activo de una empresa activa', async () => {
+      const activeUser = await persistUser(tenantId, { email: 'active@example.com' });
+
+      await expect(userRepository.findActiveByEmail('active@example.com')).resolves.toMatchObject({
+        id: activeUser.id,
+      });
+    });
+
+    it('no encuentra a un usuario desactivado', async () => {
+      await persistUser(tenantId, { email: 'inactive@example.com', isActive: false });
+
+      await expect(userRepository.findActiveByEmail('inactive@example.com')).resolves.toBeNull();
+    });
+
+    it('no encuentra a un usuario borrado', async () => {
+      await persistUser(tenantId, { email: 'deleted@example.com', deleted: DeletedState.Inactive });
+
+      await expect(userRepository.findActiveByEmail('deleted@example.com')).resolves.toBeNull();
+    });
+
+    it('no encuentra a un usuario de una empresa borrada', async () => {
+      const deletedTenantId = (await persistTenant({ name: 'Empresa Borrada', deleted: DeletedState.Inactive })).id;
+      await persistUser(deletedTenantId, { email: 'orphan@example.com' });
+
+      await expect(userRepository.findActiveByEmail('orphan@example.com')).resolves.toBeNull();
+    });
+  });
+
+  it('findById no devuelve un usuario borrado: no se le pueden asignar leads', async () => {
+    const deletedUser = await persistUser(tenantId, { deleted: DeletedState.Inactive });
+
+    await expect(userRepository.findById(deletedUser.id)).resolves.toBeNull();
   });
 });

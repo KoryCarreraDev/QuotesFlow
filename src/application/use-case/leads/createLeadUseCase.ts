@@ -1,3 +1,4 @@
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -19,6 +20,7 @@ export class CreateLeadUseCase {
     private readonly tenantContext: ITenantContext,
     private readonly statusRepo: ILeadStatusConfigRepository,
     private readonly userRepo: IUserRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(createLead: CreateLeadDTO, userId: string, role: Role) {
@@ -54,7 +56,8 @@ export class CreateLeadUseCase {
 
     if (createLead.assignedToId && mayAssignToOthers) {
       const findUser = await this.userRepo.findById(createLead.assignedToId);
-      if (!findUser) {
+      // Un usuario desactivado no puede recibir leads nuevos (H9).
+      if (!findUser?.isActive) {
         throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
       }
     }
@@ -76,6 +79,11 @@ export class CreateLeadUseCase {
     });
 
     await this.leadRepo.create(leadEntity);
+    await this.auditLogger.record({
+      action: AuditAction.LEAD_CREATED,
+      entity: AuditEntity.LEAD,
+      entityId: leadEntity.id,
+    });
     return this.leadmap.toDTO(leadEntity);
   }
 }

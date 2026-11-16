@@ -61,6 +61,7 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
-# Ejecutar con `docker run --init` (o `init: true` en compose) para que SIGTERM llegue a Node;
-# el apagado ordenado llega en F1-T08.
+# La API atiende SIGTERM y SIGINT con apagado ordenado (F1-T08: termina las peticiones en curso,
+# cierra la base de datos, máximo 10 s). Se recomienda igualmente `docker run --init` (o `init: true`)
+# para que un proceso hijo huérfano nunca quede como zombi bajo el PID 1.
 CMD ["node", "dist/server.js"]

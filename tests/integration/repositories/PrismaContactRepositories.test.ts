@@ -10,7 +10,6 @@ import { PrismaContactRepository } from '@/infrastructure/persistence/repositori
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import { persistCompanyContact, persistContact, persistTenant } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 function idsOf(records: Array<{ id: string }>): string[] {
   return records.map((record) => record.id).sort();
@@ -68,7 +67,7 @@ describe('PrismaContactRepository', () => {
     await expect(contactRepository.findById(foreignContact.id)).resolves.toBeNull();
   });
 
-  itKnownDefect('H10', 'findById no devuelve un contacto borrado', async () => {
+  it('findById no devuelve un contacto borrado', async () => {
     const deletedContact = await persistContact(tenantId, { deleted: DeletedState.Inactive });
 
     await expect(contactRepository.findById(deletedContact.id)).resolves.toBeNull();
@@ -134,6 +133,53 @@ describe('PrismaContactRepository', () => {
   });
 });
 
+describe('PrismaContactRepository: borrado suave (F1-T16)', () => {
+  let contactRepository: PrismaContactRepository;
+
+  beforeEach(() => {
+    contactRepository = new PrismaContactRepository(prisma, new FixedTenantContext(tenantId));
+  });
+
+  it('delete marca el contacto como borrado sin eliminar la fila', async () => {
+    const contact = await persistContact(tenantId);
+
+    await contactRepository.delete(contact.id);
+
+    const storedContact = await prisma.contact.findUniqueOrThrow({ where: { id: contact.id } });
+    expect(storedContact.deleted).toBe(DeletedState.Inactive);
+    await expect(contactRepository.findById(contact.id)).resolves.toBeNull();
+  });
+
+  it('delete no borra un contacto de otra empresa', async () => {
+    const foreignContact = await persistContact(otherTenantId);
+
+    await expect(contactRepository.delete(foreignContact.id)).rejects.toThrow();
+
+    const storedContact = await prisma.contact.findUniqueOrThrow({ where: { id: foreignContact.id } });
+    expect(storedContact.deleted).toBe(DeletedState.Active);
+  });
+
+  it('update no modifica un contacto borrado', async () => {
+    const deletedContact = await persistContact(tenantId, { lastName: 'Martínez', deleted: DeletedState.Inactive });
+
+    await expect(
+      contactRepository.update(deletedContact.id, Contact.create({ tenantId, firstName: 'Laura', lastName: 'Ruiz' })),
+    ).rejects.toThrow();
+
+    const storedContact = await prisma.contact.findUniqueOrThrow({ where: { id: deletedContact.id } });
+    expect(storedContact.lastName).toBe('Martínez');
+  });
+
+  it('countActiveByCompany cuenta solo los contactos no borrados de esa empresa cliente', async () => {
+    const companyContact = await persistCompanyContact(tenantId);
+    await persistContact(tenantId, { companyId: companyContact.id });
+    await persistContact(tenantId, { companyId: companyContact.id, deleted: DeletedState.Inactive });
+    await persistContact(tenantId);
+
+    await expect(contactRepository.countActiveByCompany(companyContact.id)).resolves.toBe(1);
+  });
+});
+
 describe('PrismaCompanyContactRepository', () => {
   let companyContactRepository: PrismaCompanyContactRepository;
 
@@ -181,7 +227,7 @@ describe('PrismaCompanyContactRepository', () => {
     await expect(companyContactRepository.findById(foreignCompanyContact.id)).resolves.toBeNull();
   });
 
-  itKnownDefect('H10', 'findById no devuelve una empresa cliente borrada', async () => {
+  it('findById no devuelve una empresa cliente borrada', async () => {
     const deletedCompanyContact = await persistCompanyContact(tenantId, { deleted: DeletedState.Inactive });
 
     await expect(companyContactRepository.findById(deletedCompanyContact.id)).resolves.toBeNull();
@@ -240,5 +286,28 @@ describe('PrismaCompanyContactRepository', () => {
     expect(idsOf(companyContacts)).toEqual([firstMatch.id, secondMatch.id].sort());
     expect(firstPage).toHaveLength(1);
     expect(total).toBe(2);
+  });
+});
+
+describe('PrismaCompanyContactRepository: borrado suave (F1-T16)', () => {
+  let companyContactRepository: PrismaCompanyContactRepository;
+
+  beforeEach(() => {
+    companyContactRepository = new PrismaCompanyContactRepository(prisma, new FixedTenantContext(tenantId));
+  });
+
+  it('delete marca la empresa cliente como borrada sin eliminar la fila', async () => {
+    const companyContact = await persistCompanyContact(tenantId);
+
+    await companyContactRepository.delete(companyContact.id);
+
+    const stored = await prisma.companyContact.findUniqueOrThrow({ where: { id: companyContact.id } });
+    expect(stored.deleted).toBe(DeletedState.Inactive);
+  });
+
+  it('delete no borra una empresa cliente de otro tenant', async () => {
+    const foreignCompanyContact = await persistCompanyContact(otherTenantId);
+
+    await expect(companyContactRepository.delete(foreignCompanyContact.id)).rejects.toThrow();
   });
 });

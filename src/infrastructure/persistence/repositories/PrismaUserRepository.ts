@@ -50,9 +50,16 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
     return record ? this.toDomain(record) : null;
   }
 
+  async findActiveByEmail(email: string): Promise<User | null> {
+    const record = await this.prisma.user.findFirst({
+      where: { email, isActive: true, deleted: 'INUSE', tenant: { deleted: 'INUSE' } },
+    });
+    return record ? this.toDomain(record) : null;
+  }
+
   async findById(id: string): Promise<User | null> {
     const record = await this.prisma.user.findFirst({
-      where: { id, tenantId: this.tenantId },
+      where: { id, tenantId: this.tenantId, deleted: 'INUSE' },
     });
     return record ? this.toDomain(record) : null;
   }

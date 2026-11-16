@@ -6,7 +6,7 @@ import { registerSchema, loginSchema } from '../../presentation/schemas/authSche
 
 export function authRouter(container: ScopedContainer): Router {
   const router = Router();
-  const controller = new AuthController(container.getRegisterCompanyUseCase(), container.getLoginUseCase());
+  const controller = new AuthController(container.auth.getRegisterCompanyUseCase(), container.auth.getLoginUseCase());
   router.post('/register', validateBody(registerSchema), controller.register);
   router.post('/login', validateBody(loginSchema), controller.login);
   return router;

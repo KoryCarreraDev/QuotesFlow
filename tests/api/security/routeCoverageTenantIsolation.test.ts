@@ -13,6 +13,7 @@ import {
   buildConcretePath,
   describeRoute,
 } from '@tests/support/http/apiRoutes.js';
+import { ROLE_COVERAGE_GROUPS } from '@tests/support/http/rolePermissionCoverage.js';
 import {
   type RouteSecurityScenario,
   creationBody,
@@ -21,7 +22,7 @@ import {
   persistScenarioResource,
   readScenarioResource,
   scenarioFor,
-  updateBody,
+  scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
 
 const HTTP_OK = 200;
@@ -39,6 +40,13 @@ describe('Cobertura de seguridad del inventario de rutas', () => {
 
     // Si falla: la ruta nueva necesita su escenario (acción de la matriz, recurso y operación).
     expect(uncoveredRoutes).toEqual([]);
+  });
+
+  it('cada recurso con escenario está en un grupo de la suite de permisos por rol', () => {
+    const coveredResources = new Set(Object.values(ROLE_COVERAGE_GROUPS).flat());
+    const scenarioResources = authenticatedRoutes.flatMap((route) => scenarioFor(route)?.resource ?? []);
+
+    expect(scenarioResources.filter((resource) => !coveredResources.has(resource))).toEqual([]);
   });
 
   it('no hay escenarios de rutas que ya no existen', () => {
@@ -88,7 +96,10 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
 
     const response =
       route.method === 'PATCH'
-        ? await request(app).patch(path).set('Cookie', intruderCookie).send(updateBody(scenario.resource))
+        ? await request(app)
+            .patch(path)
+            .set('Cookie', intruderCookie)
+            .send(scenarioUpdateBody(scenario, intruderCompany))
         : await request(app).post(path).set('Cookie', intruderCookie);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);

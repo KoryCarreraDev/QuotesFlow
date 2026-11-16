@@ -1,3 +1,9 @@
+import {
+  AuditAction,
+  AuditEntity,
+  IAuditLogger,
+  changedFieldNames,
+} from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -9,12 +15,15 @@ import { ILeadMapper } from '@/application/ports/mappers/ILeadMapper.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Role } from '@/domain/enums/Role.js';
 import { Lead } from '@/domain/entities/Lead.js';
+import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
 
 export class UpdateLeadUseCase {
   constructor(
     private readonly leadRepo: ILeadRepository,
     private readonly leadmap: ILeadMapper,
     private readonly tenantContext: ITenantContext,
+    private readonly userRepo: IUserRepository,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(leadId: string, updateLead: UpdateLeadDTO, role: string, userId: string) {
@@ -42,6 +51,9 @@ export class UpdateLeadUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You can only update your own leads');
     }
     const mayReassign = can(actor, Action.LEAD_REASSIGN, lead);
+    const reassignsLead =
+      mayReassign && updateLead.assignedToId !== undefined && updateLead.assignedToId !== leadProperty.assignedToId;
+    if (reassignsLead) await this.ensureAssignableUser(updateLead.assignedToId!);
 
     const updatedLead = new Lead(
       leadProperty.id,
@@ -61,7 +73,21 @@ export class UpdateLeadUseCase {
     );
 
     await this.leadRepo.update(leadProperty.id, updatedLead);
+    await this.auditLogger.record({
+      action: AuditAction.LEAD_UPDATED,
+      entity: AuditEntity.LEAD,
+      entityId: leadProperty.id,
+      metadata: { changedFields: changedFieldNames(updateLead) },
+    });
 
     return this.leadmap.toDTO(updatedLead);
+  }
+
+  /** El nuevo responsable tiene que ser un usuario activo de la misma empresa (H9). */
+  private async ensureAssignableUser(userId: string): Promise<void> {
+    const assignee = await this.userRepo.findById(userId);
+    if (!assignee?.isActive) {
+      throw new ValidationError(ErrorCode.ASSIGNED_USER_NOT_FOUND, 'User not found');
+    }
   }
 }

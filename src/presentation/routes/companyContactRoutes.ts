@@ -8,11 +8,18 @@ import { validateBody } from '../../infrastructure/web/middleware/validateBody.j
 import { Request } from 'express';
 
 function getCompanyContactController(req: Request): companyContactController {
-  const getCompanyContactsUseCase = req.container!.getGetCompanyContactsUseCase();
-  const listFilteredUseCase = req.container!.getListFilteredCompanyContactsUseCase();
-  const createUseCase = req.container!.getCreateCompanyContactUseCase();
-  const updateUseCase = req.container!.getUpdateCompanyContactUseCase();
-  return new companyContactController(getCompanyContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase);
+  const getCompanyContactsUseCase = req.container!.companyContacts.getGetCompanyContactsUseCase();
+  const listFilteredUseCase = req.container!.companyContacts.getListFilteredCompanyContactsUseCase();
+  const createUseCase = req.container!.companyContacts.getCreateCompanyContactUseCase();
+  const updateUseCase = req.container!.companyContacts.getUpdateCompanyContactUseCase();
+  const deleteUseCase = req.container!.companyContacts.getDeleteCompanyContactUseCase();
+  return new companyContactController(
+    getCompanyContactsUseCase,
+    listFilteredUseCase,
+    createUseCase,
+    updateUseCase,
+    deleteUseCase,
+  );
 }
 
 export function companyContactRouter(jwtService: IAuthTokenService): Router {
@@ -46,6 +53,10 @@ export function companyContactRouter(jwtService: IAuthTokenService): Router {
 
   router.get('/filtered', authMiddleware, tenantMiddleware, (req, res, next) => {
     getCompanyContactController(req).getFiltered(req, res, next);
+  });
+
+  router.post('/delete/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getCompanyContactController(req).delete(req, res, next);
   });
 
   return router;

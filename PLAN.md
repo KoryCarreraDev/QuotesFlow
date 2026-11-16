@@ -142,23 +142,23 @@ Transversal:
 - F1-T04 `[O]` Políticas de autorización centralizadas en `application/policies` (`can(usuario, acción, recurso)`); retirar los `if (role …)` dispersos (H12). Generar `docs/security/matriz-permisos.md`. **Hecha el 2026-11-16, pendiente de PR, revisión humana y firma de la matriz.** Las acciones permitidas a todos (contactos, empresas cliente, listar estados) se conectan a la política en F1-T16/F1-T17.
 - F1-T05 `[O]` Suite de aislamiento por tenant y suite de roles que recorren el inventario de rutas; CI falla si una ruta no está cubierta (R5). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `tests/api/security/routeCoverage*.test.ts`; escenarios en `tests/support/http/routeSecurityScenarios.ts`.
 - F1-T06 `[S]` CORS con lista blanca y credenciales, `trust proxy`, límite de cuerpo 100 kb, límites de tasa por ruta (H4, H6, H14). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Cupos por defecto en Q-011. De H6 quedan los contadores compartidos entre instancias (F8) y el bloqueo por cuenta (F2-T03).
-- F1-T07 `[O]` Logger estructurado detrás de puerto `ILogger` (winston), id de petición, redacción de datos sensibles; puerto `IAuditLogger` que escribe `AuditLog` en toda mutación, evento de auth y descarga (H13). El log de consultas de Prisma solo en local y sin datos (H25).
-- F1-T08 `[S]` `/health` (vida) y `/ready` (BD), apagado ordenado.
-- F1-T09 `[S]` Dividir `cross-cutting/container.ts` por módulo.
-- F1-T10 `[S]` Migración: `tenantId` en `QuoteItem` y `LeadStatusHistory` (H15).
+- F1-T07 `[O]` Logger estructurado detrás de puerto `ILogger` (winston), id de petición, redacción de datos sensibles; puerto `IAuditLogger` que escribe `AuditLog` en toda mutación, evento de auth y descarga (H13). El log de consultas de Prisma solo en local y sin datos (H25). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** No hay descargas todavía (se auditarán al crearlas en F6/F7). Limitación: fuera de registro y cambio de estado la auditoría no comparte transacción con la modificación.
+- F1-T08 `[S]` `/health` (vida) y `/ready` (BD), apagado ordenado. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Resuelve F0-S4. Las sondas cuentan para el límite global de peticiones: el orquestador no debe sondear más de una vez cada 10 s por instancia.
+- F1-T09 `[S]` Dividir `cross-cutting/container.ts` por módulo. **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `src/cross-cutting/modules/`.
+- F1-T10 `[S]` Migración: `tenantId` en `QuoteItem` y `LeadStatusHistory` (H15). **Hecha el 2026-11-16, pendiente de PR, revisión humana y aplicación en producción por Operaciones (R6).**
 - F1-T11 `[S]` Si D-06 = Sí: rutas REST bajo `/api/v1`. Si D-07 = Sí: OpenAPI generado desde los esquemas Zod.
 
 Motor de filtrado:
-- F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11).
+- F1-T12 `[O]` Validar `filters` con Zod según tipo declarado por campo (texto, número, fecha, id); errores 400; ordenamiento por lista blanca (`sortBy`, `sortDir`); mover el alcance por rol del controller a la política (H11). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `src/infrastructure/web/filters/parseFilterQuery.ts`.
 
 Leads y estados:
-- F1-T13 `[O]` Cambio de estado como caso de uso propio que escribe `LeadStatusHistory` en transacción; validar `assignedToId` al actualizar (H9); login comprueba usuario y tenant activos (H3).
+- F1-T13 `[O]` Cambio de estado como caso de uso propio que escribe `LeadStatusHistory` en transacción; validar `assignedToId` al actualizar (H9); login comprueba usuario y tenant activos (H3). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `PATCH /api/lead/status/:id`. Leer el historial (línea de tiempo, C-02) queda para cuando se planifique C-02.
 - F1-T14 `[S]` Estados: campo `type` (abierto/ganado/perdido, ver D-51), borrado suave con regla (no es el predeterminado y no tiene leads: reutilizar `countLeadByStatus`), reordenamiento transaccional.
 - F1-T15 `[S]` Correcciones de nombres y tipos: `PrismaLeadStatusConfig.ts`, `LeadConfigStatusMapper.ts`, `updateAt`, uso real del enum `DeletedState`, `map(this.mapper.toDTO)` sin enlazar.
 - F1-T18 `[S]` Poner el código existente al día con R11 a R13: renombrar identificadores poco claros (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`), JSDoc en puertos, casos de uso y entidades, y `docs/modulos/` de auth, leads, estados, contactos y filtrado.
 
 Contactos y empresas:
-- F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9).
+- F1-T16 `[S]` Borrado suave, `findById` filtra `deleted` (H10), validar `companyId` (H9). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** Quién borra y qué pasa con los contactos de una empresa borrada: Q-012.
 - F1-T17 `[O]` Migración: `ownerId` (comercial responsable) en `Contact` y `CompanyContact`; `documentType` y `documentNumber` en `Contact`; documento normalizado en ambos (solo dígitos, sin dígito de verificación). Visibilidad por rol según D-18, unicidad según D-19. Es la base de la cartera.
 
 ### F2 — Identidad, sesiones y usuarios

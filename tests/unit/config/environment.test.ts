@@ -51,6 +51,7 @@ describe('parseEnvironment', () => {
       TRUST_PROXY: 0,
       RATE_LIMIT_GLOBAL_MAX_REQUESTS: DEFAULT_GLOBAL_RATE_LIMIT,
       RATE_LIMIT_AUTH_MAX_REQUESTS: DEFAULT_AUTH_RATE_LIMIT,
+      LOG_LEVEL: 'info',
     });
   });
 
@@ -191,6 +192,16 @@ describe('parseEnvironment', () => {
       expect(invalidVariablesOf({ RATE_LIMIT_AUTH_MAX_REQUESTS: invalidValue })).toEqual([
         'RATE_LIMIT_AUTH_MAX_REQUESTS',
       ]);
+    });
+  });
+
+  describe('LOG_LEVEL', () => {
+    it('por defecto es info', () => {
+      expect(parseEnvironment(validVariables).LOG_LEVEL).toBe('info');
+    });
+
+    it('rechaza un nivel desconocido', () => {
+      expect(invalidVariablesOf({ LOG_LEVEL: 'verbose' })).toEqual(['LOG_LEVEL']);
     });
   });
 
