@@ -9,3 +9,7 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-only-jwt-secret-never-use-outside-tests';
 process.env.JWT_EXPIRATION = '1h';
 process.env.DOTENV_CONFIG_QUIET = 'true';
+process.env.CORS_ALLOWED_ORIGINS = 'https://app.quotesflow.test';
+// El cupo real de autenticación (10) no deja ejecutar los tests de login y registro de un mismo archivo.
+// Sigue por debajo del global (100), y el limitador se prueba aparte con cupos pequeños.
+process.env.RATE_LIMIT_AUTH_MAX_REQUESTS = '50';

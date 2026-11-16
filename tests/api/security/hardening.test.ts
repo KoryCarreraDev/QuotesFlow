@@ -1,10 +1,11 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import app from '@/app.js';
+import { env } from '@/config/env.js';
+import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { TEST_USER_PASSWORD } from '@tests/support/database/persistenceFactories.js';
 import { GLOBAL_RATE_LIMIT_MAX_REQUESTS } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
@@ -38,14 +39,14 @@ describe('Cabeceras de seguridad', () => {
     expect(response.status).toBe(HTTP_NOT_FOUND);
   });
 
-  itKnownDefect('H4', 'CORS no autoriza a cualquier origen', async () => {
+  it('CORS no autoriza a cualquier origen', async () => {
     const response = await request(app).get(apiPaths.health).set('Origin', UNTRUSTED_ORIGIN);
 
     expect(response.headers['access-control-allow-origin']).not.toBe(ALLOW_ANY_ORIGIN);
     expect(response.headers['access-control-allow-origin']).not.toBe(UNTRUSTED_ORIGIN);
   });
 
-  itKnownDefect('H14', 'rechaza con 413 un cuerpo mayor que el límite previsto de 100 kb', async () => {
+  it('rechaza con 413 un cuerpo mayor que el límite previsto de 100 kb', async () => {
     const response = await request(app)
       .post(apiPaths.auth.login)
       .send({
@@ -55,6 +56,22 @@ describe('Cabeceras de seguridad', () => {
       });
 
     expect(response.status).toBe(HTTP_PAYLOAD_TOO_LARGE);
+    expect(response.body.error.code).toBe(ErrorCode.PAYLOAD_TOO_LARGE);
+  });
+
+  it('CORS autoriza, con credenciales, un origen de CORS_ALLOWED_ORIGINS', async () => {
+    const [trustedOrigin] = env.CORS_ALLOWED_ORIGINS;
+
+    const response = await request(app).get(apiPaths.health).set('Origin', trustedOrigin);
+
+    expect(response.headers['access-control-allow-origin']).toBe(trustedOrigin);
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  it('las rutas de autenticación tienen su propio cupo, más bajo que el global', async () => {
+    const response = await request(app).post(apiPaths.auth.login).send({});
+
+    expect(response.headers['ratelimit-limit']).toBe(String(env.RATE_LIMIT_AUTH_MAX_REQUESTS));
   });
 });
 

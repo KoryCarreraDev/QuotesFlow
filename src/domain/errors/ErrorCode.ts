@@ -38,6 +38,9 @@ export enum ErrorCode {
   FILTER_FIELD_NOT_ALLOWED = 'FILTER_FIELD_NOT_ALLOWED',
   FILTER_OPERATOR_NOT_ALLOWED = 'FILTER_OPERATOR_NOT_ALLOWED',
 
+  // Límite de peticiones superado
+  TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
+
   // Fallo no previsto: el detalle solo queda en el servidor.
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }

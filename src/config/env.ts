@@ -21,6 +21,46 @@ const JWT_EXPIRATION_PATTERN = /^\d+(ms|s|m|h|d|w|y)$/;
 
 const MISSING_VARIABLE_MESSAGE = 'is required';
 
+// Un origen es esquema + host (+ puerto), sin ruta ni barra final: así lo envía el navegador en `Origin`.
+const ORIGIN_PATTERN = /^https?:\/\/[^/\s]+$/;
+const ORIGIN_LIST_SEPARATOR = ',';
+const DEFAULT_TRUSTED_PROXY_HOPS = 0;
+const DEFAULT_GLOBAL_RATE_LIMIT = 100;
+// Cupo de login y registro por IP y ventana: frena la prueba masiva de contraseñas (H6). El bloqueo por
+// cuenta llega en F2-T03.
+const DEFAULT_AUTH_RATE_LIMIT = 10;
+
+function splitOriginList(value: unknown): unknown {
+  if (value === undefined) return [];
+  if (typeof value !== 'string') return value;
+  return value
+    .split(ORIGIN_LIST_SEPARATOR)
+    .map((origin) => origin.trim())
+    .filter((origin) => origin !== '');
+}
+
+function nonNegativeInteger(defaultValue: number) {
+  return z.preprocess(
+    treatEmptyAsMissing,
+    z.coerce
+      .number({ error: 'must be a whole number' })
+      .int({ error: 'must be a whole number' })
+      .min(0, { error: 'must be a whole number' })
+      .default(defaultValue),
+  );
+}
+
+function positiveInteger(defaultValue: number) {
+  return z.preprocess(
+    treatEmptyAsMissing,
+    z.coerce
+      .number({ error: 'must be a positive whole number' })
+      .int({ error: 'must be a positive whole number' })
+      .min(1, { error: 'must be a positive whole number' })
+      .default(defaultValue),
+  );
+}
+
 /** Una variable definida pero vacía (`JWT_SECRET=`) cuenta como ausente. */
 function treatEmptyAsMissing(value: unknown): unknown {
   return value === '' ? undefined : value;
@@ -71,6 +111,22 @@ const environmentSchema = z.object({
       .regex(JWT_EXPIRATION_PATTERN, { error: 'must be a number followed by a unit (ms, s, m, h, d, w, y), e.g. 15m' })
       .default(DEFAULT_JWT_EXPIRATION),
   ),
+  // Lista blanca de CORS (H4). Vacía: ningún navegador de otro origen puede llamar a la API.
+  // Nunca `*`: la API usa cookie de sesión y CORS con credenciales exige orígenes exactos.
+  CORS_ALLOWED_ORIGINS: z.preprocess(
+    (value) => splitOriginList(treatEmptyAsMissing(value)),
+    z.array(
+      z.string().regex(ORIGIN_PATTERN, {
+        error: 'must be a comma-separated list of exact origins, e.g. https://app.example.com',
+      }),
+    ),
+  ),
+  // Proxies (balanceador, CDN) entre el cliente y la API. Con 0, X-Forwarded-For se ignora y nadie puede
+  // falsificar su IP para esquivar los límites de tasa; detrás de un proxy hay que fijarlo o todos los
+  // clientes compartirían la IP del proxy (H6).
+  TRUST_PROXY: nonNegativeInteger(DEFAULT_TRUSTED_PROXY_HOPS),
+  RATE_LIMIT_GLOBAL_MAX_REQUESTS: positiveInteger(DEFAULT_GLOBAL_RATE_LIMIT),
+  RATE_LIMIT_AUTH_MAX_REQUESTS: positiveInteger(DEFAULT_AUTH_RATE_LIMIT),
 });
 
 /** Configuración del proceso ya validada. */
