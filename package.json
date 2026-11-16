@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
     "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tests/tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "lint:fix": "eslint . --fix && prettier --write .",
+    "format": "prettier --write .",
+    "typecheck":"tsc -p tsconfig.json --noEmit && tsc -p tests/tsconfig.json",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
@@ -54,6 +57,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@testcontainers/postgresql": "12.2.1",
     "@types/bcryptjs": "^3.0.0",
     "@types/compression": "^1.8.1",
@@ -66,7 +70,11 @@
     "@types/pg": "^8.23.1",
     "@types/supertest": "7.2.1",
     "@vitest/coverage-v8": "5.1.0",
+    "@vitest/eslint-plugin": "1.6.28",
     "eslint": "^10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-security": "4.2.1",
+    "globals": "17.14.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.10.1",
     "prisma": "^7.10.1",
@@ -74,6 +82,7 @@
     "tsc-alias": "1.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
+    "typescript-eslint": "8.72.1",
     "vitest": "5.1.0"
   }
 }
