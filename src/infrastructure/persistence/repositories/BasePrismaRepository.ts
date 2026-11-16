@@ -1,3 +1,4 @@
+import { DeletedState as StoredDeletedState } from '@prisma/client';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -26,8 +27,8 @@ export abstract class BasePrismaRepository {
 
   //Genera un filtro (Where) con el tenantID
   //para usasrse en cualquier consulta con el campo tenantId
-  protected tenantWhere(): { tenantId: string; deleted: 'INUSE' } {
-    return { tenantId: this.tenantId, deleted: 'INUSE' };
+  protected tenantWhere(): { tenantId: string; deleted: typeof StoredDeletedState.INUSE } {
+    return { tenantId: this.tenantId, deleted: StoredDeletedState.INUSE };
   }
 
   //Helper para añadir el filtro a un objeto where ya existente
@@ -52,7 +53,7 @@ export abstract class BasePrismaRepository {
     //Añade el tenantId
     conditions.push({ tenantId: this.tenantId });
     //Añade el deleted en INUSE
-    conditions.push({ deleted: 'INUSE' });
+    conditions.push({ deleted: StoredDeletedState.INUSE });
 
     //Filtros especificos
     for (const filter of criteria.filters ?? []) {
@@ -154,7 +155,7 @@ export abstract class BasePrismaRepository {
 
     await model.update({
       where: { id, tenantId: this.tenantId },
-      data: { deleted: 'DELETED', updatedAt: new Date() },
+      data: { deleted: StoredDeletedState.DELETED, updatedAt: new Date() },
     });
   }
 }

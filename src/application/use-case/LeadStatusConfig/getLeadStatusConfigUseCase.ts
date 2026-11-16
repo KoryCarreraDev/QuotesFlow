@@ -17,6 +17,6 @@ export class GetLeadStatusConfigUseCase {
     }
 
     const status = await this.statusRepo.findAllByTenant(tenantId);
-    return status.map(this.statusMap.toDTO);
+    return status.map((entity) => this.statusMap.toDTO(entity));
   }
 }

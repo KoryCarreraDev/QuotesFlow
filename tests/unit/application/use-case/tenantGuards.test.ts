@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { CompanyContactMapper } from '@/application/mappers/CompanyContactMapper.js';
 import { ContactMapper } from '@/application/mappers/ContactMapper.js';
-import { LeadStatusConfigMapper } from '@/application/mappers/LeadConfigStatusMapper.js';
+import { LeadStatusConfigMapper } from '@/application/mappers/LeadStatusConfigMapper.js';
 import { LeadMapper } from '@/application/mappers/LeadMapper.js';
 import { CreateLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/createLeadStatusConfigUseCase.js';
 import { GetLeadStatusConfigUseCase } from '@/application/use-case/LeadStatusConfig/getLeadStatusConfigUseCase.js';

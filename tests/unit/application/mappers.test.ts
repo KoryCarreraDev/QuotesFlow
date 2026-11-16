@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import { CompanyContactMapper } from '@/application/mappers/CompanyContactMapper.js';
 import { ContactMapper } from '@/application/mappers/ContactMapper.js';
-import { LeadStatusConfigMapper } from '@/application/mappers/LeadConfigStatusMapper.js';
+import { LeadStatusConfigMapper } from '@/application/mappers/LeadStatusConfigMapper.js';
 import { LeadMapper } from '@/application/mappers/LeadMapper.js';
 import {
   buildCompanyContact,

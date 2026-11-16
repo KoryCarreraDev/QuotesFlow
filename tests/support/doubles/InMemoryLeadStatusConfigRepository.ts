@@ -55,7 +55,7 @@ export class InMemoryLeadStatusConfigRepository implements ILeadStatusConfigRepo
         data.name ?? storedStatus.name,
         data.order ?? storedStatus.order,
         data.isDefault ?? storedStatus.isDefault,
-        data.updateAt ?? storedStatus.updateAt,
+        data.updatedAt ?? storedStatus.updatedAt,
         data.createdAt ?? storedStatus.createdAt,
         data.color ?? storedStatus.color,
         storedStatus.tenantId,
@@ -85,13 +85,13 @@ export class InMemoryLeadStatusConfigRepository implements ILeadStatusConfigRepo
     });
   }
 
-  private copyWith(status: LeadStatusConfig, changes: { order?: number; deleted?: string }): LeadStatusConfig {
+  private copyWith(status: LeadStatusConfig, changes: { order?: number; deleted?: DeletedState }): LeadStatusConfig {
     return new LeadStatusConfig(
       status.id,
       status.name,
       changes.order ?? status.order,
       status.isDefault,
-      status.updateAt,
+      status.updatedAt,
       status.createdAt,
       status.color,
       status.tenantId,

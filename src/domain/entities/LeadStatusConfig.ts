@@ -1,3 +1,4 @@
+import { DeletedState } from '../enums/DeletedState.js';
 import crypto from 'crypto';
 import { LeadStatusType } from '../enums/LeadStatusType.js';
 
@@ -7,11 +8,11 @@ export class LeadStatusConfig {
     public readonly name?: string,
     public readonly order?: number,
     public readonly isDefault?: boolean,
-    public readonly updateAt?: Date,
+    public readonly updatedAt?: Date,
     public readonly createdAt?: Date,
     public readonly color?: string,
     public readonly tenantId?: string,
-    public readonly deleted?: string,
+    public readonly deleted?: DeletedState,
     public readonly type: LeadStatusType = LeadStatusType.OPEN,
   ) {}
 
@@ -36,7 +37,7 @@ export class LeadStatusConfig {
       prismaLead.createdAt,
       prismaLead.color ?? undefined,
       prismaLead.tenantId,
-      prismaLead.deleted ?? undefined,
+      (prismaLead.deleted as DeletedState | null) ?? undefined,
       (prismaLead.type as LeadStatusType | undefined) ?? LeadStatusType.OPEN,
     );
   }
@@ -47,7 +48,7 @@ export class LeadStatusConfig {
     isDefault?: boolean;
     tenantId?: string;
     color?: string;
-    deleted?: string;
+    deleted?: DeletedState;
     type?: LeadStatusType;
   }): LeadStatusConfig {
     const id = crypto.randomUUID();

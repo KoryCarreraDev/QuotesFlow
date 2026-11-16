@@ -1,3 +1,4 @@
+import { DeletedState } from '@/domain/enums/DeletedState.js';
 import {
   AuditAction,
   AuditEntity,
@@ -41,7 +42,7 @@ export class UpdateLeadUseCase {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
     }
 
-    if (leadProperty.deleted === 'DELETED') {
+    if (leadProperty.deleted === DeletedState.Inactive) {
       throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'This lead is deleted');
     }
 

@@ -19,6 +19,6 @@ export class GetLeadsUseCase {
     }
 
     const leads = await this.leadRepo.findByTenant(scope.kind === 'own' ? scope.userId : undefined);
-    return leads.map(this.leadMapper.toDTO);
+    return leads.map((entity) => this.leadMapper.toDTO(entity));
   }
 }

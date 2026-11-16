@@ -10,6 +10,6 @@ export class GetContactsUseCase {
 
   async execute(): Promise<ContactDTO[]> {
     const contacts = await this.contactRepo.findByTenant();
-    return contacts.map(this.contactMapper.toDTO);
+    return contacts.map((entity) => this.contactMapper.toDTO(entity));
   }
 }

@@ -5,7 +5,7 @@ import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses
 import prisma from '@/config/database.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
-import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfig.js';
+import { PrismaLeadStatusConfigRepository } from '@/infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
 import {
   TEST_USER_PASSWORD,
   persistTenant,

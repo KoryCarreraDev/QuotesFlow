@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T14-lead-status-lifecycle` (apilada sobre F1-T01 a F1-T07 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F1-T15-naming-and-types` (apilada sobre F1-T01 a F1-T14 y las ramas de F0), 2026-11-16.
 
 ---
 
@@ -27,15 +27,13 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
 | Mensajería, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07. `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 945 tests (unit, integración con PostgreSQL efímero, API, build). 3 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 949 tests (unit, integración con PostgreSQL efímero, API, build). 3 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
 - **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
 - **Cambio de estado (F1-T13).** Solo por `PATCH /api/lead/status/:id` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/lead/update/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
-- `PrismaLeadStatusConfig.ts` (nombre sin sufijo `Repository`) contiene `PrismaLeadStatusConfigRepository`; `LeadConfigStatusMapper.ts` contiene `LeadStatusConfigMapper`.
-- `Lead.deleted` y `LeadStatusConfig.deleted` son `string`; el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`) casi no se usa: el código compara con literales `'INUSE'`/`'DELETED'`.
-- `LeadStatusConfig.updateAt` (typo, sin "d") es el nombre real del campo de la entidad.
+- Borrado suave (F1-T15): en `domain` y `application` se usa el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`), y `Lead.deleted` y `LeadStatusConfig.deleted` tienen ese tipo. En los repositorios se usa el enum que genera Prisma (`DeletedState as StoredDeletedState` de `@prisma/client`), porque el de dominio no es asignable a sus tipos literales. No quedan literales `'INUSE'`/`'DELETED'` fuera de los enums.
 - Todos los repositorios de negocio filtran `deleted: 'INUSE'` en lecturas y modificaciones; contactos y empresas cliente desde F1-T16 (H10). En los dobles en memoria de contactos la marca de borrado se guarda aparte, porque las entidades `Contact` y `CompanyContact` no la llevan.
 - Desde F1-T13 y F1-T16 toda referencia a otro registro se valida dentro del tenant: el responsable de un lead (usuario activo) y la empresa cliente de un contacto (no borrada; si no, 400 `INVALID_COMPANY_CONTACT`).
 - `pnpm audit` (2026-11-16, tras F0-T09): `pnpm audit --prod` sin avisos. Quedan 2 moderados solo de desarrollo, `glob` 10.5.0 y `minimatch` 5.1.9/9.0.9, que arrastra `@testcontainers/postgresql` 12.2.1 vía `archiver` 7. No tienen versión corregida en su rama mayor y testcontainers aún no admite `archiver` 8, por eso no se fuerzan. Antes eran 94 avisos (1 crítico).
@@ -96,7 +94,7 @@ src/
   domain/value-objects/      (vacío)
   application/constants/     defaultLeadStatuses.ts
   application/dtos/          [Entidad]DTO, Create…DTO, Update…DTO, FilterCriteriaDTO, PaginatedResultDTO, LoginDTO, RegisterCompanyDTO
-  application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadConfigStatusMapper
+  application/mappers/       LeadMapper, ContactMapper, CompanyContactMapper, LeadStatusConfigMapper
   application/policies/      authorizationPolicy.ts: matriz de permisos, can, scopeFor (F1-T04)
   application/ports/         repositories/I*, services/I*, mappers/I*
   application/use-case/      auth/, leads/, LeadStatusConfig/, contacts/, companyContacts/, filter/, (messaging/ y pricing/ vacíos)
@@ -400,3 +398,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T12 | pendiente | Validación de la query de los listados filtrados (H11) en `parseFilterQuery`: tipo de cada valor según `type` del campo (`text`, `number`, `date`, `id`), `in` con lista, límites de tamaño, orden por lista blanca (`sortBy`, `sortDir`, campos `sortable`) con orden por defecto estable. Códigos `INVALID_FILTER_VALUE` y `SORT_FIELD_NOT_ALLOWED`. El alcance por rol pasa del controller a `GenericListFilteredUseCase` (`ownershipScope`). El último defecto conocido de H11 pasa a regresión; 31 tests nuevos. Las configuraciones de filtros de 2 tests unitarios ganan el campo `type`, ahora obligatorio. |
 | 2026-11-16 | F1-T07 | pendiente | Logger estructurado (H13): puerto `ILogger`, `WinstonLogger` en JSON, redacción de datos sensibles, `X-Request-Id` y contexto de petición con `AsyncLocalStorage`, log de acceso. Prisma ya no registra consultas con datos (H25). Auditoría de negocio: puerto `IAuditLogger`, `PrismaAuditLogger`, registro en toda modificación, registro de empresa y login. Variable `LOG_LEVEL`. `console.*` sustituido por el logger. 35 tests nuevos. Cambia la construcción de 25 casos de uso en 6 archivos de tests unitarios (nuevo parámetro), el test de `errorHandler` usa un logger falso en lugar de espiar `console.error` y el test de configuración completa añade `LOG_LEVEL`. |
 | 2026-11-16 | F1-T14 | pendiente | Estados de lead: `type` OPEN/WON/LOST (D-51, migración `add_type_to_lead_status_config`, el predeterminado debe ser OPEN); crear y modificar en transacción (el defecto conocido F1-T14 pasa a regresión) con 409 `LEAD_STATUS_ORDER_TAKEN`; borrado suave (`POST /api/leadStatusConfig/delete/:id`, acción `lead-status:delete`, no el predeterminado ni con leads, libera su `order`); reordenamiento transaccional (`PATCH /api/leadStatusConfig/reorder`). Escenarios de seguridad con operación nueva `bulkUpdate`. 40 tests nuevos. Las construcciones de los casos de uso de estados en 2 archivos unitarios reciben el gestor de transacciones. |
+| 2026-11-16 | F1-T15 | pendiente | Nombres y tipos: `PrismaLeadStatusConfig.ts` pasa a `PrismaLeadStatusConfigRepository.ts` y `LeadConfigStatusMapper.ts` a `LeadStatusConfigMapper.ts`; `LeadStatusConfig.updateAt` pasa a `updatedAt`; `deleted` tipado con el enum `DeletedState`, sin literales sueltos; los listados llaman a `toDTO` con su objeto en lugar de pasarlo sin enlazar. 4 tests de regresión nuevos. Cambian solo rutas de import y el nombre `updatedAt` en tests existentes. |

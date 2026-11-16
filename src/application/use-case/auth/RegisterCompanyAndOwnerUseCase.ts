@@ -1,3 +1,4 @@
+import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
@@ -54,7 +55,7 @@ export class RegisterCompanyAndOwnerUseCase {
           tenantId: tenant.id,
           color: statusData.color,
           type: statusData.type,
-          deleted: 'INUSE',
+          deleted: DeletedState.Active,
         });
         await this.statusRepo.create(status);
       }

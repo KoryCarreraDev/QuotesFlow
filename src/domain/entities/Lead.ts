@@ -1,3 +1,4 @@
+import { DeletedState } from '../enums/DeletedState.js';
 import crypto from 'crypto';
 
 export class Lead {
@@ -16,7 +17,7 @@ export class Lead {
     public readonly notes?: string,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
-    public readonly deleted?: string,
+    public readonly deleted?: DeletedState,
   ) {}
 
   static fromPrisma(prismaLead: {
@@ -51,7 +52,7 @@ export class Lead {
       prismaLead.notes ?? undefined,
       prismaLead.createdAt ?? undefined,
       prismaLead.updatedAt ?? undefined,
-      prismaLead.deleted ?? undefined,
+      (prismaLead.deleted as DeletedState | null) ?? undefined,
     );
   }
 
@@ -67,7 +68,7 @@ export class Lead {
     estimatedValue?: number;
     expectedCloseDate?: Date;
     notes?: string;
-    deleted?: string;
+    deleted?: DeletedState;
   }): Lead {
     const id = crypto.randomUUID();
     const now = new Date();

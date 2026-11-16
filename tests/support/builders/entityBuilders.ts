@@ -37,7 +37,7 @@ export interface LeadBuilderProps {
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  deleted?: string;
+  deleted?: DeletedState;
 }
 
 export function buildLead(overrides: Partial<LeadBuilderProps> = {}): Lead {
@@ -84,7 +84,7 @@ export interface LeadStatusConfigBuilderProps {
   color?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  deleted?: string;
+  deleted?: DeletedState;
   type?: LeadStatusType;
 }
 

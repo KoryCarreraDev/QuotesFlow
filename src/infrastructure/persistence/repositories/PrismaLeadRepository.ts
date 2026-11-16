@@ -1,3 +1,4 @@
+import { DeletedState as StoredDeletedState } from '@prisma/client';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import { ILeadRepository } from '../../../application/ports/repositories/ILeadRepository.js';
 import { Lead } from '../../../domain/entities/Lead.js';
@@ -54,7 +55,7 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
     const record = await this.prisma.lead.findFirst({
       where: {
         id: id,
-        deleted: 'INUSE',
+        deleted: StoredDeletedState.INUSE,
         tenantId: this.tenantId,
       },
       include: {
@@ -88,7 +89,7 @@ export class PrismaLeadRepository extends BasePrismaRepository implements ILeadR
 
   async updateStatus(leadId: string, statusId: string): Promise<void> {
     await this.prisma.lead.update({
-      where: { id: leadId, tenantId: this.tenantId, deleted: 'INUSE' },
+      where: { id: leadId, tenantId: this.tenantId, deleted: StoredDeletedState.INUSE },
       data: { statusId },
     });
   }

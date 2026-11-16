@@ -155,7 +155,7 @@ describe('LeadStatusConfig', () => {
       order: 1,
       isDefault: true,
       createdAt: CREATED_AT,
-      updateAt: UPDATED_AT,
+      updatedAt: UPDATED_AT,
       deleted: DeletedState.Active,
     });
     expect(status.color).toBeUndefined();

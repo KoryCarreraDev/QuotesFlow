@@ -154,7 +154,7 @@ Motor de filtrado:
 Leads y estados:
 - F1-T13 `[O]` Cambio de estado como caso de uso propio que escribe `LeadStatusHistory` en transacción; validar `assignedToId` al actualizar (H9); login comprueba usuario y tenant activos (H3). **Hecha el 2026-11-16, pendiente de PR y revisión humana.** `PATCH /api/lead/status/:id`. Leer el historial (línea de tiempo, C-02) queda para cuando se planifique C-02.
 - F1-T14 `[S]` Estados: campo `type` (abierto/ganado/perdido, ver D-51), borrado suave con regla (no es el predeterminado y no tiene leads: reutilizar `countLeadByStatus`), reordenamiento transaccional. **Hecha el 2026-11-16, pendiente de PR, revisión humana y migración en producción (R6).** El motivo obligatorio al marcar perdido (C-06) aún no tiene tarea asignada.
-- F1-T15 `[S]` Correcciones de nombres y tipos: `PrismaLeadStatusConfig.ts`, `LeadConfigStatusMapper.ts`, `updateAt`, uso real del enum `DeletedState`, `map(this.mapper.toDTO)` sin enlazar.
+- F1-T15 `[S]` Correcciones de nombres y tipos: `PrismaLeadStatusConfig.ts`, `LeadConfigStatusMapper.ts`, `updateAt`, uso real del enum `DeletedState`, `map(this.mapper.toDTO)` sin enlazar. **Hecha el 2026-11-16, pendiente de PR y revisión humana.**
 - F1-T18 `[S]` Poner el código existente al día con R11 a R13: renombrar identificadores poco claros (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`), JSDoc en puertos, casos de uso y entidades, y `docs/modulos/` de auth, leads, estados, contactos y filtrado.
 
 Contactos y empresas:

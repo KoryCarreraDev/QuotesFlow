@@ -1,3 +1,4 @@
+import { DeletedState as StoredDeletedState } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -41,7 +42,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     const freedOrder = Math.min(lowest._min.order ?? 0, 0) - 1;
     await this.prisma.leadStatusConfig.update({
       where: { id: statusId, ...this.tenantWhere() },
-      data: { deleted: 'DELETED', order: freedOrder, updatedAt: new Date() },
+      data: { deleted: StoredDeletedState.DELETED, order: freedOrder, updatedAt: new Date() },
     });
   }
 
@@ -74,7 +75,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
         order: data.order,
         isDefault: data.isDefault,
         createdAt: data.createdAt,
-        updatedAt: data.updateAt,
+        updatedAt: data.updatedAt,
         type: data.type,
       },
     });
@@ -98,7 +99,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     const record = await this.prisma.leadStatusConfig.findMany({
       where: {
         tenantId: assignedTenant,
-        deleted: 'INUSE',
+        deleted: StoredDeletedState.INUSE,
       },
       orderBy: {
         order: 'asc',
@@ -112,7 +113,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     const record = await this.prisma.leadStatusConfig.findUnique({
       where: {
         id: id,
-        deleted: 'INUSE',
+        deleted: StoredDeletedState.INUSE,
         tenantId: this.tenantId,
       },
     });
@@ -124,7 +125,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     const record = await this.prisma.leadStatusConfig.findUnique({
       where: {
         id: statusId,
-        deleted: 'INUSE',
+        deleted: StoredDeletedState.INUSE,
         tenantId: this.tenantId,
       },
       select: {
@@ -141,7 +142,7 @@ export class PrismaLeadStatusConfigRepository extends BasePrismaRepository imple
     const record = await this.prisma.leadStatusConfig.findFirst({
       where: {
         tenantId: assignedTenant,
-        deleted: 'INUSE',
+        deleted: StoredDeletedState.INUSE,
         isDefault: true,
       },
     });
