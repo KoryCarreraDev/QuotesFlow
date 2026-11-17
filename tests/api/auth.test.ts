@@ -16,10 +16,9 @@ import { SESSION_COOKIE_NAME } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
 
 const HTTP_OK = 200;
-const HTTP_CREATED = 201;
+const HTTP_ACCEPTED = 202;
 const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
-const HTTP_CONFLICT = 409;
 const HTTP_INTERNAL_SERVER_ERROR = 500;
 const STATUS_CREATIONS_BEFORE_FAILURE = 2;
 const FIRST_ERROR_STATUS = 400;
@@ -40,12 +39,16 @@ function findSessionCookie(setCookieHeader: string | string[] | undefined): stri
 }
 
 describe('POST /api/v1/auth/register', () => {
-  it('crea la empresa y su dueño, y responde 201 con ambos ids', async () => {
+  // F2-T04: responde 202 sin ids (antes 201 con ellos): queda pendiente de verificar el correo y la respuesta
+  // es igual exista o no el correo (H8).
+  it('crea la empresa y su dueño sin verificar, y responde 202 pendiente de verificación', async () => {
     const response = await request(app).post(apiPaths.auth.register).send(registration);
 
-    expect(response.status).toBe(HTTP_CREATED);
-    const createdTenant = await prisma.tenant.findUniqueOrThrow({ where: { id: response.body.tenantId } });
-    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { id: response.body.ownerId } });
+    expect(response.status).toBe(HTTP_ACCEPTED);
+    expect(response.body).toEqual({ status: 'PENDING_EMAIL_VERIFICATION' });
+    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { email: registration.ownerEmail } });
+    const createdTenant = await prisma.tenant.findUniqueOrThrow({ where: { id: createdOwner.tenantId } });
+    expect(createdOwner.emailVerifiedAt).toBeNull();
     expect(createdTenant.name).toBe('Aluminios Andinos SAS');
     expect(createdOwner).toMatchObject({
       email: 'owner@example.com',
@@ -60,17 +63,18 @@ describe('POST /api/v1/auth/register', () => {
   it('guarda la contraseña con hash y no la devuelve en la respuesta', async () => {
     const response = await request(app).post(apiPaths.auth.register).send(registration);
 
-    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { id: response.body.ownerId } });
+    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { email: registration.ownerEmail } });
     expect(createdOwner.passwordHash).not.toBe(TEST_USER_PASSWORD);
     expect(response.text).not.toContain(TEST_USER_PASSWORD);
     expect(response.text).not.toContain(createdOwner.passwordHash);
   });
 
   it('deja a la empresa nueva con los cinco estados de lead por defecto', async () => {
-    const response = await request(app).post(apiPaths.auth.register).send(registration);
+    await request(app).post(apiPaths.auth.register).send(registration);
 
+    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { email: registration.ownerEmail } });
     const createdStatuses = await prisma.leadStatusConfig.findMany({
-      where: { tenantId: response.body.tenantId },
+      where: { tenantId: createdOwner.tenantId },
       orderBy: { order: 'asc' },
     });
     expect(createdStatuses.map((status) => status.name)).toEqual(defaultLeadStatuses.map((status) => status.name));
@@ -80,11 +84,11 @@ describe('POST /api/v1/auth/register', () => {
   it('ignora el rol y el tenant que envíe el cliente: el registro siempre crea un OWNER en una empresa nueva', async () => {
     const existingTenant = await persistTenant();
 
-    const response = await request(app)
+    await request(app)
       .post(apiPaths.auth.register)
       .send({ ...registration, role: Role.SALES_REP, tenantId: existingTenant.id });
 
-    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { id: response.body.ownerId } });
+    const createdOwner = await prisma.user.findUniqueOrThrow({ where: { email: registration.ownerEmail } });
     expect(createdOwner.role).toBe(Role.OWNER);
     expect(createdOwner.tenantId).not.toBe(existingTenant.id);
   });
@@ -100,14 +104,18 @@ describe('POST /api/v1/auth/register', () => {
     await expect(prisma.user.count()).resolves.toBe(0);
   });
 
-  it('rechaza un correo ya registrado y no crea una segunda empresa', async () => {
-    await request(app).post(apiPaths.auth.register).send(registration);
+  // F2-T04 (H8): antes respondía un error que revelaba el correo registrado.
+  it('con un correo ya registrado responde igual que uno nuevo y no crea una segunda empresa', async () => {
+    const firstResponse = await request(app).post(apiPaths.auth.register).send(registration);
 
     const response = await request(app)
       .post(apiPaths.auth.register)
       .send({ ...registration, companyName: 'Otra Empresa SAS' });
 
-    expect(response.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);
+    expect({ status: response.status, body: response.body }).toEqual({
+      status: firstResponse.status,
+      body: firstResponse.body,
+    });
     await expect(prisma.tenant.count()).resolves.toBe(1);
     await expect(prisma.user.count()).resolves.toBe(1);
   });
@@ -250,7 +258,7 @@ describe('POST /api/v1/auth/register es atómico', () => {
     await expect(prisma.leadStatusConfig.count()).resolves.toBe(0);
   });
 
-  it('dos registros simultáneos con el mismo correo crean una sola empresa y el otro recibe 409', async () => {
+  it('dos registros simultáneos con el mismo correo crean una sola empresa y los dos responden igual (H8)', async () => {
     const [firstResponse, secondResponse] = await Promise.all([
       request(app).post(apiPaths.auth.register).send(registration),
       request(app)
@@ -258,7 +266,7 @@ describe('POST /api/v1/auth/register es atómico', () => {
         .send({ ...registration, companyName: 'Otra Empresa SAS' }),
     ]);
 
-    expect([firstResponse.status, secondResponse.status].sort()).toEqual([HTTP_CREATED, HTTP_CONFLICT]);
+    expect([firstResponse.status, secondResponse.status]).toEqual([HTTP_ACCEPTED, HTTP_ACCEPTED]);
     await expect(prisma.tenant.count()).resolves.toBe(1);
     await expect(prisma.user.count()).resolves.toBe(1);
   });

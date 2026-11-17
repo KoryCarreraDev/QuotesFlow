@@ -8,6 +8,13 @@ import { Role } from '../../../domain/enums/Role.js';
 import { isUniqueConstraintViolation } from '../prisma/prismaErrors.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 
+// Cuenta que puede usar la plataforma (H3): activa, no borrada y de una empresa no borrada.
+const ACTIVE_ACCOUNT_CONDITIONS = {
+  isActive: true,
+  deleted: StoredDeletedState.INUSE,
+  tenant: { deleted: StoredDeletedState.INUSE },
+};
+
 export class PrismaUserRepository extends BasePrismaRepository implements IUserRepository {
   /**
    * @throws {ConflictError} `EMAIL_ALREADY_IN_USE` si el correo ya existe. El caso de uso lo comprueba
@@ -36,6 +43,7 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
         role: user.role,
         isActive: user.isActive,
         tenantId: user.tenantId,
+        emailVerifiedAt: user.emailVerifiedAt,
       },
     });
   }
@@ -46,15 +54,24 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
   }
 
   async findActiveByEmail(email: string): Promise<User | null> {
-    const record = await this.prisma.user.findFirst({
-      where: {
-        email,
-        isActive: true,
-        deleted: StoredDeletedState.INUSE,
-        tenant: { deleted: StoredDeletedState.INUSE },
-      },
-    });
+    const record = await this.prisma.user.findFirst({ where: { email, ...ACTIVE_ACCOUNT_CONDITIONS } });
     return record ? this.toDomain(record) : null;
+  }
+
+  async findActiveByIdAcrossTenants(userId: string): Promise<User | null> {
+    const record = await this.prisma.user.findFirst({ where: { id: userId, ...ACTIVE_ACCOUNT_CONDITIONS } });
+    return record ? this.toDomain(record) : null;
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.prisma.user.updateMany({
+      where: { id: userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: new Date() },
+    });
+  }
+
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   }
 
   async findById(id: string): Promise<User | null> {
@@ -99,6 +116,7 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
       record.updatedAt,
       record.failedLoginAttempts,
       record.loginLockedUntil ?? undefined,
+      record.emailVerifiedAt ?? undefined,
     );
   }
 }

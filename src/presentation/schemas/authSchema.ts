@@ -28,3 +28,14 @@ export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1).max(MAXIMUM_LOGIN_PASSWORD_LENGTH),
 });
+
+// Tokens de los enlaces de correo: `<uuid>.<secreto base64url>`, unos 80 caracteres.
+const ACCOUNT_TOKEN_MAXIMUM_LENGTH = 200;
+const accountTokenSchema = z.string().min(1).max(ACCOUNT_TOKEN_MAXIMUM_LENGTH);
+
+export const verifyEmailSchema = z.object({ token: accountTokenSchema });
+
+/** Pedir un correo (reenviar verificación, recuperar contraseña): solo la dirección. */
+export const emailOnlySchema = z.object({ email: z.string().email() });
+
+export const resetPasswordSchema = z.object({ token: accountTokenSchema, password: newPasswordSchema });

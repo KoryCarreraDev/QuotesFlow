@@ -66,6 +66,7 @@ model Tenant {
   quoteItems         QuoteItem[]
   emailLogs          EmailLog[]
   userSessions       UserSession[]
+  accountTokens      AccountToken[]
 
 }
 
@@ -81,6 +82,8 @@ model User {
   // F2-T03: bloqueo progresivo por intentos de login fallidos seguidos.
   failedLoginAttempts Int       @default(0)
   loginLockedUntil    DateTime?
+  // D-12 (F2-T04): sin correo verificado no se puede iniciar sesión.
+  emailVerifiedAt     DateTime?
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
@@ -96,6 +99,7 @@ model User {
   ownedCompanyContacts CompanyContact[] @relation("CompanyContactOwner")
   emailLogs            EmailLog[]
   sessions             UserSession[]
+  accountTokens        AccountToken[]
 
   @@index([tenantId])
   @@index([email])
@@ -404,4 +408,28 @@ model UserSession {
 
   @@index([tenantId])
   @@index([userId])
+}
+
+// F2-T04: para qué sirve un token de cuenta enviado por correo.
+enum AccountTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+// F2-T04: token de un solo uso (verificar correo, recuperar contraseña). El enlace lleva `<id>.<secreto>`;
+// aquí solo el hash SHA-256 del secreto. Sin borrado suave: se gasta (`usedAt`) o caduca.
+model AccountToken {
+  id        String              @id
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   AccountTokenPurpose
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([tenantId])
+  @@index([userId, purpose])
 }

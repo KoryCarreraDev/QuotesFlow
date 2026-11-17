@@ -5,6 +5,14 @@ import { LoginUseCase } from '../../../application/use-case/auth/LoginUseCase.js
 import { RefreshSessionUseCase } from '../../../application/use-case/auth/RefreshSessionUseCase.js';
 import { LogoutUseCase } from '../../../application/use-case/auth/LogoutUseCase.js';
 import { LogoutAllSessionsUseCase } from '../../../application/use-case/auth/LogoutAllSessionsUseCase.js';
+import {
+  ResendEmailVerificationUseCase,
+  VerifyEmailUseCase,
+} from '../../../application/use-case/auth/EmailVerificationUseCases.js';
+import {
+  RequestPasswordResetUseCase,
+  ResetPasswordUseCase,
+} from '../../../application/use-case/auth/PasswordResetUseCases.js';
 import { Role } from '../../../domain/enums/Role.js';
 import { clearSessionCookies, readRefreshTokenCookie, setSessionCookies } from '../sessionCookies.js';
 
@@ -14,15 +22,23 @@ export interface PublicAuthUseCases {
   login: LoginUseCase;
   refresh: RefreshSessionUseCase;
   logout: LogoutUseCase;
+  verifyEmail: VerifyEmailUseCase;
+  resendEmailVerification: ResendEmailVerificationUseCase;
+  requestPasswordReset: RequestPasswordResetUseCase;
+  resetPassword: ResetPasswordUseCase;
 }
+
+// Las peticiones que no deben revelar si un correo existe responden siempre esto (H8, F2-T04).
+const ACCEPTED_RESPONSE = { status: 'ACCEPTED' };
 
 export class AuthController {
   constructor(private readonly useCases: PublicAuthUseCases) {}
 
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await this.useCases.register.execute(req.body);
-      res.status(HttpStatus.CREATED).json(result);
+      // 202: la empresa queda pendiente de verificar el correo (D-12); la respuesta es igual si el correo existe (H8).
+      const receipt = await this.useCases.register.execute(req.body);
+      res.status(HttpStatus.ACCEPTED).json(receipt);
     } catch (error) {
       next(error);
     }
@@ -46,6 +62,44 @@ export class AuthController {
     } catch (error) {
       // Con un refresh que no vale, las cookies que tiene el navegador tampoco sirven.
       clearSessionCookies(res);
+      next(error);
+    }
+  };
+
+  verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await this.useCases.verifyEmail.execute(req.body.token);
+      res.status(HttpStatus.OK).json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resendEmailVerification = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await this.useCases.resendEmailVerification.execute(req.body.email);
+      res.status(HttpStatus.ACCEPTED).json(ACCEPTED_RESPONSE);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await this.useCases.requestPasswordReset.execute(req.body.email);
+      res.status(HttpStatus.ACCEPTED).json(ACCEPTED_RESPONSE);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await this.useCases.resetPassword.execute(req.body.token, req.body.password);
+      // Todas las sesiones quedaron cerradas, también la de este navegador si la había.
+      clearSessionCookies(res);
+      res.status(HttpStatus.OK).json({ success: true });
+    } catch (error) {
       next(error);
     }
   };

@@ -60,6 +60,13 @@ Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_REQUE
 - Bloqueo (F2-T03): tras 5 contraseñas incorrectas seguidas la cuenta se bloquea 1 minuto; cada fallo siguiente dobla el bloqueo hasta 15 minutos. Mientras dura, ni la contraseña correcta entra. Un acierto pone el contador a cero.
 - Respuestas genéricas (H22): correo inexistente, contraseña incorrecta, cuenta bloqueada o desactivada responden lo mismo, 401 `INVALID_CREDENTIALS`, y tardan lo mismo.
 
+## Verificación de correo y recuperación (F2-T04)
+- El registro responde siempre 202 `{ "status": "PENDING_EMAIL_VERIFICATION" }`, exista o no el correo (H8). Si el correo ya tenía cuenta, su dueño recibe un aviso con enlaces para entrar o recuperar la contraseña.
+- El dueño recibe un enlace `https://<app>/verify-email#token=…` (24 h, un solo uso). El token va en el fragmento: el frontend lo lee de `location.hash` y llama a `POST /api/v1/auth/verify-email` con `{ "token": "…" }`.
+- Hasta verificar, el login con la contraseña correcta responde 403 `EMAIL_NOT_VERIFIED`; el frontend ofrece `POST /api/v1/auth/verify-email/resend` con `{ "email": "…" }` (siempre 202; uno por minuto).
+- Recuperación: `POST /api/v1/auth/password/forgot` con `{ "email": "…" }` (siempre 202) envía `https://<app>/reset-password#token=…` (30 min, un solo uso). `POST /api/v1/auth/password/reset` con `{ "token": "…", "password": "…" }` cambia la contraseña, cierra todas las sesiones, quita el bloqueo y avisa por correo.
+- Un enlace que no existe, caducó o ya se usó responde 400 `INVALID_ACCOUNT_TOKEN`, sin decir cuál.
+
 ## Sesiones (F2-T02)
 - El login abre una sesión y deja dos cookies HTTP-only `SameSite=Strict`: `accessToken` (15 min, viaja a toda la API) y `refreshToken` (7 días de vida absoluta, solo viaja a `/api/v1/auth`). La base guarda solo el hash del refresh token.
 - Cuando la API responde 401 `SESSION_EXPIRED`, el frontend llama a `POST /api/v1/auth/refresh` y repite la petición. Debe renovar de una en una: dos renovaciones simultáneas con el mismo refresh token se tratan como robo y cierran la sesión.

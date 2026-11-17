@@ -29,4 +29,16 @@ export interface IUserRepository {
 
   /** Pone a cero los fallos y quita el bloqueo, tras un login correcto. */
   clearFailedLogins(userId: string): Promise<void>;
+
+  /**
+   * Usuario activo y no borrado de una empresa no borrada, por id y en cualquier tenant: la recuperación de
+   * contraseña llega sin sesión y el tenant sale del token.
+   */
+  findActiveByIdAcrossTenants(userId: string): Promise<User | null>;
+
+  /** Marca el correo como verificado ahora, si aún no lo estaba (D-12). */
+  markEmailVerified(userId: string): Promise<void>;
+
+  /** Guarda el hash de la contraseña nueva. */
+  updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
 }

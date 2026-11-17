@@ -6,6 +6,7 @@ import { hashOpaqueSecret } from '@/application/services/opaqueTokens.js';
 import { SessionIssuer } from '@/application/services/SessionIssuer.js';
 import { PasswordPolicy } from '@/application/services/PasswordPolicy.js';
 import { FakeBreachedPasswordChecker } from '@tests/support/doubles/FakeBreachedPasswordChecker.js';
+import { createAccountMailing } from '@tests/support/doubles/accountMailing.js';
 import { InMemorySessionRepository } from '@tests/support/doubles/InMemorySessionRepository.js';
 import { RegisterCompanyAndOwnerUseCase } from '@/application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
@@ -149,6 +150,7 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
     const leadStatusRepository = new InMemoryLeadStatusConfigRepository(tenantContext);
     const hashService = new FakeHashService();
     const transactionManager = new RecordingTransactionManager();
+    const mailing = createAccountMailing();
 
     const registerUseCase = new RegisterCompanyAndOwnerUseCase(
       tenantRepository,
@@ -158,8 +160,17 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
       transactionManager,
       new RecordingAuditLogger(),
       new PasswordPolicy(new FakeBreachedPasswordChecker(BREACHED_PASSWORD)),
+      mailing,
     );
-    return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService, transactionManager };
+    return {
+      registerUseCase,
+      tenantRepository,
+      userRepository,
+      leadStatusRepository,
+      hashService,
+      transactionManager,
+      mailing,
+    };
   }
 
   // H8: el registro escribía empresa, dueño y estados por separado; un fallo a medias dejaba datos huérfanos.
@@ -216,21 +227,21 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
     expect(transactionManager.failedTransactionCount).toBe(1);
   });
 
-  it('crea la empresa y devuelve los ids de la empresa y de su dueño', async () => {
-    const { registerUseCase, tenantRepository, userRepository } = setupRegistration();
+  // F2-T04 (H8): la respuesta ya no lleva ids: es la misma exista o no el correo.
+  it('crea la empresa y responde que queda pendiente de verificar el correo', async () => {
+    const { registerUseCase, tenantRepository } = setupRegistration();
 
     const result = await registerUseCase.execute(registration);
 
     const [createdTenant] = tenantRepository.listStored();
-    const [createdOwner] = userRepository.listStored();
     expect(createdTenant.name).toBe('Aluminios Andinos SAS');
-    expect(result).toEqual({ tenantId: createdTenant.id, ownerId: createdOwner.id });
+    expect(result).toEqual({ status: 'PENDING_EMAIL_VERIFICATION' });
   });
 
-  it('crea al dueño con rol OWNER, activo y dentro de la empresa nueva', async () => {
-    const { registerUseCase, userRepository } = setupRegistration();
+  it('crea al dueño con rol OWNER, activo, sin verificar y dentro de la empresa nueva', async () => {
+    const { registerUseCase, userRepository, tenantRepository } = setupRegistration();
 
-    const result = await registerUseCase.execute(registration);
+    await registerUseCase.execute(registration);
 
     const [createdOwner] = userRepository.listStored();
     expect(createdOwner).toMatchObject({
@@ -239,8 +250,20 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
       lastName: 'Pérez',
       role: Role.OWNER,
       isActive: true,
-      tenantId: result.tenantId,
+      tenantId: tenantRepository.listStored()[0].id,
     });
+    expect(createdOwner.isEmailVerified).toBe(false);
+  });
+
+  it('envía al dueño el enlace de verificación (D-12), con el token en el fragmento de la URL', async () => {
+    const { registerUseCase, mailing } = setupRegistration();
+
+    await registerUseCase.execute(registration);
+
+    const [verificationEmail] = mailing.outbox.sentTo('owner@example.com');
+    expect(verificationEmail.subject).toBe('Confirma tu correo en QuotesFlow');
+    expect(verificationEmail.text).toContain('https://app.quotesflow.test/verify-email#token=');
+    expect(mailing.tokenSentTo('owner@example.com')).toBeDefined();
   });
 
   it('guarda la contraseña con hash, nunca en texto plano', async () => {
@@ -254,25 +277,50 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
   });
 
   it('crea los cinco estados de lead por defecto en la empresa nueva, con Nuevo como predeterminado', async () => {
-    const { registerUseCase, leadStatusRepository } = setupRegistration();
+    const { registerUseCase, leadStatusRepository, tenantRepository } = setupRegistration();
+
+    await registerUseCase.execute(registration);
+
+    const tenantId = tenantRepository.listStored()[0].id;
+    const createdStatuses = await leadStatusRepository.findAllByTenant(tenantId);
+    expect(createdStatuses.map((status) => status.name)).toEqual(defaultLeadStatuses.map((status) => status.name));
+    expect(createdStatuses.filter((status) => status.isDefault).map((status) => status.name)).toEqual(['Nuevo']);
+    expect(createdStatuses.every((status) => status.tenantId === tenantId)).toBe(true);
+  });
+
+  // F2-T04 (H8): antes respondía 409 EMAIL_ALREADY_IN_USE y revelaba que el correo existía.
+  it('con un correo ya registrado responde igual, no crea nada y avisa al dueño del correo', async () => {
+    const { registerUseCase, tenantRepository, userRepository, leadStatusRepository, mailing } = setupRegistration();
+    userRepository.seed(buildUser({ email: 'owner@example.com' }));
 
     const result = await registerUseCase.execute(registration);
 
-    const createdStatuses = await leadStatusRepository.findAllByTenant(result.tenantId);
-    expect(createdStatuses.map((status) => status.name)).toEqual(defaultLeadStatuses.map((status) => status.name));
-    expect(createdStatuses.filter((status) => status.isDefault).map((status) => status.name)).toEqual(['Nuevo']);
-    expect(createdStatuses.every((status) => status.tenantId === result.tenantId)).toBe(true);
-  });
-
-  it('rechaza un correo ya registrado y no crea empresa, usuario ni estados', async () => {
-    const { registerUseCase, tenantRepository, userRepository, leadStatusRepository } = setupRegistration();
-    userRepository.seed(buildUser({ email: 'owner@example.com' }));
-
-    await expect(registerUseCase.execute(registration)).rejects.toThrow('Email already in use');
-
+    expect(result).toEqual({ status: 'PENDING_EMAIL_VERIFICATION' });
     expect(tenantRepository.listStored()).toHaveLength(0);
     expect(userRepository.listStored()).toHaveLength(1);
     expect(leadStatusRepository.listStored()).toHaveLength(0);
+    expect(mailing.outbox.sentTo('owner@example.com').map((email) => email.subject)).toEqual([
+      'Ya tienes una cuenta en QuotesFlow',
+    ]);
+  });
+
+  it('con un correo ya registrado gasta el mismo bcrypt que un registro nuevo (H8)', async () => {
+    const { registerUseCase, userRepository, hashService } = setupRegistration();
+    userRepository.seed(buildUser({ email: 'owner@example.com' }));
+    const hashSpy = vi.spyOn(hashService, 'hash');
+
+    await registerUseCase.execute(registration);
+
+    expect(hashSpy).toHaveBeenCalledOnce();
+  });
+
+  it('a una cuenta desactivada no se le envía el aviso con enlaces de acceso', async () => {
+    const { registerUseCase, userRepository, mailing } = setupRegistration();
+    userRepository.seed(buildUser({ email: 'owner@example.com', isActive: false }));
+
+    await registerUseCase.execute(registration);
+
+    expect(mailing.outbox.sentTo('owner@example.com')).toEqual([]);
   });
 });
 
@@ -290,6 +338,7 @@ describe('RegisterCompanyAndOwnerUseCase con la política de contraseñas', () =
       new RecordingTransactionManager(),
       new RecordingAuditLogger(),
       new PasswordPolicy(new FakeBreachedPasswordChecker(BREACHED_PASSWORD)),
+      createAccountMailing(),
     );
     return { useCase, userRepository };
   }

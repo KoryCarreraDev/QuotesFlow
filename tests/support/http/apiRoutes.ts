@@ -34,6 +34,10 @@ export const apiPaths = {
     refresh: `${API_BASE_PATH}/auth/refresh`,
     logout: `${API_BASE_PATH}/auth/logout`,
     logoutAll: `${API_BASE_PATH}/auth/logout-all`,
+    verifyEmail: `${API_BASE_PATH}/auth/verify-email`,
+    resendEmailVerification: `${API_BASE_PATH}/auth/verify-email/resend`,
+    forgotPassword: `${API_BASE_PATH}/auth/password/forgot`,
+    resetPassword: `${API_BASE_PATH}/auth/password/reset`,
   },
   leads: {
     getAll: LEAD_BASE_PATH,
@@ -75,6 +79,11 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.auth.refresh, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.logout, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.logoutAll, access: 'authenticated' },
+  // F2-T04: enlaces de correo; llegan sin sesión.
+  { method: 'POST', pattern: apiPaths.auth.verifyEmail, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.resendEmailVerification, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.forgotPassword, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.resetPassword, access: 'public' },
 
   { method: 'GET', pattern: apiPaths.leads.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leads.create, access: 'authenticated' },

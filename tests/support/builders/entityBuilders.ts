@@ -128,6 +128,8 @@ export interface UserBuilderProps {
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  /** Por defecto verificado (D-12): la mayoría de los tests no tratan de la verificación. */
+  emailVerifiedAt?: Date;
 }
 
 export function buildUser(overrides: Partial<UserBuilderProps> = {}): User {
@@ -143,6 +145,7 @@ export function buildUser(overrides: Partial<UserBuilderProps> = {}): User {
     isActive: true,
     createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
+    emailVerifiedAt: DEFAULT_TIMESTAMP,
     ...overrides,
   };
 
@@ -157,6 +160,9 @@ export function buildUser(overrides: Partial<UserBuilderProps> = {}): User {
     props.tenantId,
     props.createdAt,
     props.updatedAt,
+    0,
+    undefined,
+    props.emailVerifiedAt,
   );
 }
 

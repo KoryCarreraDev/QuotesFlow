@@ -4,6 +4,7 @@ import { IssuedSession, SessionIssuer } from '@/application/services/SessionIssu
 import { User } from '@/domain/entities/User.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { UnauthorizedError } from '@/domain/errors/UnauthorizedError.js';
+import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { lockDurationAfterFailedLogins } from '@/domain/value-objects/loginLockout.js';
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
 import { IHashService } from '../../ports/services/IHashService.js';
@@ -20,9 +21,11 @@ import { LoginDTO } from '../../dtos/LoginDTO.js';
  * - Cualquier fallo (correo inexistente, contraseña incorrecta, cuenta bloqueada o desactivada) responde
  *   igual, `INVALID_CREDENTIALS`, y tarda lo mismo (H22): ni la respuesta ni el tiempo revelan si la cuenta
  *   existe.
- * - Se auditan el acierto, el fallo, el bloqueo y el intento con la cuenta bloqueada.
+ * - Con la contraseña correcta, una cuenta sin el correo verificado no entra (D-12, F2-T04).
+ * - Se auditan el acierto, el fallo, el bloqueo, el intento con la cuenta bloqueada y el de correo sin verificar.
  *
  * @throws {UnauthorizedError} `INVALID_CREDENTIALS`.
+ * @throws {ForbiddenError} `EMAIL_NOT_VERIFIED`.
  */
 export class LoginUseCase {
   constructor(
@@ -52,6 +55,12 @@ export class LoginUseCase {
     if (!(await this.hashService.compare(dto.password, user.passwordHash))) {
       await this.registerFailedAttempt(user, now);
       throw invalidCredentialsError();
+    }
+
+    // D-12: con la contraseña correcta ya se puede decir que falta verificar; antes no, para no revelar la cuenta.
+    if (!user.isEmailVerified) {
+      await this.record(AuditAction.LOGIN_REJECTED_EMAIL_NOT_VERIFIED, user);
+      throw new ForbiddenError(ErrorCode.EMAIL_NOT_VERIFIED, 'Email address is not verified');
     }
 
     return this.transactionManager.runInTransaction(async () => {

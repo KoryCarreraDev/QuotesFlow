@@ -2,10 +2,48 @@ import { IUserRepository } from '@/application/ports/repositories/IUserRepositor
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { User } from '@/domain/entities/User.js';
 
+/** Campos de `User` que cambian después de crearlo. */
+interface MutableUserFields {
+  passwordHash: string;
+  role: User['role'];
+  isActive: boolean;
+  failedLoginAttempts: number;
+  loginLockedUntil: Date | undefined;
+  emailVerifiedAt: Date | undefined;
+}
+
+/** Copia del usuario con algunos campos cambiados (la entidad es inmutable). */
+export function withUserChanges(user: User, changes: Partial<MutableUserFields>): User {
+  const fields: MutableUserFields = {
+    passwordHash: user.passwordHash,
+    role: user.role,
+    isActive: user.isActive,
+    failedLoginAttempts: user.failedLoginAttempts,
+    loginLockedUntil: user.loginLockedUntil,
+    emailVerifiedAt: user.emailVerifiedAt,
+    ...changes,
+  };
+  return new User(
+    user.id,
+    user.email,
+    fields.passwordHash,
+    user.firstName,
+    user.lastName,
+    fields.role,
+    fields.isActive,
+    user.tenantId,
+    user.createdAt,
+    user.updatedAt,
+    fields.failedLoginAttempts,
+    fields.loginLockedUntil,
+    fields.emailVerifiedAt,
+  );
+}
+
 /**
  * Doble en memoria de `IUserRepository`.
- * Igual que `PrismaUserRepository`: `findByEmail` busca en todos los tenants (el correo es único global)
- * y `findById` solo dentro del tenant actual.
+ * Igual que `PrismaUserRepository`: `findByEmail` y las búsquedas "across tenants" buscan en todos los tenants
+ * (el correo es único global) y `findById` solo dentro del tenant actual.
  */
 export class InMemoryUserRepository implements IUserRepository {
   private readonly usersById = new Map<string, User>();
@@ -22,6 +60,11 @@ export class InMemoryUserRepository implements IUserRepository {
   /** Todos los usuarios guardados, de cualquier tenant. */
   listStored(): User[] {
     return [...this.usersById.values()];
+  }
+
+  /** El usuario guardado, sin filtros. */
+  findStoredById(userId: string): User | undefined {
+    return this.usersById.get(userId);
   }
 
   async create(user: User): Promise<void> {
@@ -42,20 +85,36 @@ export class InMemoryUserRepository implements IUserRepository {
     return user && user.tenantId === this.tenantContext.getTenantId() ? user : null;
   }
 
+  async findActiveByIdAcrossTenants(userId: string): Promise<User | null> {
+    const user = this.usersById.get(userId);
+    return user?.isActive ? user : null;
+  }
+
   async recordFailedLogin(userId: string): Promise<number> {
     const user = this.requireStored(userId);
-    const failedAttempts = user.failedLoginAttempts + 1;
-    this.usersById.set(userId, withLoginState(user, failedAttempts, user.loginLockedUntil));
-    return failedAttempts;
+    const failedLoginAttempts = user.failedLoginAttempts + 1;
+    this.usersById.set(userId, withUserChanges(user, { failedLoginAttempts }));
+    return failedLoginAttempts;
   }
 
   async lockLogin(userId: string, lockedUntil: Date): Promise<void> {
-    const user = this.requireStored(userId);
-    this.usersById.set(userId, withLoginState(user, user.failedLoginAttempts, lockedUntil));
+    this.usersById.set(userId, withUserChanges(this.requireStored(userId), { loginLockedUntil: lockedUntil }));
   }
 
   async clearFailedLogins(userId: string): Promise<void> {
-    this.usersById.set(userId, withLoginState(this.requireStored(userId), 0, undefined));
+    this.usersById.set(
+      userId,
+      withUserChanges(this.requireStored(userId), { failedLoginAttempts: 0, loginLockedUntil: undefined }),
+    );
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    const user = this.requireStored(userId);
+    if (!user.isEmailVerified) this.usersById.set(userId, withUserChanges(user, { emailVerifiedAt: new Date() }));
+  }
+
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    this.usersById.set(userId, withUserChanges(this.requireStored(userId), { passwordHash }));
   }
 
   private requireStored(userId: string): User {
@@ -63,21 +122,4 @@ export class InMemoryUserRepository implements IUserRepository {
     if (!user) throw new Error(`User not stored: ${userId}`);
     return user;
   }
-}
-
-function withLoginState(user: User, failedLoginAttempts: number, loginLockedUntil: Date | undefined): User {
-  return new User(
-    user.id,
-    user.email,
-    user.passwordHash,
-    user.firstName,
-    user.lastName,
-    user.role,
-    user.isActive,
-    user.tenantId,
-    user.createdAt,
-    user.updatedAt,
-    failedLoginAttempts,
-    loginLockedUntil,
-  );
 }

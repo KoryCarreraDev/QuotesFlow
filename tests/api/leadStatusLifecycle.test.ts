@@ -14,6 +14,7 @@ import { apiPaths } from '@tests/support/http/apiRoutes.js';
 
 // F1-T14: tipo de estado (D-51), borrado suave con regla y reordenamiento transaccional.
 
+const HTTP_ACCEPTED_REGISTRATION = 202;
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const HTTP_BAD_REQUEST = 400;
@@ -43,8 +44,11 @@ describe('ciclo de vida de los estados de lead', () => {
       ownerLastName: 'Gómez',
     });
 
+    // F2-T04: la respuesta del registro ya no lleva ids (H8); el tenant sale del dueño creado.
+    expect(registration.status).toBe(HTTP_ACCEPTED_REGISTRATION);
+    const owner = await prisma.user.findUniqueOrThrow({ where: { email: 'new.owner@example.com' } });
     const statuses = await prisma.leadStatusConfig.findMany({
-      where: { tenantId: registration.body.tenantId },
+      where: { tenantId: owner.tenantId },
       orderBy: { order: 'asc' },
     });
     expect(statuses.map((status) => [status.name, status.type])).toEqual([

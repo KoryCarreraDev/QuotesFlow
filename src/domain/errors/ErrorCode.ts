@@ -7,6 +7,8 @@
 export enum ErrorCode {
   // Autenticación
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  // D-12 (F2-T04): contraseña correcta, pero el correo aún no está verificado.
+  EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED',
   SESSION_REQUIRED = 'SESSION_REQUIRED',
   INVALID_SESSION = 'INVALID_SESSION',
   // El token de acceso caducó (F2-T02): el frontend llama a POST /auth/refresh y repite la petición.
@@ -50,6 +52,8 @@ export enum ErrorCode {
   // Política de contraseñas (D-11, F2-T03).
   PASSWORD_TOO_WEAK = 'PASSWORD_TOO_WEAK',
   PASSWORD_BREACHED = 'PASSWORD_BREACHED',
+  // Enlace de verificación, recuperación o invitación que no existe, caducó o ya se usó (F2-T04).
+  INVALID_ACCOUNT_TOKEN = 'INVALID_ACCOUNT_TOKEN',
   DEFAULT_LEAD_STATUS_MUST_BE_OPEN = 'DEFAULT_LEAD_STATUS_MUST_BE_OPEN',
   LEAD_STATUS_LIST_MISMATCH = 'LEAD_STATUS_LIST_MISMATCH',
   INVALID_FILTERS_FORMAT = 'INVALID_FILTERS_FORMAT',
