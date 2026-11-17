@@ -1,3 +1,4 @@
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { UpdateLeadDTO } from '@/application/dtos/UpdateLeadDTO.js';
@@ -61,6 +62,7 @@ function setupLeadUseCases() {
       leadStatusRepository,
       userRepository,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     ),
     updateLeadUseCase: new UpdateLeadUseCase(
       leadRepository,
@@ -68,8 +70,14 @@ function setupLeadUseCases() {
       tenantContext,
       userRepository,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     ),
-    deleteLeadUseCase: new DeleteLeadUseCase(leadRepository, tenantContext, new RecordingAuditLogger()),
+    deleteLeadUseCase: new DeleteLeadUseCase(
+      leadRepository,
+      tenantContext,
+      new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
+    ),
   };
 }
 

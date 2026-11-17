@@ -1,3 +1,4 @@
+import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
 import { Action } from '../../application/policies/authorizationPolicy.js';
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
@@ -43,6 +44,7 @@ export class ContactModule {
       this.createCompanyContactRepository(),
       this.createAuditLogger(),
       new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
@@ -54,11 +56,16 @@ export class ContactModule {
       this.createCompanyContactRepository(),
       this.createAuditLogger(),
       new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
   getDeleteContactUseCase(): DeleteContactUseCase {
-    return new DeleteContactUseCase(this.createContactRepository(), this.createAuditLogger());
+    return new DeleteContactUseCase(
+      this.createContactRepository(),
+      this.createAuditLogger(),
+      new PrismaTransactionManager(this.dependencies.prisma),
+    );
   }
 
   getListFilteredContactsUseCase(): ListFilteredContactsUseCase {

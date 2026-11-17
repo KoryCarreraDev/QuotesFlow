@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { CreateContactDTO } from '../../dtos/CreateContactDTO.js';
 import { ContactDTO } from '../../dtos/ContactDTO.js';
 import { IContactMapper } from '../../ports/mappers/IContactMapper.js';
@@ -25,6 +26,7 @@ export class CreateContactUseCase {
     private readonly companyContactRepository: ICompanyContactRepository,
     private readonly auditLogger: IAuditLogger,
     private readonly userRepository: IUserRepository,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   /**
@@ -62,11 +64,14 @@ export class CreateContactUseCase {
       documentNumber,
     });
 
-    await this.contactRepository.create(contactEntity);
-    await this.auditLogger.record({
-      action: AuditAction.CONTACT_CREATED,
-      entity: AuditEntity.CONTACT,
-      entityId: contactEntity.id,
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.contactRepository.create(contactEntity);
+      await this.auditLogger.record({
+        action: AuditAction.CONTACT_CREATED,
+        entity: AuditEntity.CONTACT,
+        entityId: contactEntity.id,
+      });
     });
     return this.contactMapper.toDTO(contactEntity);
   }

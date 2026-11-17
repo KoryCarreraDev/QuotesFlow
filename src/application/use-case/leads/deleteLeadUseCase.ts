@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -18,6 +19,7 @@ export class DeleteLeadUseCase {
     private readonly leadRepository: ILeadRepository,
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(leadId: string, userId: string, role: Role): Promise<void> {
@@ -37,7 +39,10 @@ export class DeleteLeadUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'You do not have the necessary permissions.');
     }
 
-    await this.leadRepository.delete(leadId);
-    await this.auditLogger.record({ action: AuditAction.LEAD_DELETED, entity: AuditEntity.LEAD, entityId: leadId });
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.leadRepository.delete(leadId);
+      await this.auditLogger.record({ action: AuditAction.LEAD_DELETED, entity: AuditEntity.LEAD, entityId: leadId });
+    });
   }
 }

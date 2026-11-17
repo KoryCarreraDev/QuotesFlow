@@ -1,3 +1,4 @@
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 import { describe, expect, it } from 'vitest';
 import { CompanyContactMapper } from '@/application/mappers/CompanyContactMapper.js';
 import { ContactMapper } from '@/application/mappers/ContactMapper.js';
@@ -60,6 +61,7 @@ function setup() {
       companyContactRepository,
       audit,
       userRepository,
+      new RecordingTransactionManager(),
     ),
     updateContact: new UpdateContactUseCase(
       contactRepository,
@@ -68,6 +70,7 @@ function setup() {
       companyContactRepository,
       audit,
       userRepository,
+      new RecordingTransactionManager(),
     ),
     createCompanyContact: new CreateCompanyContactUseCase(
       companyContactRepository,
@@ -75,6 +78,7 @@ function setup() {
       tenantContext,
       audit,
       userRepository,
+      new RecordingTransactionManager(),
     ),
   };
 }

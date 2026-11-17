@@ -43,6 +43,7 @@ export class LeadModule {
       new PrismaLeadStatusConfigRepository(prisma, tenantContext),
       new PrismaUserRepository(prisma, tenantContext),
       this.createAuditLogger(),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
@@ -54,6 +55,7 @@ export class LeadModule {
       tenantContext,
       new PrismaUserRepository(prisma, tenantContext),
       this.createAuditLogger(),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
@@ -75,6 +77,7 @@ export class LeadModule {
       this.createLeadRepository(),
       this.dependencies.tenantContext,
       this.createAuditLogger(),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 

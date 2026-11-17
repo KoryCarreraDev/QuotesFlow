@@ -43,7 +43,7 @@ tests/
   integration/                 repositorios Prisma y esquema, contra PostgreSQL real
   build/                       build de producción y arranque del servidor compilado
   api/                         endpoints de extremo a extremo
-    security/                  inventario de rutas, autenticación, aislamiento por tenant, roles, endurecimiento
+    security/                  inventario de rutas, autenticación, aislamiento por tenant, roles, endurecimiento, CSRF, auditoría y su atomicidad
 ```
 
 | Proyecto | Qué prueba | Con qué | Qué NO usa |

@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '../../ports/services/IAuditLogger.js';
 import { ICompanyContactRepository } from '../../ports/repositories/ICompanyContactRepository.js';
 import { IContactRepository } from '../../ports/repositories/IContactRepository.js';
@@ -18,6 +19,7 @@ export class DeleteCompanyContactUseCase {
     private readonly companyContactRepository: ICompanyContactRepository,
     private readonly contactRepository: IContactRepository,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   /**
@@ -42,11 +44,14 @@ export class DeleteCompanyContactUseCase {
       );
     }
 
-    await this.companyContactRepository.delete(companyContactId);
-    await this.auditLogger.record({
-      action: AuditAction.COMPANY_CONTACT_DELETED,
-      entity: AuditEntity.COMPANY_CONTACT,
-      entityId: companyContactId,
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.companyContactRepository.delete(companyContactId);
+      await this.auditLogger.record({
+        action: AuditAction.COMPANY_CONTACT_DELETED,
+        entity: AuditEntity.COMPANY_CONTACT,
+        entityId: companyContactId,
+      });
     });
   }
 }
