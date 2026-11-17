@@ -27,7 +27,12 @@ describe('Perfil de la empresa (F2-T06)', () => {
     const response = await request(app).get(apiPaths.tenant.profile).set('Cookie', sessionCookieFor(company.salesRep));
 
     expect(response.status).toBe(HTTP_OK);
-    expect(response.body).toEqual({ id: company.tenant.id, name: company.tenant.name, timezone: 'America/Bogota' });
+    expect(response.body).toEqual({
+      id: company.tenant.id,
+      name: company.tenant.name,
+      timezone: 'America/Bogota',
+      emailDeliveryEnabled: false,
+    });
   });
 
   it('el registro crea la configuración de la empresa nueva', async () => {
@@ -42,6 +47,7 @@ describe('Perfil de la empresa (F2-T06)', () => {
     const owner = await prisma.user.findUniqueOrThrow({ where: { email: 'config.owner@example.com' } });
     await expect(prisma.tenantSettings.findUnique({ where: { tenantId: owner.tenantId } })).resolves.toMatchObject({
       timezone: 'America/Bogota',
+      emailDeliveryEnabled: false,
     });
   });
 
@@ -56,6 +62,58 @@ describe('Perfil de la empresa (F2-T06)', () => {
     await expect(prisma.tenantSettings.findUnique({ where: { tenantId: company.tenant.id } })).resolves.toMatchObject({
       timezone: 'America/Mexico_City',
     });
+  });
+
+  // D-57 (F3-T10): el correo para cotizaciones y alertas es opcional por empresa y empieza desactivado.
+  it('el socio activa el correo de la empresa y luego lo desactiva', async () => {
+    const partnerCookie = sessionCookieFor(company.partner);
+
+    const enabled = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', partnerCookie)
+      .send({ emailDeliveryEnabled: true });
+    const disabled = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', partnerCookie)
+      .send({ emailDeliveryEnabled: false });
+
+    expect(enabled.status).toBe(HTTP_OK);
+    expect(enabled.body.emailDeliveryEnabled).toBe(true);
+    expect(disabled.body).toMatchObject({ emailDeliveryEnabled: false, timezone: 'America/Bogota' });
+    await expect(prisma.tenantSettings.findUnique({ where: { tenantId: company.tenant.id } })).resolves.toMatchObject({
+      emailDeliveryEnabled: false,
+    });
+  });
+
+  it('activar el correo no cambia la zona horaria guardada', async () => {
+    const ownerCookie = sessionCookieFor(company.owner);
+    await request(app).patch(apiPaths.tenant.profile).set('Cookie', ownerCookie).send({ timezone: 'America/Lima' });
+
+    const response = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', ownerCookie)
+      .send({ emailDeliveryEnabled: true });
+
+    expect(response.body).toMatchObject({ timezone: 'America/Lima', emailDeliveryEnabled: true });
+  });
+
+  it('emailDeliveryEnabled tiene que ser booleano', async () => {
+    const response = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', sessionCookieFor(company.owner))
+      .send({ emailDeliveryEnabled: 'true' });
+
+    expect(response.status).toBe(HTTP_BAD_REQUEST);
+    expect(response.body.error.details).toEqual([expect.objectContaining({ path: ['emailDeliveryEnabled'] })]);
+  });
+
+  it('el comercial no activa el correo de la empresa', async () => {
+    const response = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', sessionCookieFor(company.salesRep))
+      .send({ emailDeliveryEnabled: true });
+
+    expect(response.status).toBe(HTTP_FORBIDDEN);
   });
 
   it('una zona horaria que no es IANA responde 400 en el campo timezone', async () => {

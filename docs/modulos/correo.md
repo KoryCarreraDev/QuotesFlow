@@ -32,6 +32,10 @@ await emailSender.send(
 - Asunto, texto de vista previa y versión en texto plano están en `CompiledEmailTemplateRenderer.ts`.
 - Plantilla nueva: valor en `EmailTemplate`, sus datos en `EmailTemplateVariables`, archivo MJML, entrada en `scripts/emails/emailTemplateSources.ts` y textos en el renderizador.
 
+## Correo de la cuenta y correo de negocio
+- **De la cuenta** (verificación, recuperación, invitación, aviso de registro repetido): siempre por correo; sin él nadie puede entrar ni recuperar su acceso.
+- **De negocio** (cotizaciones F3-T08, alertas F4): solo si la empresa activó `emailDeliveryEnabled` en su perfil (D-57, F3-T10, desactivado por defecto). Si no, se quedan dentro de la aplicación.
+
 ## Configuración
 | Variable | Uso |
 |---|---|

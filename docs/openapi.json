@@ -12076,6 +12076,9 @@
                   },
                   "timezone": {
                     "type": "string"
+                  },
+                  "emailDeliveryEnabled": {
+                    "type": "boolean"
                   }
                 }
               }

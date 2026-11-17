@@ -23,6 +23,7 @@ class InMemoryTenantProfileRepository implements ITenantProfileRepository {
     id: DEFAULT_TEST_TENANT_ID,
     name: 'Aluminios Andinos SAS',
     timezone: DEFAULT_TENANT_TIMEZONE,
+    emailDeliveryEnabled: false,
   };
 
   async findCurrent(): Promise<TenantProfile | null> {
@@ -93,6 +94,20 @@ describe('Perfil de la empresa', () => {
       code: ErrorCode.INSUFFICIENT_PERMISSIONS,
     });
     expect(repository.profile?.name).toBe('Aluminios Andinos SAS');
+  });
+
+  it('el correo de la empresa empieza desactivado y el dueño lo activa, auditado (D-57)', async () => {
+    const { getProfile, updateProfile, auditLogger } = setup();
+
+    await expect(getProfile.execute({ role: Role.OWNER, userId: 'owner' })).resolves.toMatchObject({
+      emailDeliveryEnabled: false,
+    });
+    const profile = await updateProfile.execute({ role: Role.OWNER, userId: 'owner' }, { emailDeliveryEnabled: true });
+
+    expect(profile.emailDeliveryEnabled).toBe(true);
+    expect(auditLogger.entries).toEqual([
+      expect.objectContaining({ metadata: { changedFields: ['emailDeliveryEnabled'] } }),
+    ]);
   });
 
   it('un rol desconocido no ve el perfil', async () => {

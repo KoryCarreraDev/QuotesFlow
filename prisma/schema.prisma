@@ -349,6 +349,9 @@ model TenantSettings {
   leadAssignmentStrategy LeadAssignmentStrategy @default(MANUAL)
   // F2-T06: zona horaria IANA de la empresa; por defecto Colombia.
   timezone               String                 @default("America/Bogota")
+  // D-57 (F3-T10): la empresa decide si además de las notificaciones del sistema usa el correo. Desactivado por
+  // defecto; no afecta a los correos de la cuenta (verificación, recuperación, invitación).
+  emailDeliveryEnabled   Boolean                @default(false)
   deleted                DeletedState           @default(INUSE)
 }
 
