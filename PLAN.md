@@ -165,7 +165,7 @@ Contactos y empresas:
 Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
 
 - F2-T01 `[S]` Puerto `IEmailService` + adaptador Resend + registro de envíos (`EmailLog`) + plantillas base. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** Resend por axios (sin el SDK); plantillas en MJML compiladas (D-28). Clave de Resend de ejemplo hasta verificar el dominio (Operaciones).
-- F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2). La caducidad de la cookie sale de la del token (H23).
+- F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2). La caducidad de la cookie sale de la del token (H23). **Hecha el 2026-11-17, pendiente de PR, revisión humana, firma de la matriz y migración en producción (R6).** El rol se lee de la base en cada petición (H2 resuelto); H23 resuelto.
 - F2-T03 `[O]` Política de contraseñas, límite por cuenta e IP, bloqueo progresivo, respuestas genéricas (H7). El login tarda lo mismo exista o no el correo (H22).
 - F2-T04 `[O]` Verificación de correo y recuperación de contraseña (tokens de un solo uso, con hash y caducidad).
 - F2-T05 `[O]` Usuarios del tenant: invitar por correo, aceptar invitación, listar, cambiar rol, desactivar (revoca sesiones). Reglas según D-16 y D-17.

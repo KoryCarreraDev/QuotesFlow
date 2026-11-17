@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F2-T01-email-service` (apilada sobre F2-T10, F2-T07, F2-T09 y F2-T08), 2026-11-17.
+> Última revisión: rama `feat/F2-T02-rotating-sessions` (apilada sobre F2-T10, F2-T07, F2-T09, F2-T08 y F2-T01), 2026-11-17.
 
 ---
 
@@ -17,7 +17,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 
 | Módulo | Estado | Notas |
 |---|---|---|
-| Auth (register/login) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto en una sola transacción (F1-T03). Login emite cookie `accessToken` |
+| Auth (register/login/sesiones) | ✅ | Register crea tenant + usuario OWNER + 5 estados de lead por defecto en una sola transacción (F1-T03). Login abre una sesión (F2-T02): cookie `accessToken` de 15 min y `refreshToken` rotatorio; refresh, logout y logout global |
 | Leads | ✅ | getAll, create, update, filtered, **delete (soft)**. Reglas por rol (sección 6) |
 | LeadStatusConfig (estados de lead) | ✅ | getAll, create, update, delete (suave), reorder; tipo OPEN/WON/LOST (F1-T14) |
 | Contactos persona | ✅ CRUD + filtered + borrado suave (F1-T16) | Responsable (`ownerId`) y documento normalizado y único (F1-T17); un comercial solo ve los suyos |
@@ -31,7 +31,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Tests | ✅ | Vitest: 988 tests (unit, integración con PostgreSQL efímero, API, build). 3 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
-- La lista completa de hallazgos de seguridad abiertos, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). Además de lo de abajo: el login responde más rápido si el correo no existe (H22) y la cookie de sesión caduca siempre a los 7 días (H23).
+- La lista completa de hallazgos de seguridad, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). H2 y H23 se resolvieron en F2-T02. Sigue abierto: el login responde más rápido si el correo no existe (H22, F2-T03).
 - **Errores (F1-T02).** Los casos de uso lanzan clases de `src/domain/errors/` y el manejador global responde con su código HTTP y `{ error: { code, message, details? } }` (sección 8). Quedan como `Error` normal, y por tanto 500, las comprobaciones de "no hay tenant en el contexto" de los casos de uso, que el middleware ya impide. Un error de Prisma (por ejemplo, `order` repetido en estados) sigue respondiendo 500: traducirlo es de F1-T14.
 - **Cambio de estado (F1-T13).** Solo por `PATCH /api/v1/leads/:id/status` (`ChangeLeadStatusUseCase`): actualiza el lead y escribe `LeadStatusHistory` (tenant, estado anterior y nuevo, quién, nota) en una transacción. `PATCH /api/v1/leads/:id` ya no acepta `statusId` (Zod lo descarta). `ILeadRepository.update` nunca cambia el estado; lo hace `updateStatus`. Aún no hay endpoint para leer el historial.
 - Borrado suave (F1-T15): en `domain` y `application` se usa el enum de dominio `DeletedState` (`Active='INUSE'`, `Inactive='DELETED'`), y `Lead.deleted` y `LeadStatusConfig.deleted` tienen ese tipo. En los repositorios se usa el enum que genera Prisma (`DeletedState as StoredDeletedState` de `@prisma/client`), porque el de dominio no es asignable a sus tipos literales. No quedan literales `'INUSE'`/`'DELETED'` fuera de los enums.
@@ -134,7 +134,7 @@ tests/
 ## 5. Flujo de una request y multi-tenancy
 
 ```
-cookie accessToken -> createAuthValidateCookie (verifica JWT, req.user = {userId, tenantId, role})
+cookie accessToken -> createAuthValidateCookie (AuthenticateSessionUseCase: verifica JWT y que la sesión siga abierta y el usuario activo; req.user = {userId, tenantId, role actual de la base, sessionId})
   -> createTenantMiddleware (TenantContext.run(tenantId) + req.container = new ScopedContainer(tenantId))
   -> [validateBody(zod)] -> Router helper get*Controller(req) arma el controller con use cases de req.container
   -> Controller -> UseCase -> Repository (extends BasePrismaRepository)
@@ -206,7 +206,7 @@ Tenant ─┬ User[]  ─ role Role, isActive
         └ AuditLog[]
 ```
 Enums: `Role`, `QuoteStatus` (DRAFT/SENT/ACCEPTED/REJECTED), `LeadAssignmentStrategy`, `DeletedState`.
-Migraciones: `add_email_log` (F2-T01: tabla `EmailLog` y enum `EmailDeliveryStatus`), `init` (2026-07-10), `add_deleted_to_models` (2026-09-01), `add_owner_and_document_to_clients` (F1-T17: `ownerId` con FK a `User` y `ON DELETE SET NULL`, enum `DocumentType`, `documentNumber`; rellena el NIT normalizado de las empresas existentes), `add_type_to_lead_status_config` (F1-T14: enum `LeadStatusType`; Ganado y Perdido se marcan `WON` y `LOST` por nombre), `add_partial_unique_document_index` (F2-T09: sustituye el índice `(tenantId, documentNumber)` de contactos y empresas cliente por uno único parcial; se detiene con un mensaje claro si ya hay duplicados activos) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
+Migraciones: `add_user_session` (F2-T02: tabla `UserSession` con hash del refresh token, revocación y motivo), `add_email_log` (F2-T01: tabla `EmailLog` y enum `EmailDeliveryStatus`), `init` (2026-07-10), `add_deleted_to_models` (2026-09-01), `add_owner_and_document_to_clients` (F1-T17: `ownerId` con FK a `User` y `ON DELETE SET NULL`, enum `DocumentType`, `documentNumber`; rellena el NIT normalizado de las empresas existentes), `add_type_to_lead_status_config` (F1-T14: enum `LeadStatusType`; Ganado y Perdido se marcan `WON` y `LOST` por nombre), `add_partial_unique_document_index` (F2-T09: sustituye el índice `(tenantId, documentNumber)` de contactos y empresas cliente por uno único parcial; se detiene con un mensaje claro si ya hay duplicados activos) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
 
 Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, con un `prisma.config` que declare `shadowDatabaseUrl` (Prisma 7 no acepta la URL por parámetro). En producción las aplica Operaciones con la imagen `migrator` (R6).
 
@@ -216,7 +216,9 @@ Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate dif
 
 Desde F1-T11 (D-06) la API son recursos REST bajo `/api/v1`: `auth`, `leads`, `lead-statuses`, `contacts`, `company-contacts`. Listar es `GET /recurso`, el listado filtrado y paginado `GET /recurso/search`, crear `POST /recurso`, modificar `PATCH /recurso/:id` y borrar (suave) `DELETE /recurso/:id`. Las sondas `/health` y `/ready` siguen en la raíz. El contrato OpenAPI 3.1 está en `docs/openapi.json` (D-07), generado desde los esquemas Zod con `pnpm docs:openapi`; un test falla si no coincide con el código o le falta alguna ruta.
 
-Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
+Auth: cookie HTTP-only `accessToken` (excepto `/health`, `/ready` y las rutas públicas de `/api/v1/auth`).
+
+**Sesiones (F2-T02, D-09, H2, H23).** El login abre una `UserSession` y deja dos cookies HTTP-only, `SameSite=Strict`: `accessToken` (JWT HS256 con `sub`, `tenantId`, `sid`, emisor `quotesflow-api`, audiencia `quotesflow-app`, sin rol; dura `JWT_EXPIRATION`, 15 min por defecto) y `refreshToken` (`<sessionId>.<secreto>`, solo `Path=/api/v1/auth`, dura `REFRESH_TOKEN_EXPIRATION`, 7 días). Cada cookie caduca a la vez que su token (H23). La base guarda solo el SHA-256 del secreto. Cada petición protegida comprueba en la base que la sesión no esté revocada ni caducada y que usuario y empresa sigan activos, y toma el rol de la base (H2): cerrar sesión, desactivar o cambiar el rol surte efecto en la siguiente petición. Token caducado: 401 `SESSION_EXPIRED` (el frontend llama a `POST /auth/refresh` y repite); cualquier otro fallo: 401 `INVALID_SESSION`. `POST /auth/refresh` rota el refresh token (comparar y cambiar en una sentencia); uno ya rotado que reaparece revoca la sesión entera y deja `SESSION_REUSE_DETECTED` en auditoría. Dos renovaciones simultáneas con el mismo token cuentan como reutilización: el frontend debe renovar de una en una. La vida de la sesión es absoluta (renovar no la alarga). `POST /auth/logout` (idempotente, 204) revoca con el refresh token completo; `POST /auth/logout-all` (con sesión, 204) revoca todas las del usuario. Se auditan login, logout, logout global y reutilización; las renovaciones normales no. El cupo estricto por IP solo aplica a registro y login.
 
 **Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/v1/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). **CSRF (F2-T07, D-14):** además de la cookie `SameSite=Strict`, `createOriginCheckMiddleware` rechaza con 403 `ORIGIN_NOT_ALLOWED` toda petición POST, PATCH, PUT o DELETE cuyo `Origin` (o, si falta, el origen de `Referer`) no esté en `CORS_ALLOWED_ORIGINS`; `Origin: null` y un `Referer` ilegible cuentan como ajenos. Sin ninguna de las dos cabeceras se atiende (no es un navegador). Las lecturas no se verifican. Piezas: `src/infrastructure/web/httpSecurity.ts`.
 
@@ -225,7 +227,10 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
 | GET | `/health` | — (vida: el proceso responde; no toca la base de datos; fuera del limitador global desde F2-T10) |
 | GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`; fuera del limitador global desde F2-T10) |
 | POST | `/api/v1/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
-| POST | `/api/v1/auth/login` | `{ email, password }` |
+| POST | `/api/v1/auth/login` | `{ email, password }` → cookies `accessToken` y `refreshToken` |
+| POST | `/api/v1/auth/refresh` | — (cookie `refreshToken`) → cookies nuevas; 401 `INVALID_SESSION` |
+| POST | `/api/v1/auth/logout` | — (cookie `refreshToken`; idempotente) → 204 |
+| POST | `/api/v1/auth/logout-all` | — (con sesión) → 204, cierra todas las sesiones del usuario |
 | GET | `/api/v1/leads` | — |
 | POST | `/api/v1/leads` | `{ contactName (requerido), companyName?, email?, phone?, statusId?(uuid), source?, assignedToId?(uuid), estimatedValue?, expectedCloseDate?, notes? }` |
 | PATCH | `/api/v1/leads/:id` | mismos campos salvo `statusId`, todos opcionales |
@@ -265,7 +270,7 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 | HTTP | Códigos |
 |---|---|
 | 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_COMPANY_CONTACT`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED`, `INVALID_FILTER_VALUE`, `SORT_FIELD_NOT_ALLOWED` |
-| 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `INVALID_SESSION` (token inválido, caducado o sin tenant) |
+| 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `SESSION_EXPIRED` (token de acceso caducado: renovar, F2-T02), `INVALID_SESSION` (token inválido, sesión revocada o caducada, usuario desactivado) |
 | 403 | `INSUFFICIENT_PERMISSIONS`, `ORIGIN_NOT_ALLOWED` (CSRF, F2-T07) |
 | 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
 | 409 | `EMAIL_ALREADY_IN_USE`, `DEFAULT_LEAD_STATUS_MISSING`, `DEFAULT_LEAD_STATUS_REQUIRED` |
@@ -336,7 +341,8 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `NODE_ENV` | `development`, `test` o `production` | Ninguno: obligatoria |
 | `DATABASE_URL` | Empieza por `postgres://` o `postgresql://` | Ninguno: obligatoria |
 | `JWT_SECRET` | Al menos 32 caracteres (H1) | Ninguno: obligatoria |
-| `JWT_EXPIRATION` | Número + unidad (`ms`, `s`, `m`, `h`, `d`, `w`, `y`), p. ej. `15m` | `7d` |
+| `JWT_EXPIRATION` | Vida del token de acceso: número + unidad (`ms`, `s`, `m`, `h`, `d`, `w`, `y`) | `15m` (D-09; antes `7d`) |
+| `REFRESH_TOKEN_EXPIRATION` | Vida absoluta de la sesión, mismo formato | `7d` |
 | `PORT` | Entero entre 1 y 65535 | `4000` |
 | `CORS_ALLOWED_ORIGINS` | Orígenes exactos separados por comas (`https://app.ejemplo.com`); nunca `*` | Vacío: ningún origen |
 | `TRUST_PROXY` | Número entero de proxies de confianza | `0` |
@@ -387,6 +393,7 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 - **Cuatro proyectos Vitest:** `unit` (dobles en memoria, sin base de datos), `integration` (repositorios contra PostgreSQL real), `api` (aplicación real con supertest), `build` (compila como `pnpm build` y arranca el servidor compilado; regresión de H20).
 - **Base de datos de test:** un contenedor efímero `postgres:15` por ejecución, con las migraciones reales aplicadas; cada archivo de test recibe su propia base y cada test empieza con las tablas vacías. Nunca se usa la base del `.env`.
 - **Inventario de rutas** (`tests/support/http/apiRoutes.ts`): la suite falla si la aplicación registra una ruta no declarada ahí. Toda ruta declarada como protegida se prueba sola contra peticiones sin sesión y con token falsificado.
+- **Sesiones de test (F2-T02):** `persistUser` abre una sesión con el mismo id que el usuario (`testSessionIdFor`) y refresh token `testRefreshTokenFor(userId)`; `sessionCookieFor(usuario)` firma un token sobre ella y `refreshCookieFor(usuario)` da su cookie de refresh.
 - **Matrices de seguridad** (R5): `tests/api/security/tenantIsolation.test.ts` y `roles.test.ts` (casos de negocio concretos). Además, desde F1-T05, `routeCoverageTenantIsolation.test.ts` y `routeCoverageRoles.test.ts` recorren todo `authenticatedRoutes`: cada ruta declara su escenario en `tests/support/http/routeSecurityScenarios.ts` (acción de la matriz, recurso, operación) y la suite falla si falta. Para cada ruta se prueba que el dueño de otra empresa no lista, no modifica y no crea datos fuera de su tenant (404 y registro intacto), y que cada rol recibe lo que dice `permissionMatrix` (2xx o 403, sobre el registro propio y sobre el de otro comercial).
 - **Defectos conocidos:** `itKnownDefect(hallazgo, …)` describe el comportamiento correcto de un hallazgo aún sin corregir. Se ejecuta siempre y pasa solo mientras el defecto exista; al corregirlo hay que convertirlo en `it(...)`. Hoy hay 3 (H2 y H7), listados en `tests/README.md`. El de F1-T14 pasó a regresión en F1-T14. H11 terminó de pasar a regresión en F1-T12. H10 y H9 en contactos pasaron a regresión en F1-T16. H15 pasó a regresión en F1-T10; H3 y H9 en leads, en F1-T13. Los 13 de H5 y uno de H11 pasaron a regresión en F1-T02; los de H4 y H14, en F1-T06.
 - **Límite a tener en cuenta:** el limitador global (100 peticiones / 15 min) vale también en los tests; un archivo de tests de API no puede superar 100 peticiones, ni 50 a `/api/v1/auth` (los tests suben ese cupo desde 10).
@@ -429,3 +436,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-17 | F2-T09 | pendiente | Migración `add_partial_unique_document_index` (F1-S2): índice único parcial del documento en `Contact` y `CompanyContact` entre clientes activos, con la función preview `partialIndexes` de Prisma y comprobación previa de duplicados. Los repositorios traducen la violación a 409 `DOCUMENT_ALREADY_REGISTERED` (`prismaErrors.ts`, compartido con `PrismaUserRepository`). Verificada con `prisma migrate diff` (sin diferencias) y sobre una base con duplicados (se detiene) y sin ellos. 8 tests nuevos (7 de integración, 1 de API con dos altas simultáneas). Pendiente: aplicarla en producción (Operaciones, R6). |
 | 2026-11-17 | F2-T08 | pendiente | Auditoría en la misma transacción que la modificación (F1-S1) en los 9 casos de uso que aún la escribían después: crear, modificar y borrar leads, contactos y empresas cliente. Reciben `ITransactionManager` como último parámetro (los módulos del contenedor pasan `PrismaTransactionManager`). Suite nueva `auditAtomicity.test.ts` (14 tests, uno por ruta que modifica): sin el cambio fallaban los 9. Cambia la construcción de esos casos de uso en 4 archivos de tests unitarios (nuevo parámetro `RecordingTransactionManager`). |
 | 2026-11-17 | F2-T01 | pendiente | Correo transaccional: puertos `IEmailService`, `IEmailTemplateRenderer`, `IEmailLogRepository`; `TransactionalEmailSender` (nunca lanza por el proveedor, registra cada envío); adaptadores `ResendEmailService` (axios, URL fija, respuesta validada), `LogEmailService` y `MemoryEmailService`; plantillas MJML compiladas con `pnpm emails:build` (D-28, `mjml` 5.4.1 como devDependency); migración `add_email_log`. Variables `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL` (en producción, Resend y https obligatorios). 47 tests nuevos. Cambian el test de configuración completa y sus variables de producción (añaden las de correo), la lista de tablas sin borrado suave del test de esquema (`EmailLog`) y la CI de la imagen Docker (variables de correo de ejemplo). | |
+| 2026-11-17 | F2-T02 | pendiente | Sesiones (D-09): `UserSession` (migración `add_user_session`) con hash SHA-256 del refresh token, revocación y motivo; token de acceso JWT HS256 de 15 min con `sid`, emisor y audiencia fijos y sin rol (H2); `JwtTokenService` (antes `JwTokenService`); `SessionIssuer`, `RefreshSessionUseCase` (rotación con comparar y cambiar, reutilización revoca la sesión y se audita), `LogoutUseCase`, `LogoutAllSessionsUseCase`, `AuthenticateSessionUseCase` (sesión abierta, usuario y empresa activos, rol de la base en cada petición). Rutas `POST /auth/refresh`, `/auth/logout`, `/auth/logout-all` (acción `session:revoke-own`); cookie `refreshToken` solo en `/api/v1/auth`; caducidad de cada cookie igual a la de su token (H23). Código `SESSION_EXPIRED`. Variable `REFRESH_TOKEN_EXPIRATION`; `JWT_EXPIRATION` pasa a 15m por defecto. El cupo estricto por IP queda solo en registro y login. Operación de escenario `self` y grupo `sessions` en las suites de seguridad. Los 2 defectos conocidos de H2 pasan a regresión. 70 tests nuevos. Cambian: `persistUser` abre una sesión y `sessionCookieFor` firma con `sid`; los tests de `JwtTokenService`, del middleware y de `LoginUseCase` por el contrato nuevo (sin rol en el token, sesión en lugar de token suelto); el test del valor por defecto de `JWT_EXPIRATION` (7d → 15m); la lista de tablas sin borrado suave (`UserSession`). Matriz de permisos regenerada (necesita firma nueva). |

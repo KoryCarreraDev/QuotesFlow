@@ -1,3 +1,6 @@
+import { AuthenticateSessionUseCase } from '@/application/use-case/auth/AuthenticateSessionUseCase.js';
+import { SessionRevocationReason, UserSession } from '@/domain/entities/UserSession.js';
+import { InMemorySessionRepository } from '@tests/support/doubles/InMemorySessionRepository.js';
 import type { Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -101,48 +104,96 @@ describe('validateBody', () => {
   });
 });
 
-describe('createAuthValidateCookie', () => {
-  const sessionPayload = {
+describe('createAuthValidateCookie (F2-T02)', () => {
+  const claims = {
     sub: '22222222-2222-4222-8222-222222222222',
     tenantId: '11111111-1111-4111-8111-111111111111',
-    role: Role.SALES_REP,
+    sid: '33333333-3333-4333-8333-333333333333',
   };
+  const ONE_DAY_MS = 86_400_000;
 
-  it('con una cookie de sesión válida identifica al usuario, su tenant y su rol', () => {
+  function setupAuthentication() {
     const tokenService = new FakeAuthTokenService();
-    const request = asRequest({ cookies: { accessToken: tokenService.generateToken(sessionPayload) } });
+    const sessionRepository = new InMemorySessionRepository();
+    sessionRepository.seed(
+      new UserSession(claims.sid, claims.tenantId, claims.sub, 'refresh-hash', new Date(Date.now() + ONE_DAY_MS)),
+    );
+    sessionRepository.setUserState(claims.sub, { role: Role.SALES_LEADER, isActive: true });
+    const middleware = createAuthValidateCookie(new AuthenticateSessionUseCase(tokenService, sessionRepository));
+    return { tokenService, sessionRepository, middleware };
+  }
+
+  it('con una sesión abierta identifica al usuario, su tenant, su sesión y su rol actual de la base', async () => {
+    const { tokenService, middleware } = setupAuthentication();
+    const request = asRequest({ cookies: { accessToken: tokenService.generateToken(claims) } });
     const next = vi.fn();
 
-    createAuthValidateCookie(tokenService)(request, asResponse(createResponseDouble()), next);
+    await middleware(request, asResponse(createResponseDouble()), next);
 
     expect(request.user).toEqual({
-      userId: sessionPayload.sub,
-      tenantId: sessionPayload.tenantId,
-      role: Role.SALES_REP,
+      userId: claims.sub,
+      tenantId: claims.tenantId,
+      role: Role.SALES_LEADER,
+      sessionId: claims.sid,
     });
     expect(next).toHaveBeenCalledWith();
   });
 
-  it('sin cookie de sesión responde 401 y no continúa', () => {
+  it('sin cookie de sesión responde 401 y no continúa', async () => {
+    const { middleware } = setupAuthentication();
     const request = asRequest({ cookies: {} });
     const response = createResponseDouble();
     const next = vi.fn();
 
-    createAuthValidateCookie(new FakeAuthTokenService())(request, asResponse(response), next);
+    await middleware(request, asResponse(response), next);
 
     expect(response.status).toHaveBeenCalledWith(HTTP_UNAUTHORIZED);
     expect(next).not.toHaveBeenCalled();
     expect(request.user).toBeUndefined();
   });
 
-  it('con un token inválido no identifica a nadie y entrega el error al manejador de errores', () => {
+  it('con un token inválido no identifica a nadie y entrega INVALID_SESSION al manejador de errores', async () => {
+    const { middleware } = setupAuthentication();
     const request = asRequest({ cookies: { accessToken: 'forged-token' } });
     const next = vi.fn();
 
-    createAuthValidateCookie(new FakeAuthTokenService())(request, asResponse(createResponseDouble()), next);
+    await middleware(request, asResponse(createResponseDouble()), next);
 
     expect(request.user).toBeUndefined();
     expect(next).toHaveBeenCalledOnce();
-    expect(next.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(next.mock.calls[0][0]).toMatchObject({ code: ErrorCode.INVALID_SESSION });
+  });
+
+  it('con un token caducado entrega SESSION_EXPIRED: el frontend sabe que debe renovar', async () => {
+    const { tokenService, middleware } = setupAuthentication();
+    const request = asRequest({ cookies: { accessToken: tokenService.expiredToken() } });
+    const next = vi.fn();
+
+    await middleware(request, asResponse(createResponseDouble()), next);
+
+    expect(next.mock.calls[0][0]).toMatchObject({ code: ErrorCode.SESSION_EXPIRED });
+  });
+
+  it('con la sesión revocada, el token aún vigente deja de valer (logout, H2)', async () => {
+    const { tokenService, sessionRepository, middleware } = setupAuthentication();
+    await sessionRepository.revoke(claims.sid, SessionRevocationReason.LOGOUT);
+    const request = asRequest({ cookies: { accessToken: tokenService.generateToken(claims) } });
+    const next = vi.fn();
+
+    await middleware(request, asResponse(createResponseDouble()), next);
+
+    expect(request.user).toBeUndefined();
+    expect(next.mock.calls[0][0]).toMatchObject({ code: ErrorCode.INVALID_SESSION });
+  });
+
+  it('con el usuario desactivado, el token aún vigente deja de valer (H2)', async () => {
+    const { tokenService, sessionRepository, middleware } = setupAuthentication();
+    sessionRepository.setUserState(claims.sub, { role: Role.SALES_LEADER, isActive: false });
+    const request = asRequest({ cookies: { accessToken: tokenService.generateToken(claims) } });
+    const next = vi.fn();
+
+    await middleware(request, asResponse(createResponseDouble()), next);
+
+    expect(next.mock.calls[0][0]).toMatchObject({ code: ErrorCode.INVALID_SESSION });
   });
 });

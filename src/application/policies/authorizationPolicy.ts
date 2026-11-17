@@ -35,6 +35,7 @@ export enum Action {
   COMPANY_CONTACT_UPDATE = 'company-contact:update',
   COMPANY_CONTACT_DELETE = 'company-contact:delete',
   COMPANY_CONTACT_ASSIGN_OWNER = 'company-contact:assign-owner',
+  SESSION_REVOKE_OWN = 'session:revoke-own',
 }
 
 /**
@@ -102,6 +103,8 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.COMPANY_CONTACT_UPDATE]: managementOrOwnForSalesRep,
   [Action.COMPANY_CONTACT_ASSIGN_OWNER]: managementOnly,
   [Action.COMPANY_CONTACT_DELETE]: managementOnly,
+  // F2-T02: cualquiera cierra todas sus propias sesiones; nunca las de otro usuario.
+  [Action.SESSION_REVOKE_OWN]: everyone,
 };
 
 // Con Map, un rol con un nombre inesperado (`__proto__`, `constructor`) nunca resuelve a una propiedad

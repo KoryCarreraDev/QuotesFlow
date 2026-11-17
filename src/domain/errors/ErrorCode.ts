@@ -9,6 +9,8 @@ export enum ErrorCode {
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   SESSION_REQUIRED = 'SESSION_REQUIRED',
   INVALID_SESSION = 'INVALID_SESSION',
+  // El token de acceso caducó (F2-T02): el frontend llama a POST /auth/refresh y repite la petición.
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
 
   // Permisos
   INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',

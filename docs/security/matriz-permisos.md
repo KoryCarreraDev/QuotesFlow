@@ -32,6 +32,7 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `company-contact:update` | Modificar una empresa cliente | Sí | Sí | Sí | Solo los suyos |
 | `company-contact:assign-owner` | Elegir o cambiar el comercial responsable de una empresa cliente | Sí | Sí | Sí | No |
 | `company-contact:delete` | Borrar (suave) una empresa cliente sin contactos activos | Sí | Sí | Sí | No |
+| `session:revoke-own` | Cerrar todas sus propias sesiones (`POST /auth/logout-all`) | Sí | Sí | Sí | Sí |
 
 Comportamientos que la tabla no muestra:
 

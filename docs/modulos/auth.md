@@ -55,4 +55,13 @@ Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_REQUE
 - Límite propio de 10 peticiones por IP cada 15 minutos en `/api/v1/auth` (`RATE_LIMIT_AUTH_MAX_REQUESTS`), además del global (H6). El bloqueo por cuenta llega en F2-T03.
 - CSRF (F2-T07): login y registro, como toda petición que modifica datos, responden 403 `ORIGIN_NOT_ALLOWED` si llegan con un `Origin` (o `Referer`) fuera de `CORS_ALLOWED_ORIGINS`. Evita que otra web inicie sesión en nombre del usuario con una cuenta del atacante.
 - Se auditan el registro (`COMPANY_REGISTERED`), el login correcto (`LOGIN_SUCCEEDED`) y la contraseña incorrecta de una cuenta existente (`LOGIN_FAILED`). Un correo inexistente no se audita.
-- Pendiente en F2: contraseña mínima de 12 caracteres (H7), tiempo de respuesta igual exista o no el correo (H22), sesión corta con refresh (H2, D-09) y caducidad real de la cookie (H23).
+- Sesiones (F2-T02, D-09): ver la sección siguiente. H2 y H23 resueltos.
+- Pendiente en F2: contraseña mínima de 12 caracteres (H7) y tiempo de respuesta igual exista o no el correo (H22), en F2-T03.
+
+## Sesiones (F2-T02)
+- El login abre una sesión y deja dos cookies HTTP-only `SameSite=Strict`: `accessToken` (15 min, viaja a toda la API) y `refreshToken` (7 días de vida absoluta, solo viaja a `/api/v1/auth`). La base guarda solo el hash del refresh token.
+- Cuando la API responde 401 `SESSION_EXPIRED`, el frontend llama a `POST /api/v1/auth/refresh` y repite la petición. Debe renovar de una en una: dos renovaciones simultáneas con el mismo refresh token se tratan como robo y cierran la sesión.
+- `POST /api/v1/auth/refresh`: cookies nuevas (el refresh token cambia en cada renovación). Un refresh token ya usado revoca la sesión entera (`SESSION_REUSE_DETECTED` en auditoría) y responde 401 `INVALID_SESSION`.
+- `POST /api/v1/auth/logout`: cierra la sesión del navegador y borra las cookies; siempre 204.
+- `POST /api/v1/auth/logout-all` (con sesión): cierra todas las sesiones del usuario; 204.
+- Cada petición protegida comprueba en la base que la sesión siga abierta y que el usuario y su empresa sigan activos, y usa el rol actual: desactivar a un usuario o cambiarle el rol surte efecto de inmediato (H2).

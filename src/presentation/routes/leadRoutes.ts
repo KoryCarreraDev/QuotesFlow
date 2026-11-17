@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
-import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
+import { AuthenticateSessionUseCase } from '../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { LeadController } from '../../infrastructure/web/controllers/leadControllers.js';
 import { createLeadSchema } from '../schemas/leadSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
@@ -25,9 +25,9 @@ function getLeadController(req: Request): LeadController {
   );
 }
 
-export function leadRouter(jwtService: IAuthTokenService): Router {
+export function leadRouter(authenticateSession: AuthenticateSessionUseCase): Router {
   const router = Router();
-  const authMiddleware = createAuthValidateCookie(jwtService);
+  const authMiddleware = createAuthValidateCookie(authenticateSession);
   const tenantMiddleware = createTenantMiddleware();
 
   router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {

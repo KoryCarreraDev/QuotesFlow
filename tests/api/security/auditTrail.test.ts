@@ -46,6 +46,8 @@ describe('Rastro de auditoría', () => {
           .patch(route.pattern)
           .set('Cookie', ownerCookie)
           .send(scenarioUpdateBody(scenario, company));
+      } else if (scenario.operation === 'self') {
+        response = await request(app).post(route.pattern).set('Cookie', ownerCookie);
       } else if (scenario.operation === 'create') {
         response = await request(app)
           .post(route.pattern)

@@ -29,6 +29,7 @@ const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const HTTP_NOT_FOUND = 404;
 const HTTP_BAD_REQUEST = 400;
+const HTTP_NO_CONTENT = 204;
 
 const routesWithScenario = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
@@ -123,8 +124,20 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
     expect(storedStatuses.map((status) => (status as { order: number }).order)).toEqual(ordersBefore);
   }
 
+  // F2-T02: una acción sobre lo propio (cerrar sus sesiones) no toca lo de otra empresa.
+  async function expectSelfActionLeavesForeignRecords(route: RouteInventoryEntry, scenario: RouteSecurityScenario) {
+    const victimResourceId = await persistScenarioResource(scenario.resource, victimCompany, victimCompany.owner.id);
+    const recordBefore = await readScenarioResource(scenario.resource, victimResourceId);
+
+    const response = await request(app).post(route.pattern).set('Cookie', intruderCookie);
+
+    expect(response.status).toBe(HTTP_NO_CONTENT);
+    await expect(readScenarioResource(scenario.resource, victimResourceId)).resolves.toEqual(recordBefore);
+  }
+
   it.each(routesWithScenario)('$title no alcanza datos de otra empresa', async ({ route, scenario }) => {
     if (scenario.operation === 'list') await expectListExcludesForeignRecords(route, scenario);
+    else if (scenario.operation === 'self') await expectSelfActionLeavesForeignRecords(route, scenario);
     else if (scenario.operation === 'bulkUpdate') await expectBulkUpdateIgnoresForeignRecords(route);
     else if (scenario.operation === 'create') await expectCreationStaysInOwnTenant(route, scenario);
     else await expectForeignRecordUntouched(route, scenario);

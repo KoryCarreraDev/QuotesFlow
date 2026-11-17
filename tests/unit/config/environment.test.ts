@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidEnvironmentError, parseEnvironment } from '@/config/env.js';
+import { InvalidEnvironmentError, durationToMilliseconds, parseEnvironment } from '@/config/env.js';
 
 // Regresión de H1: la API arrancaba con `JWT_SECRET = 'default-secret'` si faltaba la variable,
 // y cualquiera que conociera ese valor podía firmar tokens válidos de cualquier tenant.
@@ -52,6 +52,7 @@ describe('parseEnvironment', () => {
       DATABASE_URL: validVariables.DATABASE_URL,
       JWT_SECRET: VALID_JWT_SECRET,
       JWT_EXPIRATION: '15m',
+      REFRESH_TOKEN_EXPIRATION: '7d',
       CORS_ALLOWED_ORIGINS: [],
       TRUST_PROXY: 0,
       RATE_LIMIT_GLOBAL_MAX_REQUESTS: DEFAULT_GLOBAL_RATE_LIMIT,
@@ -131,8 +132,9 @@ describe('parseEnvironment', () => {
   });
 
   describe('JWT_EXPIRATION', () => {
-    it('usa 7d si no se define', () => {
-      expect(parseEnvironment({ ...validVariables, JWT_EXPIRATION: undefined }).JWT_EXPIRATION).toBe('7d');
+    // D-09 (F2-T02): antes 7d; el token de acceso es corto y la sesión la mantiene el refresh token.
+    it('usa 15m si no se define', () => {
+      expect(parseEnvironment({ ...validVariables, JWT_EXPIRATION: undefined }).JWT_EXPIRATION).toBe('15m');
     });
 
     it('rechaza un texto que jsonwebtoken no entiende como duración', () => {
@@ -275,5 +277,40 @@ describe('parseEnvironment', () => {
       expect(parseWith({ RESEND_API_KEY: leakedKey })).toThrow(InvalidEnvironmentError);
       expect(parseWith({ RESEND_API_KEY: leakedKey })).not.toThrow(leakedKey);
     });
+  });
+
+  describe('REFRESH_TOKEN_EXPIRATION (F2-T02)', () => {
+    it('usa 7d si no se define: vida absoluta de la sesión', () => {
+      expect(parseEnvironment(validVariables).REFRESH_TOKEN_EXPIRATION).toBe('7d');
+    });
+
+    it('rechaza una duración sin unidad', () => {
+      expect(invalidVariablesOf({ REFRESH_TOKEN_EXPIRATION: '604800' })).toEqual(['REFRESH_TOKEN_EXPIRATION']);
+    });
+  });
+});
+
+describe('durationToMilliseconds (H23)', () => {
+  const HALF_SECOND_MS = 500;
+  const THIRTY_SECONDS_MS = 30_000;
+  const FIFTEEN_MINUTES_MS = 900_000;
+  const TWO_HOURS_MS = 7_200_000;
+  const ONE_WEEK_MS = 604_800_000;
+  const ONE_YEAR_MS = 31_557_600_000;
+
+  it.each([
+    ['500ms', HALF_SECOND_MS],
+    ['30s', THIRTY_SECONDS_MS],
+    ['15m', FIFTEEN_MINUTES_MS],
+    ['2h', TWO_HOURS_MS],
+    ['7d', ONE_WEEK_MS],
+    ['1w', ONE_WEEK_MS],
+    ['1y', ONE_YEAR_MS],
+  ])('%s son %d ms, igual que interpreta jsonwebtoken', (duration, expectedMilliseconds) => {
+    expect(durationToMilliseconds(duration)).toBe(expectedMilliseconds);
+  });
+
+  it('rechaza un texto que no es una duración', () => {
+    expect(() => durationToMilliseconds('forever')).toThrow('Invalid duration');
   });
 });

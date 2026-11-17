@@ -1,13 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import { IAuthTokenService } from '../../../application/ports/services/IAuthTokenService.js';
+import { AuthenticateSessionUseCase } from '../../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { UnauthorizedError } from '../../../domain/errors/UnauthorizedError.js';
 import { sendApplicationError } from '../errors/errorResponse.js';
 import { bindSessionToRequestContext } from '../../../cross-cutting/requestContext.js';
+import { readAccessTokenCookie } from '../sessionCookies.js';
 
-export function createAuthValidateCookie(tokenService: IAuthTokenService) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies?.accessToken;
+/**
+ * Exige una sesión válida (F2-T02): cookie `accessToken` con un token vigente de una sesión abierta. El rol
+ * de `req.user` sale de la base en cada petición, no del token (H2).
+ */
+export function createAuthValidateCookie(authenticateSession: AuthenticateSessionUseCase) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const token = readAccessTokenCookie(req);
 
     if (!token) {
       sendApplicationError(res, new UnauthorizedError(ErrorCode.SESSION_REQUIRED, 'Session cookie is required'));
@@ -15,19 +20,16 @@ export function createAuthValidateCookie(tokenService: IAuthTokenService) {
     }
 
     try {
-      const payload = tokenService.verifyToken(token);
-
+      const session = await authenticateSession.execute(token);
       req.user = {
-        userId: payload.sub,
-        tenantId: payload.tenantId,
-        role: payload.role,
+        userId: session.userId,
+        tenantId: session.tenantId,
+        role: session.role,
+        sessionId: session.sessionId,
       };
-      bindSessionToRequestContext(payload.sub, payload.tenantId);
-    } catch (verificationError) {
-      // Firma inválida, token caducado o mal formado: al cliente le basta saber que la sesión no vale.
-      next(
-        new UnauthorizedError(ErrorCode.INVALID_SESSION, 'Session is invalid or expired', { cause: verificationError }),
-      );
+      bindSessionToRequestContext(session.userId, session.tenantId);
+    } catch (authenticationError) {
+      next(authenticationError);
       return;
     }
 

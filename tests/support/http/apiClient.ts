@@ -6,7 +6,8 @@
 
 import type { Express } from 'express';
 import request, { type Test } from 'supertest';
-import { JwTokenService } from '@/infrastructure/services/JwtTokenService.js';
+import { JwtTokenService } from '@/infrastructure/services/JwtTokenService.js';
+import { testRefreshTokenFor, testSessionIdFor } from '@tests/support/database/persistenceFactories.js';
 import type { HttpMethod } from './apiRoutes.js';
 
 /** Máximo de peticiones por ventana que admite el limitador global de `src/app.ts`. */
@@ -14,6 +15,8 @@ export const GLOBAL_RATE_LIMIT_MAX_REQUESTS = 100;
 
 /** Nombre de la cookie de sesión que emite el login. */
 export const SESSION_COOKIE_NAME = 'accessToken';
+/** Cookie del refresh token (F2-T02); solo viaja a /api/v1/auth. */
+export const REFRESH_COOKIE_NAME = 'refreshToken';
 
 export interface SessionUser {
   id: string;
@@ -22,16 +25,22 @@ export interface SessionUser {
 }
 
 /**
- * Cookie de sesión válida para el usuario, firmada con el servicio real de tokens.
- * Evita hacer login por HTTP en cada test (y gastar peticiones del límite global).
+ * Cookie de sesión válida para el usuario, firmada con el servicio real de tokens, sobre la sesión que
+ * `persistUser` dejó abierta (F2-T02). Evita hacer login por HTTP en cada test (y gastar peticiones del
+ * límite global). El rol no viaja en el token: lo lee la API de la base en cada petición.
  */
 export function sessionCookieFor(user: SessionUser): string {
-  const token = new JwTokenService().generateToken({
+  const token = new JwtTokenService().generateToken({
     sub: user.id,
     tenantId: user.tenantId,
-    role: user.role,
+    sid: testSessionIdFor(user.id),
   });
   return buildSessionCookie(token);
+}
+
+/** Cookie con el refresh token de la sesión de test del usuario. */
+export function refreshCookieFor(user: Pick<SessionUser, 'id'>): string {
+  return `${REFRESH_COOKIE_NAME}=${testRefreshTokenFor(user.id)}`;
 }
 
 export function buildSessionCookie(token: string): string {

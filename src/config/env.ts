@@ -12,7 +12,10 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const MINIMUM_JWT_SECRET_LENGTH = 32;
 const DEFAULT_PORT = 4000;
 const HIGHEST_TCP_PORT = 65_535;
-const DEFAULT_JWT_EXPIRATION = '7d';
+// D-09 (F2-T02): token de acceso corto; la sesión se mantiene con el refresh token rotatorio.
+const DEFAULT_JWT_EXPIRATION = '15m';
+// Vida absoluta de una sesión: pasado este plazo hay que volver a iniciar sesión.
+const DEFAULT_REFRESH_TOKEN_EXPIRATION = '7d';
 const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
 // jsonwebtoken interpreta la duración con la librería `ms`. Se exige número + unidad porque un número
 // sin unidad lo lee como milisegundos ("3600" caducaría en 3,6 segundos) y un texto que `ms` no entiende
@@ -20,6 +23,42 @@ const POSTGRES_URL_PATTERN = /^postgres(ql)?:\/\//;
 const JWT_EXPIRATION_PATTERN = /^\d+(ms|s|m|h|d|w|y)$/;
 
 const MISSING_VARIABLE_MESSAGE = 'is required';
+const DURATION_FORMAT_MESSAGE = 'must be a number followed by a unit (ms, s, m, h, d, w, y), e.g. 15m';
+
+const MILLISECONDS_PER_SECOND = 1_000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const DAYS_PER_WEEK = 7;
+// Igual que la librería `ms` que usa jsonwebtoken: un año de 365,25 días.
+const DAYS_PER_YEAR = 365.25;
+const MILLISECONDS_PER_MINUTE = MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE;
+const MILLISECONDS_PER_HOUR = MILLISECONDS_PER_MINUTE * MINUTES_PER_HOUR;
+const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * HOURS_PER_DAY;
+
+const MILLISECONDS_PER_UNIT: ReadonlyMap<string, number> = new Map([
+  ['ms', 1],
+  ['s', MILLISECONDS_PER_SECOND],
+  ['m', MILLISECONDS_PER_MINUTE],
+  ['h', MILLISECONDS_PER_HOUR],
+  ['d', MILLISECONDS_PER_DAY],
+  ['w', MILLISECONDS_PER_DAY * DAYS_PER_WEEK],
+  ['y', MILLISECONDS_PER_DAY * DAYS_PER_YEAR],
+]);
+const DURATION_PARTS_PATTERN = /^(\d+)(ms|s|m|h|d|w|y)$/;
+
+/**
+ * Convierte una duración ya validada (`15m`, `7d`) a milisegundos. Sirve para que la caducidad de las
+ * cookies coincida con la de los tokens (H23).
+ *
+ * @throws {Error} Si el texto no es una duración válida.
+ */
+export function durationToMilliseconds(duration: string): number {
+  const parts = DURATION_PARTS_PATTERN.exec(duration);
+  const unitMilliseconds = parts ? MILLISECONDS_PER_UNIT.get(parts[2]) : undefined;
+  if (!parts || unitMilliseconds === undefined) throw new Error(`Invalid duration: ${duration}`);
+  return Number(parts[1]) * unitMilliseconds;
+}
 
 // Un origen es esquema + host (+ puerto), sin ruta ni barra final: así lo envía el navegador en `Origin`.
 const ORIGIN_PATTERN = /^https?:\/\/[^/\s]+$/;
@@ -129,9 +168,13 @@ const baseEnvironmentSchema = z.object({
   ),
   JWT_EXPIRATION: z.preprocess(
     treatEmptyAsMissing,
+    requiredText().regex(JWT_EXPIRATION_PATTERN, { error: DURATION_FORMAT_MESSAGE }).default(DEFAULT_JWT_EXPIRATION),
+  ),
+  REFRESH_TOKEN_EXPIRATION: z.preprocess(
+    treatEmptyAsMissing,
     requiredText()
-      .regex(JWT_EXPIRATION_PATTERN, { error: 'must be a number followed by a unit (ms, s, m, h, d, w, y), e.g. 15m' })
-      .default(DEFAULT_JWT_EXPIRATION),
+      .regex(JWT_EXPIRATION_PATTERN, { error: DURATION_FORMAT_MESSAGE })
+      .default(DEFAULT_REFRESH_TOKEN_EXPIRATION),
   ),
   // Lista blanca de CORS (H4). Vacía: ningún navegador de otro origen puede llamar a la API.
   // Nunca `*`: la API usa cookie de sesión y CORS con credenciales exige orígenes exactos.

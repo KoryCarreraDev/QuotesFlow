@@ -13,7 +13,6 @@ import {
   buildConcretePath,
   describeRoute,
 } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const MILLISECONDS_PER_SECOND = 1000;
 const TWO_HOURS = 2;
@@ -107,7 +106,8 @@ describe('Autenticación de las rutas protegidas', () => {
     expect(response.status).toBe(HTTP_UNAUTHORIZED);
   });
 
-  itKnownDefect('H2', 'un usuario desactivado después de iniciar sesión pierde el acceso', async () => {
+  // Regresión de H2 (F2-T02): el middleware comprueba la sesión y el usuario en la base.
+  it('un usuario desactivado después de iniciar sesión pierde el acceso', async () => {
     const company = await persistTenantWithTeam();
     const sessionCookie = sessionCookieFor(company.salesRep);
     const { default: prisma } = await import('@/config/database.js');
