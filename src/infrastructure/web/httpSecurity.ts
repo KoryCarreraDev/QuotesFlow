@@ -1,7 +1,8 @@
 import cors from 'cors';
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import { ErrorCode } from '../../domain/errors/ErrorCode.js';
+import { ForbiddenError } from '../../domain/errors/ForbiddenError.js';
 import { HttpStatus, buildErrorResponseBody } from './errors/errorResponse.js';
 
 /**
@@ -43,4 +44,53 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
         .json(buildErrorResponseBody(ErrorCode.TOO_MANY_REQUESTS, 'Too many requests, try again later'));
     },
   });
+}
+
+// Métodos que no modifican datos (RFC 9110, 9.2.1): no necesitan protección CSRF.
+const SAFE_HTTP_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
+// Un navegador envía `Origin: null` desde iframes con sandbox, `data:` o redirecciones entre sitios:
+// nunca es el frontend legítimo.
+const OPAQUE_ORIGIN = 'null';
+
+/**
+ * Origen que declara el navegador: `Origin` y, si falta, el origen de `Referer`.
+ * `undefined` si no hay ninguno (cliente que no es un navegador).
+ */
+function declaredOriginOf(request: Request): string | undefined {
+  const origin = request.get('origin');
+  if (origin !== undefined) return origin;
+
+  const referer = request.get('referer');
+  if (referer === undefined) return undefined;
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return OPAQUE_ORIGIN;
+  }
+}
+
+/**
+ * Protección CSRF por verificación de origen (F2-T07, D-14). Segunda barrera tras la cookie
+ * `SameSite=Strict`: una petición que modifica datos (POST, PATCH, PUT, DELETE) desde un origen fuera de
+ * `CORS_ALLOWED_ORIGINS` responde 403 `ORIGIN_NOT_ALLOWED` antes de llegar a la ruta.
+ *
+ * Sin `Origin` ni `Referer` se atiende: los navegadores siempre envían `Origin` en peticiones que modifican
+ * entre orígenes, así que una petición sin ninguno viene de un cliente que no es un navegador (curl, otro
+ * servidor) y que no puede llevar la cookie de la víctima.
+ */
+export function createOriginCheckMiddleware(allowedOrigins: readonly string[]): RequestHandler {
+  const allowedOriginSet = new Set(allowedOrigins);
+  return (request, _response, next) => {
+    if (SAFE_HTTP_METHODS.has(request.method)) {
+      next();
+      return;
+    }
+
+    const declaredOrigin = declaredOriginOf(request);
+    if (declaredOrigin === undefined || allowedOriginSet.has(declaredOrigin)) {
+      next();
+      return;
+    }
+    next(new ForbiddenError(ErrorCode.ORIGIN_NOT_ALLOWED, 'Request origin is not allowed'));
+  };
 }

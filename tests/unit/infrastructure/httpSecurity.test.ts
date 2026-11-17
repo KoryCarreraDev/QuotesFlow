@@ -2,12 +2,19 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
-import { createCorsMiddleware, createRateLimiter } from '@/infrastructure/web/httpSecurity.js';
+import {
+  createCorsMiddleware,
+  createOriginCheckMiddleware,
+  createRateLimiter,
+} from '@/infrastructure/web/httpSecurity.js';
+import { createErrorHandler } from '@/infrastructure/web/middleware/errorHandler.js';
+import { RecordingLogger } from '@tests/support/doubles/RecordingLogger.js';
 
 // F1-T06: CORS con lista blanca (H4) y límites de tasa que no se esquivan con X-Forwarded-For (H6).
 
 const HTTP_OK = 200;
 const HTTP_NO_CONTENT = 204;
+const HTTP_FORBIDDEN = 403;
 const HTTP_TOO_MANY_REQUESTS = 429;
 const SMALL_LIMIT = 2;
 const ONE_MINUTE_MS = 60_000;
@@ -114,5 +121,91 @@ describe('createRateLimiter (H6)', () => {
 
     expect(sameClientResponse.status).toBe(HTTP_TOO_MANY_REQUESTS);
     expect(otherClientResponse.status).toBe(HTTP_OK);
+  });
+});
+
+function appWithOriginCheck(allowedOrigins: string[]) {
+  const app = express();
+  app.use(createOriginCheckMiddleware(allowedOrigins));
+  app.all('/resource', (_request, response) => {
+    response.status(HTTP_OK).json({ ok: true });
+  });
+  app.use(createErrorHandler(new RecordingLogger()));
+  return app;
+}
+
+describe('createOriginCheckMiddleware (CSRF, F2-T07)', () => {
+  it('atiende una modificación desde un origen de la lista', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .post('/resource')
+      .set('Origin', TRUSTED_ORIGIN);
+
+    expect(response.status).toBe(HTTP_OK);
+  });
+
+  it.each(['POST', 'PATCH', 'PUT', 'DELETE'] as const)(
+    'rechaza con 403 ORIGIN_NOT_ALLOWED un %s desde un origen fuera de la lista',
+    async (method) => {
+      const agent = request(appWithOriginCheck([TRUSTED_ORIGIN]));
+      const pendingRequest =
+        method === 'POST'
+          ? agent.post('/resource')
+          : method === 'PATCH'
+            ? agent.patch('/resource')
+            : method === 'PUT'
+              ? agent.put('/resource')
+              : agent.delete('/resource');
+
+      const response = await pendingRequest.set('Origin', UNTRUSTED_ORIGIN);
+
+      expect(response.status).toBe(HTTP_FORBIDDEN);
+      expect(response.body.error.code).toBe(ErrorCode.ORIGIN_NOT_ALLOWED);
+    },
+  );
+
+  it('deja pasar una lectura desde cualquier origen: no modifica nada', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .get('/resource')
+      .set('Origin', UNTRUSTED_ORIGIN);
+
+    expect(response.status).toBe(HTTP_OK);
+  });
+
+  it('rechaza el origen opaco "null" que envían los iframes con sandbox', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .post('/resource')
+      .set('Origin', 'null');
+
+    expect(response.status).toBe(HTTP_FORBIDDEN);
+  });
+
+  it('sin Origin, usa el origen de Referer: uno ajeno se rechaza', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .post('/resource')
+      .set('Referer', `${UNTRUSTED_ORIGIN}/formulario-malicioso`);
+
+    expect(response.status).toBe(HTTP_FORBIDDEN);
+  });
+
+  it('sin Origin, un Referer del frontend se atiende', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .post('/resource')
+      .set('Referer', `${TRUSTED_ORIGIN}/leads`);
+
+    expect(response.status).toBe(HTTP_OK);
+  });
+
+  it('un Referer que no es una URL se trata como origen ajeno', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN]))
+      .post('/resource')
+      .set('Referer', 'no es una url');
+
+    expect(response.status).toBe(HTTP_FORBIDDEN);
+  });
+
+  it('sin Origin ni Referer (cliente que no es un navegador) se atiende', async () => {
+    const response = await request(appWithOriginCheck([TRUSTED_ORIGIN])).post('/resource');
+
+    expect(response.status).toBe(HTTP_OK);
   });
 });
