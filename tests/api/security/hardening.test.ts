@@ -11,6 +11,7 @@ const BYTES_PER_KILOBYTE = 1024;
 const KILOBYTES_OVER_PLANNED_LIMIT = 200;
 
 const HTTP_OK = 200;
+const HTTP_NO_CONTENT = 204;
 const HTTP_NOT_FOUND = 404;
 const HTTP_PAYLOAD_TOO_LARGE = 413;
 const HTTP_TOO_MANY_REQUESTS = 429;
@@ -19,6 +20,7 @@ const UNTRUSTED_ORIGIN = 'https://untrusted-site.example';
 // Cualquier ruta que pase por el limitador global sirve para agotarlo; una inexistente no toca la base.
 const RATE_LIMITED_PATH = '/api/v1/route-that-does-not-exist';
 const ALLOW_ANY_ORIGIN = '*';
+const NGROK_SKIP_WARNING_HEADER = 'ngrok-skip-browser-warning';
 
 // Límite de cuerpo previsto en la tarea F1-T06 (hallazgo H14): 100 kb.
 const BODY_SIZE_OVER_PLANNED_LIMIT_BYTES = KILOBYTES_OVER_PLANNED_LIMIT * BYTES_PER_KILOBYTE;
@@ -71,6 +73,34 @@ describe('Cabeceras de seguridad', () => {
 
     expect(response.headers['access-control-allow-origin']).toBe(trustedOrigin);
     expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  // F3-T11 (D-58): mientras la API se publica por ngrok, el frontend envía esta cabecera para saltarse la
+  // página de aviso de ngrok. Es una cabecera no estándar: el navegador pide permiso antes (preflight).
+  it('CORS acepta la cabecera ngrok-skip-browser-warning del frontend', async () => {
+    const [trustedOrigin] = env.CORS_ALLOWED_ORIGINS;
+
+    const preflight = await request(app)
+      .options(apiPaths.auth.login)
+      .set('Origin', trustedOrigin)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', `content-type, ${NGROK_SKIP_WARNING_HEADER}`);
+
+    expect(preflight.status).toBe(HTTP_NO_CONTENT);
+    expect(preflight.headers['access-control-allow-origin']).toBe(trustedOrigin);
+    expect(preflight.headers['access-control-allow-headers']).toContain(NGROK_SKIP_WARNING_HEADER);
+  });
+
+  it('una petición con la cabecera de ngrok se atiende como cualquier otra', async () => {
+    const [trustedOrigin] = env.CORS_ALLOWED_ORIGINS;
+
+    const response = await request(app)
+      .get(apiPaths.health)
+      .set('Origin', trustedOrigin)
+      .set(NGROK_SKIP_WARNING_HEADER, 'true');
+
+    expect(response.status).toBe(HTTP_OK);
+    expect(response.headers['access-control-allow-origin']).toBe(trustedOrigin);
   });
 
   it('las rutas de autenticación tienen su propio cupo, más bajo que el global', async () => {
