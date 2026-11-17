@@ -27,6 +27,8 @@ const valueSchemaByType: Record<FilterFieldType, z.ZodType> = {
   // Fecha (2026-01-31) o fecha y hora ISO con zona; llega al repositorio como Date.
   date: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).transform((value) => new Date(value)),
   id: z.uuid(),
+  // F3-T02: por ejemplo, solo los productos activos.
+  boolean: z.boolean(),
 };
 
 function invalidValue(message: string, path: Array<string | number>): ValidationError {
