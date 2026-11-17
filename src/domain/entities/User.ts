@@ -16,7 +16,16 @@ export class User {
     public readonly tenantId: string,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
+    /** Fallos de login seguidos desde el último acierto (F2-T03). */
+    public readonly failedLoginAttempts: number = 0,
+    /** Hasta cuándo no puede iniciar sesión por fallos seguidos (F2-T03). */
+    public readonly loginLockedUntil?: Date,
   ) {}
+
+  /** Indica si la cuenta está bloqueada por intentos fallidos en ese momento. */
+  isLoginLockedAt(moment: Date): boolean {
+    return this.loginLockedUntil !== undefined && this.loginLockedUntil.getTime() > moment.getTime();
+  }
 
   static create(props: {
     email: string;

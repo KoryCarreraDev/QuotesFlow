@@ -37,7 +37,17 @@
 
 ## Preguntas abiertas
 
-_Ninguna._
+### Q-013 · Qué hacer si el servicio de contraseñas filtradas no responde
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F2-T03, D-11
+- **Bloquea:** No
+- **Pregunta:** Si Have I Been Pwned no responde a tiempo (3 s), ¿se acepta la contraseña o se rechaza el registro / cambio de contraseña?
+- **Contexto:** `PwnedPasswordsChecker` (`src/infrastructure/services/PwnedPasswordsChecker.ts`). Rechazar deja a los usuarios sin poder registrarse ni recuperar su cuenta mientras dure la caída de un servicio ajeno; aceptar deja pasar, solo durante la caída, contraseñas que podrían estar filtradas (siguen exigiéndose 12 caracteres y el bloqueo por cuenta).
+- **Opciones:** a) Aceptar y dejar un aviso técnico (`warn`). b) Rechazar con 503 y pedir que se reintente. c) Aceptar y, además, una lista local de las contraseñas más comunes como respaldo.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
 
 ---
 

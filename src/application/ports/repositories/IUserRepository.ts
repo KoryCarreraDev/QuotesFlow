@@ -17,4 +17,16 @@ export interface IUserRepository {
 
   /** Usuario no borrado del tenant actual. Puede estar desactivado: lo decide quien llama. */
   findById(id: string): Promise<User | null>;
+
+  /**
+   * Suma un fallo de login de forma atómica (dos fallos simultáneos cuentan dos) y devuelve el total.
+   * Por id, sin tenant: el login aún no tiene sesión.
+   */
+  recordFailedLogin(userId: string): Promise<number>;
+
+  /** Bloquea el login de la cuenta hasta ese momento. */
+  lockLogin(userId: string, lockedUntil: Date): Promise<void>;
+
+  /** Pone a cero los fallos y quita el bloqueo, tras un login correcto. */
+  clearFailedLogins(userId: string): Promise<void>;
 }

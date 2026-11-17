@@ -59,6 +59,7 @@ describe('parseEnvironment', () => {
       RATE_LIMIT_AUTH_MAX_REQUESTS: DEFAULT_AUTH_RATE_LIMIT,
       LOG_LEVEL: 'info',
       EMAIL_PROVIDER: 'resend',
+      PASSWORD_BREACH_CHECK: 'hibp',
       RESEND_API_KEY: validVariables.RESEND_API_KEY,
       EMAIL_FROM: validVariables.EMAIL_FROM,
       APP_BASE_URL: validVariables.APP_BASE_URL,

@@ -4,6 +4,8 @@ import { RegisterCompanyDTO } from '@/application/dtos/RegisterCompanyDTO.js';
 import { LoginUseCase } from '@/application/use-case/auth/LoginUseCase.js';
 import { hashOpaqueSecret } from '@/application/services/opaqueTokens.js';
 import { SessionIssuer } from '@/application/services/SessionIssuer.js';
+import { PasswordPolicy } from '@/application/services/PasswordPolicy.js';
+import { FakeBreachedPasswordChecker } from '@tests/support/doubles/FakeBreachedPasswordChecker.js';
 import { InMemorySessionRepository } from '@tests/support/doubles/InMemorySessionRepository.js';
 import { RegisterCompanyAndOwnerUseCase } from '@/application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
@@ -20,6 +22,7 @@ import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogge
 
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
 const SESSION_LIFETIME_MS = 604_800_000;
+const BREACHED_PASSWORD = 'password1234';
 
 describe('LoginUseCase', () => {
   async function setupLogin() {
@@ -154,6 +157,7 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
       leadStatusRepository,
       transactionManager,
       new RecordingAuditLogger(),
+      new PasswordPolicy(new FakeBreachedPasswordChecker(BREACHED_PASSWORD)),
     );
     return { registerUseCase, tenantRepository, userRepository, leadStatusRepository, hashService, transactionManager };
   }
@@ -269,5 +273,39 @@ describe('RegisterCompanyAndOwnerUseCase', () => {
     expect(tenantRepository.listStored()).toHaveLength(0);
     expect(userRepository.listStored()).toHaveLength(1);
     expect(leadStatusRepository.listStored()).toHaveLength(0);
+  });
+});
+
+// F2-T03 (D-11): la contraseña del dueño cumple la política antes de escribir nada.
+describe('RegisterCompanyAndOwnerUseCase con la política de contraseñas', () => {
+  function registrationUseCase() {
+    const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
+    const tenantRepository = new InMemoryTenantRepository();
+    const userRepository = new InMemoryUserRepository(tenantContext);
+    const useCase = new RegisterCompanyAndOwnerUseCase(
+      tenantRepository,
+      userRepository,
+      new FakeHashService(),
+      new InMemoryLeadStatusConfigRepository(tenantContext),
+      new RecordingTransactionManager(),
+      new RecordingAuditLogger(),
+      new PasswordPolicy(new FakeBreachedPasswordChecker(BREACHED_PASSWORD)),
+    );
+    return { useCase, userRepository };
+  }
+
+  it('rechaza una contraseña filtrada y no crea la empresa ni el dueño', async () => {
+    const { useCase, userRepository } = registrationUseCase();
+
+    await expect(
+      useCase.execute({
+        companyName: 'Aluminios Andinos SAS',
+        ownerEmail: 'owner@example.com',
+        password: BREACHED_PASSWORD,
+        ownerFirstName: 'Carlos',
+        ownerLastName: 'Pérez',
+      }),
+    ).rejects.toMatchObject({ code: ErrorCode.PASSWORD_BREACHED });
+    expect(userRepository.listStored()).toEqual([]);
   });
 });

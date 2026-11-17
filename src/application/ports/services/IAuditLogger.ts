@@ -3,6 +3,10 @@ export enum AuditAction {
   COMPANY_REGISTERED = 'COMPANY_REGISTERED',
   LOGIN_SUCCEEDED = 'LOGIN_SUCCEEDED',
   LOGIN_FAILED = 'LOGIN_FAILED',
+  /** Demasiados fallos seguidos: la cuenta queda bloqueada un tiempo (F2-T03). */
+  ACCOUNT_LOCKED = 'ACCOUNT_LOCKED',
+  /** Intento de login con la cuenta bloqueada; la contraseña ni se comprueba. */
+  LOGIN_REJECTED_ACCOUNT_LOCKED = 'LOGIN_REJECTED_ACCOUNT_LOCKED',
   LOGOUT = 'LOGOUT',
   LOGOUT_ALL_SESSIONS = 'LOGOUT_ALL_SESSIONS',
   /** Se presentó un refresh token ya rotado y la sesión se revocó (F2-T02). */

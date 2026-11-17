@@ -83,6 +83,8 @@ const DEFAULT_APP_BASE_URL = 'http://localhost:5173';
 const WEB_PROTOCOLS = new Set(['http:', 'https:']);
 const TRAILING_SLASH = '/';
 const SECURE_URL_PREFIX = 'https://';
+// D-11 (F2-T03): `hibp` consulta Have I Been Pwned; `off` no consulta nada (tests, entornos sin internet).
+const PASSWORD_BREACH_CHECKS = ['hibp', 'off'] as const;
 
 function splitOriginList(value: unknown): unknown {
   if (value === undefined) return [];
@@ -216,6 +218,10 @@ const baseEnvironmentSchema = z.object({
       .string()
       .regex(EMAIL_FROM_PATTERN, { error: 'must be an address, e.g. QuotesFlow <no-reply@example.com>' })
       .optional(),
+  ),
+  PASSWORD_BREACH_CHECK: z.preprocess(
+    treatEmptyAsMissing,
+    z.enum(PASSWORD_BREACH_CHECKS, { error: 'must be one of: hibp, off' }).default('hibp'),
   ),
   APP_BASE_URL: z.preprocess(
     treatEmptyAsMissing,

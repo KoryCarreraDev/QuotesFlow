@@ -17,3 +17,5 @@ process.env.RATE_LIMIT_AUTH_MAX_REQUESTS = '50';
 process.env.LOG_LEVEL = 'silent';
 // Los correos se guardan en memoria (`memoryEmailOutbox`): ningún test envía correos de verdad.
 process.env.EMAIL_PROVIDER = 'memory';
+// Ningún test consulta Have I Been Pwned; el adaptador se prueba contra un servidor local.
+process.env.PASSWORD_BREACH_CHECK = 'off';
