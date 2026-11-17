@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { ContactDTO } from '../../dtos/ContactDTO.js';
 import { UpdateContactDTO } from '../../dtos/UpdateContactDTO.js';
 import { IContactMapper } from '../../ports/mappers/IContactMapper.js';
@@ -26,6 +27,7 @@ export class UpdateContactUseCase {
     private readonly companyContactRepository: ICompanyContactRepository,
     private readonly auditLogger: IAuditLogger,
     private readonly userRepository: IUserRepository,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   /**
@@ -84,12 +86,15 @@ export class UpdateContactUseCase {
       documentNumber,
     );
 
-    await this.contactRepository.update(existingContact.id, updatedContact);
-    await this.auditLogger.record({
-      action: AuditAction.CONTACT_UPDATED,
-      entity: AuditEntity.CONTACT,
-      entityId: existingContact.id,
-      metadata: { changedFields: changedFieldNames(updateContact) },
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.contactRepository.update(existingContact.id, updatedContact);
+      await this.auditLogger.record({
+        action: AuditAction.CONTACT_UPDATED,
+        entity: AuditEntity.CONTACT,
+        entityId: existingContact.id,
+        metadata: { changedFields: changedFieldNames(updateContact) },
+      });
     });
 
     return this.contactMapper.toDTO(updatedContact);

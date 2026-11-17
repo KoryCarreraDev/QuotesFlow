@@ -81,6 +81,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       leadStatusRepository,
       userRepository,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(createLeadUseCase.execute({ contactName: 'Ana Gómez' }, randomUUID(), Role.OWNER)).rejects.toThrow();
@@ -95,6 +96,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new InMemoryUserRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -105,7 +107,12 @@ describe('Casos de uso sin tenant en el contexto', () => {
 
   it('DeleteLeadUseCase no borra el lead', async () => {
     const { contextWithoutTenant, leadRepository, storedLead } = setupWithoutTenant();
-    const deleteLeadUseCase = new DeleteLeadUseCase(leadRepository, contextWithoutTenant, new RecordingAuditLogger());
+    const deleteLeadUseCase = new DeleteLeadUseCase(
+      leadRepository,
+      contextWithoutTenant,
+      new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
+    );
 
     await expect(deleteLeadUseCase.execute(storedLead.id, randomUUID(), Role.OWNER)).rejects.toThrow();
     expect(leadRepository.findStoredById(storedLead.id)?.deleted).toBe(DeletedState.ACTIVE);
@@ -163,6 +170,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
       new InMemoryUserRepository(contextWithoutTenant),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -183,6 +191,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       new InMemoryCompanyContactRepository(contextWithoutTenant),
       new RecordingAuditLogger(),
       new InMemoryUserRepository(contextWithoutTenant),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -199,6 +208,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new RecordingAuditLogger(),
       new InMemoryUserRepository(contextWithoutTenant),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -218,6 +228,7 @@ describe('Casos de uso sin tenant en el contexto', () => {
       contextWithoutTenant,
       new RecordingAuditLogger(),
       new InMemoryUserRepository(contextWithoutTenant),
+      new RecordingTransactionManager(),
     );
 
     await expect(
@@ -244,6 +255,7 @@ describe('UpdateLeadUseCase ante un repositorio que devolviera un lead borrado',
       tenantContext,
       new InMemoryUserRepository(tenantContext),
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     );
 
     await expect(

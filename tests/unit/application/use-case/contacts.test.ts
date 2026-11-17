@@ -1,3 +1,4 @@
+import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 import { describe, expect, it } from 'vitest';
 import { CompanyContactMapper } from '@/application/mappers/CompanyContactMapper.js';
 import { ContactMapper } from '@/application/mappers/ContactMapper.js';
@@ -55,6 +56,7 @@ function setupContactUseCases() {
       companyContactRepository,
       new RecordingAuditLogger(),
       userRepository,
+      new RecordingTransactionManager(),
     ),
     updateContactUseCase: new UpdateContactUseCase(
       contactRepository,
@@ -63,8 +65,13 @@ function setupContactUseCases() {
       companyContactRepository,
       new RecordingAuditLogger(),
       userRepository,
+      new RecordingTransactionManager(),
     ),
-    deleteContactUseCase: new DeleteContactUseCase(contactRepository, new RecordingAuditLogger()),
+    deleteContactUseCase: new DeleteContactUseCase(
+      contactRepository,
+      new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
+    ),
   };
 }
 
@@ -84,6 +91,7 @@ function setupCompanyContactUseCases() {
       companyContactRepository,
       contactRepository,
       new RecordingAuditLogger(),
+      new RecordingTransactionManager(),
     ),
     getCompanyContactsUseCase: new GetCompanyContactsUseCase(companyContactRepository, companyContactMapper),
     createCompanyContactUseCase: new CreateCompanyContactUseCase(
@@ -92,6 +100,7 @@ function setupCompanyContactUseCases() {
       tenantContext,
       new RecordingAuditLogger(),
       userRepository,
+      new RecordingTransactionManager(),
     ),
     updateCompanyContactUseCase: new UpdateCompanyContactUseCase(
       companyContactRepository,
@@ -99,6 +108,7 @@ function setupCompanyContactUseCases() {
       tenantContext,
       new RecordingAuditLogger(),
       userRepository,
+      new RecordingTransactionManager(),
     ),
   };
 }

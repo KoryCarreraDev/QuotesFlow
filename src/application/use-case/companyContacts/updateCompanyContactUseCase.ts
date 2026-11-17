@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
 import { Action, type Actor, can } from '@/application/policies/authorizationPolicy.js';
 import { resolveOwnerForUpdatedClient } from '../clients/clientRules.js';
@@ -28,6 +29,7 @@ export class UpdateCompanyContactUseCase {
     private readonly tenantContext: ITenantContext,
     private readonly auditLogger: IAuditLogger,
     private readonly userRepository: IUserRepository,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   /**
@@ -94,12 +96,15 @@ export class UpdateCompanyContactUseCase {
       documentNumber,
     );
 
-    await this.companyContactRepository.update(existingCompanyContact.id, updatedCompanyContact);
-    await this.auditLogger.record({
-      action: AuditAction.COMPANY_CONTACT_UPDATED,
-      entity: AuditEntity.COMPANY_CONTACT,
-      entityId: existingCompanyContact.id,
-      metadata: { changedFields: changedFieldNames(updateCompanyContact) },
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.companyContactRepository.update(existingCompanyContact.id, updatedCompanyContact);
+      await this.auditLogger.record({
+        action: AuditAction.COMPANY_CONTACT_UPDATED,
+        entity: AuditEntity.COMPANY_CONTACT,
+        entityId: existingCompanyContact.id,
+        metadata: { changedFields: changedFieldNames(updateCompanyContact) },
+      });
     });
 
     return this.companyContactMapper.toDTO(updatedCompanyContact);

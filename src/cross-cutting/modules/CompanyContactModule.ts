@@ -1,3 +1,4 @@
+import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
 import { Action } from '../../application/policies/authorizationPolicy.js';
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
@@ -38,6 +39,7 @@ export class CompanyContactModule {
       this.dependencies.tenantContext,
       this.createAuditLogger(),
       new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
@@ -48,6 +50,7 @@ export class CompanyContactModule {
       this.dependencies.tenantContext,
       this.createAuditLogger(),
       new PrismaUserRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 
@@ -56,6 +59,7 @@ export class CompanyContactModule {
       this.createCompanyContactRepository(),
       new PrismaContactRepository(this.dependencies.prisma, this.dependencies.tenantContext),
       this.createAuditLogger(),
+      new PrismaTransactionManager(this.dependencies.prisma),
     );
   }
 

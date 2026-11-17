@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import {
   AuditAction,
@@ -32,6 +33,7 @@ export class UpdateLeadUseCase {
     private readonly tenantContext: ITenantContext,
     private readonly userRepository: IUserRepository,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(leadId: string, updateLead: UpdateLeadDTO, role: string, userId: string) {
@@ -80,12 +82,15 @@ export class UpdateLeadUseCase {
       new Date(),
     );
 
-    await this.leadRepository.update(storedLead.id, updatedLead);
-    await this.auditLogger.record({
-      action: AuditAction.LEAD_UPDATED,
-      entity: AuditEntity.LEAD,
-      entityId: storedLead.id,
-      metadata: { changedFields: changedFieldNames(updateLead) },
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.leadRepository.update(storedLead.id, updatedLead);
+      await this.auditLogger.record({
+        action: AuditAction.LEAD_UPDATED,
+        entity: AuditEntity.LEAD,
+        entityId: storedLead.id,
+        metadata: { changedFields: changedFieldNames(updateLead) },
+      });
     });
 
     return this.leadMapper.toDTO(updatedLead);

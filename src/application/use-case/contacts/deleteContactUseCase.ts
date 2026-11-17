@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '../../ports/services/IAuditLogger.js';
 import { IContactRepository } from '../../ports/repositories/IContactRepository.js';
 import { Action, type Actor, can } from '../../policies/authorizationPolicy.js';
@@ -10,6 +11,7 @@ export class DeleteContactUseCase {
   constructor(
     private readonly contactRepository: IContactRepository,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   /**
@@ -26,11 +28,14 @@ export class DeleteContactUseCase {
       throw new NotFoundError(ErrorCode.CONTACT_NOT_FOUND, 'Contact not found');
     }
 
-    await this.contactRepository.delete(contactId);
-    await this.auditLogger.record({
-      action: AuditAction.CONTACT_DELETED,
-      entity: AuditEntity.CONTACT,
-      entityId: contactId,
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.contactRepository.delete(contactId);
+      await this.auditLogger.record({
+        action: AuditAction.CONTACT_DELETED,
+        entity: AuditEntity.CONTACT,
+        entityId: contactId,
+      });
     });
   }
 }

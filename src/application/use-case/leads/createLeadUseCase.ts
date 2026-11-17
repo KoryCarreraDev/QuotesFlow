@@ -1,3 +1,4 @@
+import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { Action, can } from '@/application/policies/authorizationPolicy.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
@@ -27,6 +28,7 @@ export class CreateLeadUseCase {
     private readonly leadStatusRepository: ILeadStatusConfigRepository,
     private readonly userRepository: IUserRepository,
     private readonly auditLogger: IAuditLogger,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   async execute(createLead: CreateLeadDTO, userId: string, role: Role) {
@@ -84,11 +86,14 @@ export class CreateLeadUseCase {
       notes: createLead.notes,
     });
 
-    await this.leadRepository.create(leadEntity);
-    await this.auditLogger.record({
-      action: AuditAction.LEAD_CREATED,
-      entity: AuditEntity.LEAD,
-      entityId: leadEntity.id,
+    // F2-T08 (F1-S1): la modificación y su registro de auditoría se confirman o se revierten juntos.
+    await this.transactionManager.runInTransaction(async () => {
+      await this.leadRepository.create(leadEntity);
+      await this.auditLogger.record({
+        action: AuditAction.LEAD_CREATED,
+        entity: AuditEntity.LEAD,
+        entityId: leadEntity.id,
+      });
     });
     return this.leadMapper.toDTO(leadEntity);
   }
