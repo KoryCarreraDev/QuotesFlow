@@ -49,6 +49,18 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-014 · Aviso alto de `picomatch` sin versión corregida
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F2 (informe `docs/audits/F2-seguridad.md`, F2-S7), F0-T06
+- **Bloquea:** No (bloquea el job `dependency-audit` de la CI en todas las ramas, también `develop`)
+- **Pregunta:** ¿Cómo se trata GHSA-fc5q-39xc-vjpf (ReDoS en `picomatch` ≤ 4.0.7), que no tiene versión corregida y llega solo por `vitest` / `vite` (dependencias de desarrollo)?
+- **Contexto:** `pnpm audit --audit-level high` lo reporta desde el 2026-11-17; no lo introduce F2 (ya estaba en `develop`). `pnpm audit --prod` sigue sin avisos: no llega a la imagen de producción. La CI exige cero avisos altos en todo (`.github/workflows/ci.yml`), y bajar ese umbral sin decisión humana está prohibido (R2).
+- **Opciones:** a) Ignorar ese aviso concreto en `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`), con fecha de revisión, hasta que haya versión corregida. b) Esperar a la versión corregida con la CI en rojo. c) Fijar con `overrides` una versión de `picomatch` sin el fallo en cuanto se publique.
+- **Supuesto mientras tanto:** no se cambia nada; el riesgo se registra como F2-S7.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas
