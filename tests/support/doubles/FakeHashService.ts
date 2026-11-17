@@ -8,7 +8,15 @@ export class FakeHashService implements IHashService {
     return `${FAKE_HASH_PREFIX}${plain}`;
   }
 
+  /** Veces que se llamó a `compareWithoutHash`: el login debe gastar el mismo trabajo aunque no haya cuenta (H22). */
+  comparisonsWithoutHash = 0;
+
   async compare(plain: string, hash: string): Promise<boolean> {
     return hash === `${FAKE_HASH_PREFIX}${plain}`;
+  }
+
+  async compareWithoutHash(): Promise<false> {
+    this.comparisonsWithoutHash += 1;
+    return false;
   }
 }

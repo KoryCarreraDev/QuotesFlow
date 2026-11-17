@@ -7,7 +7,6 @@ import {
   createLeadStatusConfigSchema,
   updateLeadStatusConfigSchema,
 } from '@/presentation/schemas/leadStatusConfigSchema.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const SUBMITTED_ESTIMATED_VALUE = 2_500_000;
 
@@ -62,7 +61,8 @@ describe('registerSchema', () => {
     expect(parsedRegistration).toEqual(validRegistration);
   });
 
-  itKnownDefect('H7', 'rechaza contraseñas de menos de 12 caracteres (decisión D-11)', () => {
+  // Regresión de H7 (F2-T03).
+  it('rechaza contraseñas de menos de 12 caracteres (decisión D-11)', () => {
     const elevenCharacterPassword = 'Abcdefgh-12';
 
     expect(registerSchema.safeParse({ ...validRegistration, password: elevenCharacterPassword }).success).toBe(false);
@@ -269,5 +269,30 @@ describe('updateCompanyContactSchema', () => {
 
   it('rechaza un correo con formato inválido', () => {
     expect(updateCompanyContactSchema.safeParse({ email: 'not-an-email' }).success).toBe(false);
+  });
+});
+
+describe('contraseñas nuevas y de login (F2-T03)', () => {
+  // La ñ ocupa 2 bytes en UTF-8: 36 eñes y una letra son 37 caracteres y 73 bytes.
+  const TWO_BYTE_CHARACTERS_IN_72_BYTES = 36;
+  const registration = {
+    companyName: 'Aluminios Andinos SAS',
+    ownerEmail: 'owner@example.com',
+    ownerFirstName: 'Carlos',
+    ownerLastName: 'Pérez',
+  };
+
+  it('rechaza en el registro una contraseña de más de 72 bytes, que bcrypt truncaría', () => {
+    const seventyThreeBytes = `${'ñ'.repeat(TWO_BYTE_CHARACTERS_IN_72_BYTES)}a`;
+
+    expect(registerSchema.safeParse({ ...registration, password: seventyThreeBytes }).success).toBe(false);
+  });
+
+  it('el login acepta contraseñas cortas: las cuentas anteriores a D-11 deben poder entrar', () => {
+    expect(loginSchema.safeParse({ email: 'owner@example.com', password: 'corta6' }).success).toBe(true);
+  });
+
+  it('el login rechaza una contraseña vacía', () => {
+    expect(loginSchema.safeParse({ email: 'owner@example.com', password: '' }).success).toBe(false);
   });
 });

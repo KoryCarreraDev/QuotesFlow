@@ -41,4 +41,43 @@ export class InMemoryUserRepository implements IUserRepository {
     const user = this.usersById.get(id);
     return user && user.tenantId === this.tenantContext.getTenantId() ? user : null;
   }
+
+  async recordFailedLogin(userId: string): Promise<number> {
+    const user = this.requireStored(userId);
+    const failedAttempts = user.failedLoginAttempts + 1;
+    this.usersById.set(userId, withLoginState(user, failedAttempts, user.loginLockedUntil));
+    return failedAttempts;
+  }
+
+  async lockLogin(userId: string, lockedUntil: Date): Promise<void> {
+    const user = this.requireStored(userId);
+    this.usersById.set(userId, withLoginState(user, user.failedLoginAttempts, lockedUntil));
+  }
+
+  async clearFailedLogins(userId: string): Promise<void> {
+    this.usersById.set(userId, withLoginState(this.requireStored(userId), 0, undefined));
+  }
+
+  private requireStored(userId: string): User {
+    const user = this.usersById.get(userId);
+    if (!user) throw new Error(`User not stored: ${userId}`);
+    return user;
+  }
+}
+
+function withLoginState(user: User, failedLoginAttempts: number, loginLockedUntil: Date | undefined): User {
+  return new User(
+    user.id,
+    user.email,
+    user.passwordHash,
+    user.firstName,
+    user.lastName,
+    user.role,
+    user.isActive,
+    user.tenantId,
+    user.createdAt,
+    user.updatedAt,
+    failedLoginAttempts,
+    loginLockedUntil,
+  );
 }

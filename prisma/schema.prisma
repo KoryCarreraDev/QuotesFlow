@@ -78,6 +78,9 @@ model User {
   lastName     String
   role         Role     @default(SALES_REP)
   isActive     Boolean  @default(true)
+  // F2-T03: bloqueo progresivo por intentos de login fallidos seguidos.
+  failedLoginAttempts Int       @default(0)
+  loginLockedUntil    DateTime?
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())

@@ -14,9 +14,18 @@ import { PrismaTenantRepository } from '../../infrastructure/persistence/reposit
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { BcryptHashService } from '../../infrastructure/services/BcryptHashService.js';
 import { JwtTokenService } from '../../infrastructure/services/JwtTokenService.js';
+import {
+  DisabledBreachedPasswordChecker,
+  PwnedPasswordsChecker,
+} from '../../infrastructure/services/PwnedPasswordsChecker.js';
+import { appLogger } from '../../infrastructure/logging/appLogger.js';
+import { PasswordPolicy } from '../../application/services/PasswordPolicy.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
 
 const sessionPolicy = { refreshTokenLifetimeMs: durationToMilliseconds(env.REFRESH_TOKEN_EXPIRATION) };
+const passwordPolicy = new PasswordPolicy(
+  env.PASSWORD_BREACH_CHECK === 'hibp' ? new PwnedPasswordsChecker(appLogger) : new DisabledBreachedPasswordChecker(),
+);
 
 /** Registro de empresas, inicio y cierre de sesión, renovación y autenticación de peticiones. */
 export class AuthModule {
@@ -46,7 +55,13 @@ export class AuthModule {
       new PrismaLeadStatusConfigRepository(prisma, tenantContext),
       new PrismaTransactionManager(prisma),
       this.createAuditLogger(),
+      passwordPolicy,
     );
+  }
+
+  /** La política de contraseñas compartida (registro, recuperación, invitaciones). */
+  getPasswordPolicy(): PasswordPolicy {
+    return passwordPolicy;
   }
 
   getLoginUseCase(): LoginUseCase {

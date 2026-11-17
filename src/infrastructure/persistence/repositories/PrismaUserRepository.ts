@@ -64,6 +64,27 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
     return record ? this.toDomain(record) : null;
   }
 
+  async recordFailedLogin(userId: string): Promise<number> {
+    // `increment` es atómico en SQL: dos intentos simultáneos no pisan el contador.
+    const record = await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginAttempts: { increment: 1 } },
+      select: { failedLoginAttempts: true },
+    });
+    return record.failedLoginAttempts;
+  }
+
+  async lockLogin(userId: string, lockedUntil: Date): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { loginLockedUntil: lockedUntil } });
+  }
+
+  async clearFailedLogins(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginAttempts: 0, loginLockedUntil: null },
+    });
+  }
+
   private toDomain(record: UserRecord): User {
     return new User(
       record.id,
@@ -76,6 +97,8 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
       record.tenantId,
       record.createdAt,
       record.updatedAt,
+      record.failedLoginAttempts,
+      record.loginLockedUntil ?? undefined,
     );
   }
 }

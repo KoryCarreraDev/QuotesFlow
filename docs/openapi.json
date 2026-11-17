@@ -309,7 +309,7 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 12
                   },
                   "ownerFirstName": {
                     "type": "string",
@@ -537,7 +537,8 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 1,
+                    "maxLength": 1024
                   }
                 },
                 "required": [

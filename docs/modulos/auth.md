@@ -56,7 +56,9 @@ Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_REQUE
 - CSRF (F2-T07): login y registro, como toda petición que modifica datos, responden 403 `ORIGIN_NOT_ALLOWED` si llegan con un `Origin` (o `Referer`) fuera de `CORS_ALLOWED_ORIGINS`. Evita que otra web inicie sesión en nombre del usuario con una cuenta del atacante.
 - Se auditan el registro (`COMPANY_REGISTERED`), el login correcto (`LOGIN_SUCCEEDED`) y la contraseña incorrecta de una cuenta existente (`LOGIN_FAILED`). Un correo inexistente no se audita.
 - Sesiones (F2-T02, D-09): ver la sección siguiente. H2 y H23 resueltos.
-- Pendiente en F2: contraseña mínima de 12 caracteres (H7) y tiempo de respuesta igual exista o no el correo (H22), en F2-T03.
+- Contraseñas (F2-T03, D-11, H7): al registrarse (y al cambiarla o aceptar una invitación), de 12 caracteres a 72 bytes, distinta del correo y que no aparezca en filtraciones públicas (Have I Been Pwned, por rango: solo salen 5 caracteres del SHA-1). Errores 400 `VALIDATION_FAILED` en el campo `password`, `PASSWORD_TOO_WEAK` o `PASSWORD_BREACHED`. Si el servicio de filtraciones no responde, se acepta (Q-013).
+- Bloqueo (F2-T03): tras 5 contraseñas incorrectas seguidas la cuenta se bloquea 1 minuto; cada fallo siguiente dobla el bloqueo hasta 15 minutos. Mientras dura, ni la contraseña correcta entra. Un acierto pone el contador a cero.
+- Respuestas genéricas (H22): correo inexistente, contraseña incorrecta, cuenta bloqueada o desactivada responden lo mismo, 401 `INVALID_CREDENTIALS`, y tardan lo mismo.
 
 ## Sesiones (F2-T02)
 - El login abre una sesión y deja dos cookies HTTP-only `SameSite=Strict`: `accessToken` (15 min, viaja a toda la API) y `refreshToken` (7 días de vida absoluta, solo viaja a `/api/v1/auth`). La base guarda solo el hash del refresh token.

@@ -134,3 +134,37 @@ describe('PrismaUserRepository', () => {
     await expect(userRepository.findById(deletedUser.id)).resolves.toBeNull();
   });
 });
+
+// F2-T03: contador de fallos de login y bloqueo.
+describe('PrismaUserRepository: intentos de login fallidos', () => {
+  it('cuenta los fallos de forma atómica: diez simultáneos suman diez', async () => {
+    const SIMULTANEOUS_FAILURES = 10;
+    const tenant = await persistTenant();
+    const user = await persistUser(tenant.id);
+    const repository = new PrismaUserRepository(prisma, new FixedTenantContext(tenant.id));
+
+    await Promise.all(Array.from({ length: SIMULTANEOUS_FAILURES }, () => repository.recordFailedLogin(user.id)));
+
+    const storedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(storedUser.failedLoginAttempts).toBe(SIMULTANEOUS_FAILURES);
+  });
+
+  it('bloquea hasta un momento y, tras un acierto, quita bloqueo y contador', async () => {
+    const LOCK_MS = 60_000;
+    const tenant = await persistTenant();
+    const user = await persistUser(tenant.id);
+    const repository = new PrismaUserRepository(prisma, new FixedTenantContext(tenant.id));
+    const lockedUntil = new Date(Date.now() + LOCK_MS);
+    await repository.recordFailedLogin(user.id);
+    await repository.lockLogin(user.id, lockedUntil);
+
+    const lockedUser = await repository.findActiveByEmail(user.email);
+    await repository.clearFailedLogins(user.id);
+    const clearedUser = await repository.findActiveByEmail(user.email);
+
+    expect(lockedUser?.loginLockedUntil).toEqual(lockedUntil);
+    expect(lockedUser?.failedLoginAttempts).toBe(1);
+    expect(clearedUser?.loginLockedUntil).toBeUndefined();
+    expect(clearedUser?.failedLoginAttempts).toBe(0);
+  });
+});

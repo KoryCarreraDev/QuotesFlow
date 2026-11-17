@@ -6,6 +6,7 @@ import { ITenantRepository } from '../../ports/repositories/ITenantRepository.js
 import { IUserRepository } from '../../ports/repositories/IUserRepository.js';
 import { IHashService } from '../../ports/services/IHashService.js';
 import { ITransactionManager } from '../../ports/services/ITransactionManager.js';
+import { PasswordPolicy } from '../../services/PasswordPolicy.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { RegisterCompanyDTO } from '../../dtos/RegisterCompanyDTO.js';
 import { Tenant } from '../../../domain/entities/Tenant.js';
@@ -16,8 +17,10 @@ import { LeadStatusConfig } from '@/domain/entities/LeadStatusConfig.js';
 
 /**
  * Registro de una empresa nueva con su dueño (OWNER) y los 5 estados de lead por defecto, todo en una transacción (H8).
+ * La contraseña cumple la política (D-11, F2-T03) antes de escribir nada.
  *
  * @throws {ConflictError} `EMAIL_ALREADY_IN_USE`.
+ * @throws {ValidationError} `PASSWORD_TOO_WEAK` o `PASSWORD_BREACHED`.
  */
 export class RegisterCompanyAndOwnerUseCase {
   constructor(
@@ -27,6 +30,7 @@ export class RegisterCompanyAndOwnerUseCase {
     private leadStatusRepository: ILeadStatusConfigRepository,
     private readonly transactionManager: ITransactionManager,
     private readonly auditLogger: IAuditLogger,
+    private readonly passwordPolicy: PasswordPolicy,
   ) {}
 
   async execute(dto: RegisterCompanyDTO) {
@@ -34,6 +38,8 @@ export class RegisterCompanyAndOwnerUseCase {
     if (existingUser) {
       throw new ConflictError(ErrorCode.EMAIL_ALREADY_IN_USE, 'Email already in use');
     }
+
+    await this.passwordPolicy.assertAcceptable(dto.password, { email: dto.ownerEmail });
 
     const tenant = Tenant.create({ name: dto.companyName });
     const passwordHash = await this.hashService.hash(dto.password);

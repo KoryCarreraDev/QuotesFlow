@@ -140,11 +140,10 @@ $env:SHOW_KNOWN_DEFECTS = '1'; pnpm test             # PowerShell
 
 No uses `itKnownDefect` para esquivar un test que no consigues hacer pasar. Solo vale para un hallazgo registrado en `PLAN.md` o en una auditoría, y hay que añadirlo a esta tabla.
 
-Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06), H15 (1 test, F1-T10), H3 (3 tests) y la parte de leads de H9 (1 test), F1-T13; H10 (3 tests) y la parte de contactos de H9 (1 test), F1-T16; el resto de H11 (1 test), F1-T12; F1-T14 (1 test), F1-T14; H2 (2 tests), F2-T02.
+Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06), H15 (1 test, F1-T10), H3 (3 tests) y la parte de leads de H9 (1 test), F1-T13; H10 (3 tests) y la parte de contactos de H9 (1 test), F1-T16; el resto de H11 (1 test), F1-T12; F1-T14 (1 test), F1-T14; H2 (2 tests), F2-T02; H7 (1 test), F2-T03. No queda ningún defecto conocido.
 
 | Hallazgo | Comportamiento esperado | Tests | Dónde |
 |---|---|---|---|
-| H7 | Contraseña mínima de 12 caracteres (D-11) | 1 | `unit/presentation/schemas.test.ts` |
 
 ## Cobertura
 
