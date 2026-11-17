@@ -20,7 +20,7 @@ const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
-const HTTP_CONFLICT = 409;
+const HTTP_ACCEPTED = 202;
 const STACK_TRACE_LINE_PATTERN = /\n\s+at /;
 const UNUSED_STATUS_ORDER = 9;
 
@@ -66,7 +66,8 @@ describe('respuestas de error', () => {
       expectErrorResponse(response, HTTP_UNAUTHORIZED, ErrorCode.INVALID_SESSION);
     });
 
-    it('registrar un correo que ya existe responde 409 EMAIL_ALREADY_IN_USE', async () => {
+    // F2-T04 (H8): antes respondía 409 EMAIL_ALREADY_IN_USE y revelaba que el correo estaba registrado.
+    it('registrar un correo que ya existe responde 202 como uno nuevo, sin revelar que existe', async () => {
       const response = await request(app).post(apiPaths.auth.register).send({
         companyName: 'Otra Empresa SAS',
         ownerEmail: company.owner.email,
@@ -75,7 +76,8 @@ describe('respuestas de error', () => {
         ownerLastName: 'Gómez',
       });
 
-      expectErrorResponse(response, HTTP_CONFLICT, ErrorCode.EMAIL_ALREADY_IN_USE);
+      expect(response.status).toBe(HTTP_ACCEPTED);
+      expect(response.body).toEqual({ status: 'PENDING_EMAIL_VERIFICATION' });
     });
   });
 

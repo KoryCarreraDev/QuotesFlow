@@ -58,6 +58,8 @@ export interface UserOverrides {
   role?: Role;
   isActive?: boolean;
   deleted?: DeletedStateRecord;
+  /** Por defecto verificado (D-12); `null` para un usuario pendiente de verificar. */
+  emailVerifiedAt?: Date | null;
 }
 
 /**
@@ -85,6 +87,7 @@ export async function persistUser(tenantId: string, overrides: UserOverrides = {
       firstName: 'Carlos',
       lastName: 'Pérez',
       role: Role.SALES_REP,
+      emailVerifiedAt: new Date(),
       ...overrides,
     },
   });

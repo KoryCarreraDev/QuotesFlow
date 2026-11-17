@@ -98,7 +98,7 @@ describe('Rastro de auditoría', () => {
 
   describe('autenticación', () => {
     it('el registro de una empresa queda auditado con el dueño como autor', async () => {
-      const response = await request(app).post(apiPaths.auth.register).send({
+      await request(app).post(apiPaths.auth.register).send({
         companyName: 'Empresa Auditada SAS',
         ownerEmail: 'audit.owner@example.com',
         password: TEST_USER_PASSWORD,
@@ -106,12 +106,10 @@ describe('Rastro de auditoría', () => {
         ownerLastName: 'Gómez',
       });
 
+      // F2-T04: la respuesta ya no lleva ids (H8); se comparan con el dueño creado.
+      const owner = await prisma.user.findUniqueOrThrow({ where: { email: 'audit.owner@example.com' } });
       const [auditEntry] = await prisma.auditLog.findMany();
-      expect(auditEntry).toMatchObject({
-        action: 'COMPANY_REGISTERED',
-        tenantId: response.body.tenantId,
-        userId: response.body.ownerId,
-      });
+      expect(auditEntry).toMatchObject({ action: 'COMPANY_REGISTERED', tenantId: owner.tenantId, userId: owner.id });
     });
 
     it('un inicio de sesión correcto y uno con contraseña incorrecta quedan auditados, sin la contraseña', async () => {

@@ -20,7 +20,14 @@ export class User {
     public readonly failedLoginAttempts: number = 0,
     /** Hasta cuándo no puede iniciar sesión por fallos seguidos (F2-T03). */
     public readonly loginLockedUntil?: Date,
+    /** Cuándo confirmó su correo (D-12, F2-T04). Sin él no puede iniciar sesión. */
+    public readonly emailVerifiedAt?: Date,
   ) {}
+
+  /** Indica si el usuario confirmó su correo (D-12). */
+  get isEmailVerified(): boolean {
+    return this.emailVerifiedAt !== undefined;
+  }
 
   /** Indica si la cuenta está bloqueada por intentos fallidos en ese momento. */
   isLoginLockedAt(moment: Date): boolean {
@@ -34,6 +41,8 @@ export class User {
     lastName: string;
     role: Role;
     tenantId: string;
+    /** Con una invitación aceptada el correo ya está probado (F2-T05). */
+    emailVerifiedAt?: Date;
   }): User {
     const id = crypto.randomUUID();
     return new User(
@@ -45,6 +54,11 @@ export class User {
       props.role,
       true,
       props.tenantId,
+      undefined,
+      undefined,
+      0,
+      undefined,
+      props.emailVerifiedAt,
     );
   }
 }

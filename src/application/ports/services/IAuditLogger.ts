@@ -8,6 +8,13 @@ export enum AuditAction {
   /** Intento de login con la cuenta bloqueada; la contraseña ni se comprueba. */
   LOGIN_REJECTED_ACCOUNT_LOCKED = 'LOGIN_REJECTED_ACCOUNT_LOCKED',
   LOGOUT = 'LOGOUT',
+  /** Registro con un correo que ya tiene cuenta: se avisa al dueño del correo (H8, F2-T04). */
+  REGISTRATION_WITH_EXISTING_EMAIL = 'REGISTRATION_WITH_EXISTING_EMAIL',
+  /** Contraseña correcta de una cuenta sin el correo verificado (D-12). */
+  LOGIN_REJECTED_EMAIL_NOT_VERIFIED = 'LOGIN_REJECTED_EMAIL_NOT_VERIFIED',
+  EMAIL_VERIFIED = 'EMAIL_VERIFIED',
+  PASSWORD_RESET_REQUESTED = 'PASSWORD_RESET_REQUESTED',
+  PASSWORD_RESET_COMPLETED = 'PASSWORD_RESET_COMPLETED',
   LOGOUT_ALL_SESSIONS = 'LOGOUT_ALL_SESSIONS',
   /** Se presentó un refresh token ya rotado y la sesión se revocó (F2-T02). */
   SESSION_REUSE_DETECTED = 'SESSION_REUSE_DETECTED',
