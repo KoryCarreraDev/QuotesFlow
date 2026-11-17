@@ -407,8 +407,8 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 | D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [X] | [ ] | |
 | D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] |PostgreSQL en Neon (plan Free): crear el proyecto en Neon, generar la migración y poner la URL de conexión en `.env` (`DATABASE_URL`). Hosting del backend: por definir|
 | D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] |Dejar genericos mientras se establece el mvp luego de testeos|
-| D-57 | Cada empresa decide si usa solo las notificaciones del sistema o también el correo | Sí | [X] | [ ] | Correo desactivado por defecto; Resend listo para cuando se compre el dominio (2026-11-17) |
-| D-58 | Entorno de pruebas: frontend en Vercel (gratis) y API por ngrok (`https://crepe-waviness-ploy.ngrok-free.dev`) hasta comprar dominio | Sí | [X] | [ ] | Las peticiones llevan `ngrok-skip-browser-warning` (2026-11-17) |
+| D-57 | Cada empresa decide si usa solo las notificaciones del sistema o también el correo | Sí | [ ] | [ ] | Pedido por el dueño el 2026-11-17, falta marcarla: correo desactivado por defecto; Resend listo para cuando se compre el dominio |
+| D-58 | Entorno de pruebas: frontend en Vercel (gratis) y API por ngrok (`https://crepe-waviness-ploy.ngrok-free.dev`) hasta comprar dominio | Sí | [ ] | [ ] | Pedido por el dueño el 2026-11-17, falta marcarla: las peticiones llevan `ngrok-skip-browser-warning` |
 
 ### 9.8 Funcionalidades comunes de CRM sugeridas (¿entran al MVP?)
 "Sí" las agrega a F1/F3/F4 como tareas nuevas; "No" las deja en F9.
