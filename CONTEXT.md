@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F2-T10-probes-outside-rate-limit` (sobre `develop` con F0 y F1 fusionadas), 2026-11-17.
+> Última revisión: rama `feat/F2-T07-csrf-origin-check` (apilada sobre F2-T10), 2026-11-17.
 
 ---
 
@@ -215,7 +215,7 @@ Desde F1-T11 (D-06) la API son recursos REST bajo `/api/v1`: `auth`, `leads`, `l
 
 Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
 
-**Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/v1/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). Piezas: `src/infrastructure/web/httpSecurity.ts`.
+**Endurecimiento HTTP (F1-T06).** CORS solo para los orígenes de `CORS_ALLOWED_ORIGINS`, con credenciales; un origen fuera de la lista no recibe cabeceras CORS (H4). Cuerpo JSON máximo de 100 kb: más responde 413 `PAYLOAD_TOO_LARGE` (H14). `trust proxy` = `TRUST_PROXY` (0 por defecto: X-Forwarded-For se ignora). Límite por IP cada 15 min: `RATE_LIMIT_GLOBAL_MAX_REQUESTS` (100) en todo y `RATE_LIMIT_AUTH_MAX_REQUESTS` (10) además en `/api/v1/auth`; al superarlo, 429 `TOO_MANY_REQUESTS` con cabeceras `RateLimit-*`. Los contadores viven en memoria de cada proceso (H6 sigue abierto en la parte de varias instancias y del bloqueo por cuenta, F2-T03). **CSRF (F2-T07, D-14):** además de la cookie `SameSite=Strict`, `createOriginCheckMiddleware` rechaza con 403 `ORIGIN_NOT_ALLOWED` toda petición POST, PATCH, PUT o DELETE cuyo `Origin` (o, si falta, el origen de `Referer`) no esté en `CORS_ALLOWED_ORIGINS`; `Origin: null` y un `Referer` ilegible cuentan como ajenos. Sin ninguna de las dos cabeceras se atiende (no es un navegador). Las lecturas no se verifican. Piezas: `src/infrastructure/web/httpSecurity.ts`.
 
 | Método | Ruta | Body / Query |
 |---|---|---|
@@ -256,7 +256,7 @@ Toda respuesta de error: `{ "error": { "code": "<ErrorCode>", "message": "<texto
 |---|---|
 | 400 | `VALIDATION_FAILED` (con `details`), `MISSING_REQUIRED_DATA`, `MALFORMED_JSON`, `INVALID_REQUEST_BODY`, `INVALID_LEAD_STATUS`, `ASSIGNED_USER_NOT_FOUND`, `INVALID_COMPANY_CONTACT`, `INVALID_FILTERS_FORMAT`, `FILTER_FIELD_NOT_ALLOWED`, `FILTER_OPERATOR_NOT_ALLOWED`, `INVALID_FILTER_VALUE`, `SORT_FIELD_NOT_ALLOWED` |
 | 401 | `INVALID_CREDENTIALS`, `SESSION_REQUIRED` (sin cookie), `INVALID_SESSION` (token inválido, caducado o sin tenant) |
-| 403 | `INSUFFICIENT_PERMISSIONS` |
+| 403 | `INSUFFICIENT_PERMISSIONS`, `ORIGIN_NOT_ALLOWED` (CSRF, F2-T07) |
 | 404 | `LEAD_NOT_FOUND`, `LEAD_STATUS_NOT_FOUND`, `CONTACT_NOT_FOUND`, `COMPANY_CONTACT_NOT_FOUND`, `RECORD_NOT_FOUND`, `ROUTE_NOT_FOUND` (ruta inexistente) |
 | 409 | `EMAIL_ALREADY_IN_USE`, `DEFAULT_LEAD_STATUS_MISSING`, `DEFAULT_LEAD_STATUS_REQUIRED` |
 | 413 | `PAYLOAD_TOO_LARGE` |
@@ -410,3 +410,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T18 | pendiente | Código al día con R11 a R13: `eslint-suppressions.json` vacío (las 77 violaciones heredadas corregidas, Q-008); identificadores renombrados (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`, `statusProperty`, `*Repo`, `*Map`, `als`…); clases de controller en PascalCase; enum `DeletedState` con miembros `ACTIVE`/`INACTIVE`; bcrypt con coste 12 (D-10, antes 10); JSDoc en todos los puertos, casos de uso y entidades; `docs/modulos/` de auth, leads, estados de lead, contactos y filtrado. Sin cambio de comportamiento salvo el coste de bcrypt. En tests existentes solo cambian `DeletedState.Active/Inactive` por `ACTIVE/INACTIVE` y 20 números mágicos por constantes con nombre. |
 | 2026-11-16 | F1-T11 | pendiente | API REST bajo `/api/v1` (D-06): recursos `auth`, `leads`, `lead-statuses`, `contacts`, `company-contacts`; `GET /recurso`, `GET /recurso/search`, `POST /recurso`, `PATCH /recurso/:id`, `DELETE /recurso/:id`, `PATCH /leads/:id/status`, `PATCH /lead-statuses/order`. Las rutas anteriores dejan de existir. OpenAPI 3.1 generado desde los esquemas Zod (D-07) en `docs/openapi.json` con `pnpm docs:openapi` (`@asteasolutions/zod-to-openapi` 9.1.0 como devDependency, fuera de la imagen); un test compara el documento con el código y con el inventario de rutas. CI y documentación de módulos al día. 4 tests nuevos. En tests existentes cambian las rutas centralizadas en `apiRoutes.ts`, los borrados pasan de POST a DELETE y los títulos que citaban rutas antiguas. |
 | 2026-11-17 | F2-T10 | pendiente | `/health` y `/ready` se registran antes del limitador global (F1-S5): un orquestador que sondea a menudo ya no recibe 429. 2 tests de regresión. La suite del límite global agota el cupo con una ruta inexistente en lugar de `/health` (cambio declarado de un test existente). |
+| 2026-11-17 | F2-T07 | pendiente | Protección CSRF por verificación de origen (D-14): `createOriginCheckMiddleware` en `httpSecurity.ts`, montado tras CORS con la misma lista blanca; 403 `ORIGIN_NOT_ALLOWED` en POST/PATCH/PUT/DELETE desde otro origen (también login y registro). OpenAPI documenta el 403 en las operaciones que modifican. 15 tests nuevos (11 unitarios, 4 de API). |

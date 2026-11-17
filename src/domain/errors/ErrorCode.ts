@@ -12,6 +12,8 @@ export enum ErrorCode {
 
   // Permisos
   INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
+  // Petición que modifica datos enviada desde un origen fuera de la lista blanca (CSRF, F2-T07).
+  ORIGIN_NOT_ALLOWED = 'ORIGIN_NOT_ALLOWED',
 
   // Recursos inexistentes, o de otro tenant: se responde igual para no revelar que existen.
   LEAD_NOT_FOUND = 'LEAD_NOT_FOUND',

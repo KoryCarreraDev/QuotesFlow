@@ -395,6 +395,66 @@
               }
             }
           },
+          "403": {
+            "description": "Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
           "429": {
             "description": "Demasiadas peticiones",
             "content": {
@@ -494,6 +554,66 @@
           },
           "400": {
             "description": "Entrada inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -751,7 +871,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1058,7 +1178,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1383,7 +1503,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1698,7 +1818,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2027,7 +2147,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2380,7 +2500,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2698,7 +2818,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2990,7 +3110,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3292,7 +3412,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3621,7 +3741,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3962,7 +4082,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4220,7 +4340,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4528,7 +4648,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4853,7 +4973,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5172,7 +5292,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5501,7 +5621,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5819,7 +5939,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6124,7 +6244,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6449,7 +6569,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6766,7 +6886,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7095,7 +7215,7 @@
             }
           },
           "403": {
-            "description": "El rol no permite la acción",
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/json": {
                 "schema": {

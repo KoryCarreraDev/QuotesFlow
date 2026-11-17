@@ -1,4 +1,9 @@
-import { OpenAPIRegistry, OpenApiGeneratorV31, type RouteConfig } from '@asteasolutions/zod-to-openapi';
+import {
+  OpenAPIRegistry,
+  OpenApiGeneratorV31,
+  type ResponseConfig,
+  type RouteConfig,
+} from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { loginSchema, registerSchema } from '../../src/presentation/schemas/authSchema.js';
 import {
@@ -224,6 +229,20 @@ export const openApiOperations: OperationEntry[] = [
   companyContacts.remove,
 ];
 
+// F2-T07: toda petición que modifica datos puede recibir 403 ORIGIN_NOT_ALLOWED, también las públicas.
+function forbiddenResponseFor(
+  operation: OperationEntry,
+  errorContent: Pick<ResponseConfig, 'content'>,
+): Record<number, ResponseConfig> {
+  const isMutation = operation.method !== 'get';
+  if (operation.isPublic && !isMutation) return {};
+  const reasons = [
+    ...(operation.isPublic ? [] : ['El rol no permite la acción (INSUFFICIENT_PERMISSIONS)']),
+    ...(isMutation ? ['Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)'] : []),
+  ];
+  return { 403: { description: reasons.join('; '), ...errorContent } };
+}
+
 function routeConfigFor(operation: OperationEntry): RouteConfig {
   const errorContent = { content: { 'application/json': { schema: errorResponseSchema } } };
   return {
@@ -241,7 +260,7 @@ function routeConfigFor(operation: OperationEntry): RouteConfig {
       [operation.successStatus]: { description: operation.successDescription },
       400: { description: 'Entrada inválida', ...errorContent },
       ...(operation.isPublic ? {} : { 401: { description: 'Sin sesión válida', ...errorContent } }),
-      ...(operation.isPublic ? {} : { 403: { description: 'El rol no permite la acción', ...errorContent } }),
+      ...forbiddenResponseFor(operation, errorContent),
       ...(operation.path.includes('{id}')
         ? { 404: { description: 'No existe o es de otra empresa', ...errorContent } }
         : {}),

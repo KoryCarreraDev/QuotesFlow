@@ -11,7 +11,11 @@ import { JwTokenService } from './infrastructure/services/JwtTokenService.js';
 import { IAuthTokenService } from './application/ports/services/IAuthTokenService.js';
 import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRouter.js';
 import { createErrorHandler, createRouteNotFoundHandler } from './infrastructure/web/middleware/errorHandler.js';
-import { createCorsMiddleware, createRateLimiter } from './infrastructure/web/httpSecurity.js';
+import {
+  createCorsMiddleware,
+  createOriginCheckMiddleware,
+  createRateLimiter,
+} from './infrastructure/web/httpSecurity.js';
 import { env } from './config/env.js';
 import { createLivenessHandler, createReadinessHandler } from './presentation/routes/healthRoutes.js';
 import { isDatabaseReachable } from './infrastructure/persistence/prisma/databaseReadiness.js';
@@ -40,6 +44,8 @@ app.use(createRequestContextMiddleware());
 app.use(createAccessLogMiddleware(appLogger));
 app.use(helmet());
 app.use(createCorsMiddleware(env.CORS_ALLOWED_ORIGINS));
+// CSRF (F2-T07): el mismo origen que CORS autoriza es el único que puede modificar datos con la cookie.
+app.use(createOriginCheckMiddleware(env.CORS_ALLOWED_ORIGINS));
 
 // Compresión
 app.use(compression());

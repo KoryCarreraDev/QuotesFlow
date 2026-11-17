@@ -53,5 +53,6 @@ Errores: `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `429 TOO_MANY_REQUE
 
 ## Seguridad
 - Límite propio de 10 peticiones por IP cada 15 minutos en `/api/v1/auth` (`RATE_LIMIT_AUTH_MAX_REQUESTS`), además del global (H6). El bloqueo por cuenta llega en F2-T03.
+- CSRF (F2-T07): login y registro, como toda petición que modifica datos, responden 403 `ORIGIN_NOT_ALLOWED` si llegan con un `Origin` (o `Referer`) fuera de `CORS_ALLOWED_ORIGINS`. Evita que otra web inicie sesión en nombre del usuario con una cuenta del atacante.
 - Se auditan el registro (`COMPANY_REGISTERED`), el login correcto (`LOGIN_SUCCEEDED`) y la contraseña incorrecta de una cuenta existente (`LOGIN_FAILED`). Un correo inexistente no se audita.
 - Pendiente en F2: contraseña mínima de 12 caracteres (H7), tiempo de respuesta igual exista o no el correo (H22), sesión corta con refresh (H2, D-09) y caducidad real de la cookie (H23).
