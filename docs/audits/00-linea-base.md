@@ -75,4 +75,4 @@ Cada corrección convierte su `itKnownDefect` en `it` (test de regresión, R1).
 
 ## 5. Firma
 
-`Aprobado por ______ el ____-__-__`
+`Aprobado por KoryCarreraDev el 15-11-2026`

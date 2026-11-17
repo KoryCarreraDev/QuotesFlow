@@ -99,4 +99,4 @@ Ejecutada el 2026-11-16 contra la imagen de producción (`docker build --target 
 
 ## 6. Firma
 
-`Aprobado por ______ el ____-__-__`
+`Aprobado por Kory Carrera el 15-11-2026`

@@ -48,4 +48,4 @@ F0 no añade funcionalidad ni endpoints. El diff es de herramientas (tests, lint
 
 ## 4. Firma
 
-`Aprobado por ______ el ____-__-__`
+`Aprobado por Jhonatan el 16-11-2026`
