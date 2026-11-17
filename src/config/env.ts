@@ -30,6 +30,21 @@ const DEFAULT_GLOBAL_RATE_LIMIT = 100;
 // cuenta llega en F2-T03.
 const DEFAULT_AUTH_RATE_LIMIT = 10;
 
+// F2-T01: `resend` envía de verdad; `log` (desarrollo) escribe el correo en el log; `memory` (tests) lo guarda
+// en memoria. En producción solo vale `resend`: con otro, los correos de verificación no saldrían.
+const EMAIL_PROVIDERS = ['resend', 'log', 'memory'] as const;
+const DEFAULT_EMAIL_PROVIDER = 'log';
+const DEFAULT_EMAIL_FROM = 'QuotesFlow <no-reply@localhost>';
+// Las claves de Resend empiezan por `re_`; cualquier otra cosa es un error de configuración.
+const RESEND_API_KEY_PATTERN = /^re_\w+$/;
+// Remitente `Nombre <correo>` o solo el correo, como lo acepta Resend.
+const EMAIL_FROM_PATTERN = /^([^<>]+<[^<>\s]+@[^<>\s]+>|[^<>\s]+@[^<>\s]+)$/;
+// URL del frontend para los enlaces de los correos (verificar, recuperar, invitación). Sin barra final.
+const DEFAULT_APP_BASE_URL = 'http://localhost:5173';
+const WEB_PROTOCOLS = new Set(['http:', 'https:']);
+const TRAILING_SLASH = '/';
+const SECURE_URL_PREFIX = 'https://';
+
 function splitOriginList(value: unknown): unknown {
   if (value === undefined) return [];
   if (typeof value !== 'string') return value;
@@ -61,6 +76,13 @@ function positiveInteger(defaultValue: number) {
   );
 }
 
+/** URL http(s) sin barra final, query ni fragmento: se le concatenan rutas como `/verify-email?token=…`. */
+function isBaseUrl(value: string): boolean {
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  return WEB_PROTOCOLS.has(url.protocol) && !value.endsWith(TRAILING_SLASH) && url.search === '' && url.hash === '';
+}
+
 /** Una variable definida pero vacía (`JWT_SECRET=`) cuenta como ausente. */
 function treatEmptyAsMissing(value: unknown): unknown {
   return value === '' ? undefined : value;
@@ -76,7 +98,7 @@ function requiredText() {
   });
 }
 
-const environmentSchema = z.object({
+const baseEnvironmentSchema = z.object({
   // Obligatoria: sin ella la API se comportaría como en desarrollo (cookie sin `secure`, consultas en el log).
   NODE_ENV: z.preprocess(
     treatEmptyAsMissing,
@@ -136,7 +158,54 @@ const environmentSchema = z.object({
       })
       .default('info'),
   ),
+  EMAIL_PROVIDER: z.preprocess(
+    treatEmptyAsMissing,
+    z.enum(EMAIL_PROVIDERS, { error: 'must be one of: resend, log, memory' }).default(DEFAULT_EMAIL_PROVIDER),
+  ),
+  // Secreto: sin valor por defecto. Obligatorio con EMAIL_PROVIDER=resend (comprobado abajo).
+  RESEND_API_KEY: z.preprocess(
+    treatEmptyAsMissing,
+    z.string().regex(RESEND_API_KEY_PATTERN, { error: 'must be a Resend API key (re_...)' }).optional(),
+  ),
+  EMAIL_FROM: z.preprocess(
+    treatEmptyAsMissing,
+    z
+      .string()
+      .regex(EMAIL_FROM_PATTERN, { error: 'must be an address, e.g. QuotesFlow <no-reply@example.com>' })
+      .optional(),
+  ),
+  APP_BASE_URL: z.preprocess(
+    treatEmptyAsMissing,
+    z
+      .string()
+      .refine(isBaseUrl, { error: 'must be an http(s) URL without trailing slash' })
+      .default(DEFAULT_APP_BASE_URL),
+  ),
 });
+
+type ParsedVariables = z.output<typeof baseEnvironmentSchema>;
+
+/** Reglas que dependen de varias variables a la vez. */
+function checkCrossVariableRules(variables: ParsedVariables, context: z.RefinementCtx): void {
+  const isProduction = variables.NODE_ENV === 'production';
+  if (isProduction && variables.EMAIL_PROVIDER !== 'resend') {
+    context.addIssue({ code: 'custom', path: ['EMAIL_PROVIDER'], message: 'must be resend in production' });
+  }
+  if (variables.EMAIL_PROVIDER === 'resend' && variables.RESEND_API_KEY === undefined) {
+    context.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'is required with EMAIL_PROVIDER=resend' });
+  }
+  if (variables.EMAIL_PROVIDER === 'resend' && variables.EMAIL_FROM === undefined) {
+    context.addIssue({ code: 'custom', path: ['EMAIL_FROM'], message: 'is required with EMAIL_PROVIDER=resend' });
+  }
+  // Los enlaces de los correos llevan tokens: en producción nunca viajan sin cifrar.
+  if (isProduction && !variables.APP_BASE_URL.startsWith(SECURE_URL_PREFIX)) {
+    context.addIssue({ code: 'custom', path: ['APP_BASE_URL'], message: 'must use https in production' });
+  }
+}
+
+const environmentSchema = baseEnvironmentSchema
+  .superRefine(checkCrossVariableRules)
+  .transform((variables) => ({ ...variables, EMAIL_FROM: variables.EMAIL_FROM ?? DEFAULT_EMAIL_FROM }));
 
 /** Configuración del proceso ya validada. */
 export type Environment = z.output<typeof environmentSchema>;

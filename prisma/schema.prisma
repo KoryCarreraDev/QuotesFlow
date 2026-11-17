@@ -64,6 +64,7 @@ model Tenant {
   products           Product[]
   leadStatusHistory  LeadStatusHistory[]
   quoteItems         QuoteItem[]
+  emailLogs          EmailLog[]
 
 }
 
@@ -89,6 +90,7 @@ model User {
   auditLogs           AuditLog[]
   ownedContacts        Contact[]        @relation("ContactOwner")
   ownedCompanyContacts CompanyContact[] @relation("CompanyContactOwner")
+  emailLogs            EmailLog[]
 
   @@index([tenantId])
   @@index([email])
@@ -349,6 +351,31 @@ model AuditLog {
   entityId  String
   metadata  Json?
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// F2-T01: resultado de cada envío de correo transaccional.
+enum EmailDeliveryStatus {
+  SENT
+  FAILED
+}
+
+// F2-T01: historial de envíos de correo. Inmutable, como AuditLog: no lleva borrado suave. Nunca guarda el
+// cuerpo del correo, que lleva enlaces con tokens de un solo uso.
+model EmailLog {
+  id                String              @id @default(cuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId            String?
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  template          String
+  recipient         String
+  status            EmailDeliveryStatus
+  providerMessageId String?
+  failureReason     String?
+  createdAt         DateTime            @default(now())
 
   @@index([tenantId])
   @@index([userId])

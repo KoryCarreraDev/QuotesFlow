@@ -10,7 +10,8 @@ import {
 const TABLES_WITHOUT_TENANT_SCOPE = ['Tenant'];
 
 // Tablas de historial inmutable: no se borran, así que no llevan la marca de borrado suave.
-const TABLES_WITHOUT_SOFT_DELETE = ['AuditLog'];
+// EmailLog (F2-T01) es el historial de envíos de correo.
+const TABLES_WITHOUT_SOFT_DELETE = ['AuditLog', 'EmailLog'];
 
 describe('Esquema de la base de datos tras aplicar las migraciones', () => {
   it('toda tabla de negocio tiene la columna tenantId (regla R5)', async () => {

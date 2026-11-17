@@ -9,6 +9,7 @@ Un archivo por módulo funcional: `docs/modulos/<modulo>.md` (regla R12 de `PLAN
 | Estados de lead | [estados-de-lead.md](estados-de-lead.md) |
 | Contactos y empresas cliente | [contactos.md](contactos.md) |
 | Filtrado genérico | [filtrado.md](filtrado.md) |
+| Correo transaccional | [correo.md](correo.md) |
 
 El contrato completo de la API (esquemas de cada petición y respuestas de error) está en [`docs/openapi.json`](../openapi.json), generado con `pnpm docs:openapi`.
 

@@ -1,0 +1,20 @@
+<mjml lang="es">
+  <mj-include path="./partials/head.mjml" />
+  <mj-body background-color="#f3f4f6">
+    <mj-include path="./partials/header.mjml" />
+    <mj-section background-color="#ffffff" border-radius="8px" padding="24px">
+      <mj-column>
+        <mj-text>Hola, {{ firstName }}:</mj-text>
+        <mj-text
+          >Alguien intentó registrar una empresa nueva en QuotesFlow con tu correo, pero ya tienes una cuenta.</mj-text
+        >
+        <mj-text>Si fuiste tú, inicia sesión. Si olvidaste tu contraseña, puedes elegir una nueva.</mj-text>
+        <mj-button href="{{loginUrl}}">Iniciar sesión</mj-button>
+        <mj-button href="{{resetUrl}}" background-color="#ffffff" color="#1d4ed8" border="1px solid #1d4ed8"
+          >Recuperar mi contraseña</mj-button
+        >
+      </mj-column>
+    </mj-section>
+    <mj-include path="./partials/footer.mjml" />
+  </mj-body>
+</mjml>

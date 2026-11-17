@@ -9,3 +9,5 @@ eslint-suppressions.json
 *.md
 # Generado por pnpm docs:openapi; un test comprueba que coincide con el código.
 docs/openapi.json
+# Generado por pnpm emails:build desde las plantillas MJML; un test comprueba que coincide.
+src/infrastructure/email/compiledEmailTemplates.ts

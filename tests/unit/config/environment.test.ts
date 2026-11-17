@@ -21,6 +21,11 @@ const validVariables = {
   DATABASE_URL: 'postgresql://quotesflow:password@db.internal:5432/quotesflow?schema=public',
   JWT_SECRET: VALID_JWT_SECRET,
   JWT_EXPIRATION: '15m',
+  // F2-T01: en producción los correos solo salen por Resend, con clave, remitente y enlaces https.
+  EMAIL_PROVIDER: 'resend',
+  RESEND_API_KEY: 're_example_key_for_tests',
+  EMAIL_FROM: 'QuotesFlow <no-reply@quotesflow.example>',
+  APP_BASE_URL: 'https://app.quotesflow.example',
 };
 
 function parseWith(overrides: Record<string, string | undefined>) {
@@ -52,6 +57,10 @@ describe('parseEnvironment', () => {
       RATE_LIMIT_GLOBAL_MAX_REQUESTS: DEFAULT_GLOBAL_RATE_LIMIT,
       RATE_LIMIT_AUTH_MAX_REQUESTS: DEFAULT_AUTH_RATE_LIMIT,
       LOG_LEVEL: 'info',
+      EMAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: validVariables.RESEND_API_KEY,
+      EMAIL_FROM: validVariables.EMAIL_FROM,
+      APP_BASE_URL: validVariables.APP_BASE_URL,
     });
   });
 
@@ -209,5 +218,62 @@ describe('parseEnvironment', () => {
     const invalidVariables = invalidVariablesOf({ JWT_SECRET: undefined, DATABASE_URL: undefined, NODE_ENV: 'qa' });
 
     expect(invalidVariables.sort()).toEqual(['DATABASE_URL', 'JWT_SECRET', 'NODE_ENV']);
+  });
+
+  describe('correo (F2-T01)', () => {
+    const developmentVariables = {
+      ...validVariables,
+      NODE_ENV: 'development',
+      EMAIL_PROVIDER: undefined,
+      RESEND_API_KEY: undefined,
+      EMAIL_FROM: undefined,
+      APP_BASE_URL: undefined,
+    };
+
+    it('fuera de producción, sin configurar, escribe los correos en el log y enlaza al frontend local', () => {
+      const environment = parseEnvironment(developmentVariables);
+
+      expect(environment).toMatchObject({
+        EMAIL_PROVIDER: 'log',
+        EMAIL_FROM: 'QuotesFlow <no-reply@localhost>',
+        APP_BASE_URL: 'http://localhost:5173',
+      });
+      expect(environment.RESEND_API_KEY).toBeUndefined();
+    });
+
+    it.each(['log', 'memory'])('en producción rechaza EMAIL_PROVIDER=%s: los correos no saldrían', (provider) => {
+      expect(invalidVariablesOf({ EMAIL_PROVIDER: provider })).toEqual(['EMAIL_PROVIDER']);
+    });
+
+    it('con Resend exige la clave de la API, sin valor por defecto', () => {
+      expect(invalidVariablesOf({ RESEND_API_KEY: undefined })).toEqual(['RESEND_API_KEY']);
+    });
+
+    it('con Resend exige el remitente', () => {
+      expect(invalidVariablesOf({ EMAIL_FROM: undefined })).toEqual(['EMAIL_FROM']);
+    });
+
+    it('rechaza una clave que no tiene el formato de Resend', () => {
+      expect(invalidVariablesOf({ RESEND_API_KEY: 'sk_live_not_resend' })).toEqual(['RESEND_API_KEY']);
+    });
+
+    it('rechaza un remitente que no es una dirección', () => {
+      expect(invalidVariablesOf({ EMAIL_FROM: 'QuotesFlow' })).toEqual(['EMAIL_FROM']);
+    });
+
+    it('en producción exige https en APP_BASE_URL: los enlaces llevan tokens', () => {
+      expect(invalidVariablesOf({ APP_BASE_URL: 'http://app.quotesflow.example' })).toEqual(['APP_BASE_URL']);
+    });
+
+    it('rechaza una APP_BASE_URL con barra final', () => {
+      expect(invalidVariablesOf({ APP_BASE_URL: 'https://app.quotesflow.example/' })).toEqual(['APP_BASE_URL']);
+    });
+
+    it('el mensaje de error nunca incluye la clave recibida', () => {
+      const leakedKey = 'not-a-resend-key-but-secret';
+
+      expect(parseWith({ RESEND_API_KEY: leakedKey })).toThrow(InvalidEnvironmentError);
+      expect(parseWith({ RESEND_API_KEY: leakedKey })).not.toThrow(leakedKey);
+    });
   });
 });

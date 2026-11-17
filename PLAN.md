@@ -164,7 +164,7 @@ Contactos y empresas:
 ### F2 — Identidad, sesiones y usuarios
 Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
 
-- F2-T01 `[S]` Puerto `IEmailService` + adaptador Resend + registro de envíos (`EmailLog`) + plantillas base.
+- F2-T01 `[S]` Puerto `IEmailService` + adaptador Resend + registro de envíos (`EmailLog`) + plantillas base. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** Resend por axios (sin el SDK); plantillas en MJML compiladas (D-28). Clave de Resend de ejemplo hasta verificar el dominio (Operaciones).
 - F2-T02 `[O]` Sesiones según D-09: token de acceso corto, refresh rotatorio guardado con hash, detección de reutilización, logout y logout global, algoritmo fijo, `iss`/`aud` (H2). La caducidad de la cookie sale de la del token (H23).
 - F2-T03 `[O]` Política de contraseñas, límite por cuenta e IP, bloqueo progresivo, respuestas genéricas (H7). El login tarda lo mismo exista o no el correo (H22).
 - F2-T04 `[O]` Verificación de correo y recuperación de contraseña (tokens de un solo uso, con hash y caducidad).
@@ -265,7 +265,7 @@ Lo marcado "No" en las sugerencias de CRM (sección 9.8), pasarela de pago, SSE,
 |---|---|---|
 | F0 | vitest, @vitest/coverage-v8, supertest, @types/supertest, @testcontainers/postgresql, typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, dependency-cruiser, lefthook, tsc-alias (si H20 se confirma) | jest, ts-jest, @types/jest (si D-01 = Sí) |
 | F1 | @asteasolutions/zod-to-openapi (si D-07 = Sí) | — |
-| F2 | resend | nodemailer, @types/nodemailer (si D-30 = Sí) |
+| F2 | mjml (devDependency, D-28). `resend` no se añadió: el adaptador usa axios (F2-T01) | nodemailer, @types/nodemailer (si D-30 = Sí) |
 | F3 | decimal.js, file-type, cliente S3 (si D-26 = Sí) | — |
 | F4 | pg-boss (si D-27 = Sí), svix | node-cron (si D-27 = Sí) |
 | F5 | otplib, qrcode | — |
