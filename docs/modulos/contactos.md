@@ -68,5 +68,5 @@ Respuesta `201`: la empresa con `documentNumber: "900123456"` y `ownerId` del us
 
 ## Seguridad
 - Acotado al tenant de la sesión y, para los comerciales, a sus clientes. Un cliente de otra empresa responde 404.
-- La unicidad del documento la comprueba la aplicación: dos altas simultáneas con el mismo documento podrían pasar las dos.
+- La unicidad del documento la comprueba la aplicación y la garantiza un índice único parcial de la base (F2-T09): de dos altas simultáneas con el mismo documento, una recibe 409 `DOCUMENT_ALREADY_REGISTERED`.
 - Se auditan creación, modificación (nombres de campos, nunca valores) y borrado.

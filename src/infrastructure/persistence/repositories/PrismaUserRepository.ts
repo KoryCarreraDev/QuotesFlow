@@ -1,18 +1,12 @@
 import { DeletedState as StoredDeletedState } from '@prisma/client';
-import { Prisma, type User as UserRecord } from '@prisma/client';
+import { type User as UserRecord } from '@prisma/client';
 import { IUserRepository } from '../../../application/ports/repositories/IUserRepository.js';
 import { ConflictError } from '../../../domain/errors/ConflictError.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { User } from '../../../domain/entities/User.js';
 import { Role } from '../../../domain/enums/Role.js';
+import { isUniqueConstraintViolation } from '../prisma/prismaErrors.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
-
-// Código de Prisma para una restricción única violada.
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
-
-function isUniqueConstraintViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_CONSTRAINT_VIOLATION;
-}
 
 export class PrismaUserRepository extends BasePrismaRepository implements IUserRepository {
   /**
