@@ -37,89 +37,7 @@
 
 ## Preguntas abiertas
 
-### Q-006 · Idioma de los títulos de los tests
-- **Fecha:** 2026-11-16
-- **Modelo:** Fable (Claude Code)
-- **Fase / tarea:** F0-T02, R11
-- **Bloquea:** No
-- **Pregunta:** ¿Los títulos de `describe` e `it` van en español (como documentación del comportamiento) o en inglés (como código)?
-- **Contexto:** R11 no menciona los tests. Los títulos son frases que describen reglas de negocio y salen en el reporte de CI; los identificadores de los tests ya están en inglés.
-- **Opciones:** a) Títulos en español. b) Títulos en inglés.
-- **Supuesto mientras tanto:** a) español. Los 453 tests actuales están escritos así (`tests/README.md`).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-007 · Tests de defectos conocidos con `it.fails`
-- **Fecha:** 2026-11-16
-- **Modelo:** Fable (Claude Code)
-- **Fase / tarea:** F0-T02, R2
-- **Bloquea:** No
-- **Pregunta:** ¿Se acepta `itKnownDefect` (envoltura de `it.fails` de Vitest) para dejar escrito el comportamiento correcto de los hallazgos H2 a H15 antes de corregirlos?
-- **Contexto:** R2 prohíbe `.skip` y `.only`. `itKnownDefect` (`tests/support/knownDefect.ts`) no omite nada: el test se ejecuta siempre y solo se da por bueno mientras el defecto exista; al corregirlo, falla y obliga a convertirlo en test de regresión. Hoy hay 30, listados en `tests/README.md`.
-- **Opciones:** a) Aceptarlo y, en F0-T03, que el lint prohíba `.skip`/`.only`/`.todo` pero permita `itKnownDefect`. b) Rechazarlo: borrar esos 30 tests y escribirlos cuando se corrija cada hallazgo.
-- **Supuesto mientras tanto:** a).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-008 · Violaciones de lint heredadas congeladas en un archivo de supresiones
-- **Fecha:** 2026-11-16
-- **Modelo:** Opus
-- **Fase / tarea:** F0-T03, R2, R13
-- **Bloquea:** No
-- **Pregunta:** ¿Se acepta congelar en `eslint-suppressions.json` las 77 violaciones que el código ya tenía, hasta corregirlas en F1-T15 y F1-T18?
-- **Contexto:** Con las reglas de R13 el código actual tiene 77 errores: 59 números mágicos (sobre todo códigos HTTP en controllers y números en tests), 6 nombres, 5 variables sin usar, 4 `any` y 3 más. Corregirlos en F0-T03 mezclaría cambios de lógica con la configuración, y F1-T15/F1-T18 ya tienen asignada esa limpieza. ESLint falla si un archivo supera su número congelado, así que el código nuevo no puede añadir violaciones. El archivo está en `CODEOWNERS`.
-- **Opciones:** a) Aceptar las supresiones; el archivo solo puede encoger. b) Corregir las 77 antes de fusionar F0-T03. c) Bajar esas reglas a aviso hasta F1.
-- **Supuesto mientras tanto:** a).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-009 · Tiempo mínimo de publicación para instalar dependencias
-- **Fecha:** 2026-11-16
-- **Modelo:** Opus
-- **Fase / tarea:** F0 (informe `docs/audits/F0-seguridad.md`, F0-S3)
-- **Bloquea:** No
-- **Pregunta:** ¿Se configura en `pnpm-workspace.yaml` un `minimumReleaseAge` para que pnpm no instale versiones publicadas hace menos de N días?
-- **Contexto:** Las dependencias de F0 se eligieron a mano con más de dos semanas publicadas, pero nada lo impone en un `pnpm update` futuro. Los paquetes comprometidos suelen detectarse y retirarse en pocos días. La contrapartida: un parche de seguridad urgente tardaría N días en poder instalarse, salvo excepción explícita (`minimumReleaseAgeExclude`).
-- **Opciones:** a) 7 días. b) 14 días. c) No configurarlo.
-- **Supuesto mientras tanto:** c). No se configura sin decisión humana.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-010 · Empezar F1 con la puerta de F0 abierta
-- **Fecha:** 2026-11-16
-- **Modelo:** Opus
-- **Fase / tarea:** F1, sección 11 de `PLAN.md`
-- **Bloquea:** No
-- **Pregunta:** ¿Se pueden preparar las ramas de F1 mientras la puerta de F0 sigue abierta?
-- **Contexto:** La sección 11 dice "No se escribe funcionalidad nueva hasta cerrar la puerta de F0". El 2026-11-16 faltan los PR de F0-T03, T04, T05, T06, T08 y T10, la firma de `docs/audits/00-linea-base.md` y `F0-seguridad.md` y la protección de ramas. F1 no añade funcionalidad: endurece y corrige lo existente. Sus ramas salen de `feat/F0-T10-baseline-audit`, porque necesitan el lint, los hooks y la CI de F0.
-- **Opciones:** a) Sí: preparar F1 en ramas apiladas, sin abrir sus PR hasta fusionar F0. b) No: esperar a cerrar la puerta de F0.
-- **Supuesto mientras tanto:** a). Ninguna rama de F1 se fusiona antes que las de F0.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-011 · Cupos de los límites de tasa
-- **Fecha:** 2026-11-16
-- **Modelo:** Opus
-- **Fase / tarea:** F1-T06, H6
-- **Bloquea:** No
-- **Pregunta:** ¿Qué cupos por IP y ventana de 15 minutos se usan en producción?
-- **Contexto:** F1-T06 deja un límite global y otro, más bajo, para `/api/auth` (login y registro), configurables con `RATE_LIMIT_GLOBAL_MAX_REQUESTS` y `RATE_LIMIT_AUTH_MAX_REQUESTS` (`src/config/env.ts`). Por defecto, 100 y 10. Una oficina con muchos comerciales detrás de una misma IP pública comparte cupo; el bloqueo por cuenta llega en F2-T03.
-- **Opciones:** a) 100 global y 10 en autenticación. b) Otros valores (indicar cuáles).
-- **Supuesto mientras tanto:** a).
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
-
-### Q-012 · Borrado de contactos y empresas cliente
-- **Fecha:** 2026-11-16
-- **Modelo:** Opus
-- **Fase / tarea:** F1-T16
-- **Bloquea:** No
-- **Pregunta:** ¿Quién puede borrar contactos y empresas cliente, y qué pasa con los contactos de una empresa cliente que se borra?
-- **Contexto:** El plan pide borrado suave sin fijar permisos. Contactos y empresas aún no tienen responsable (llega en F1-T17), así que "solo los suyos" no se puede aplicar todavía.
-- **Opciones:** a) Solo gestión (dueño, socio, líder) borra; una empresa con contactos activos no se borra (409). b) También el comercial; borrar la empresa borra en cascada sus contactos. c) Borrar la empresa deja sus contactos sin empresa.
-- **Supuesto mientras tanto:** a). Con F1-T17 se puede revisar si el comercial borra los clientes de los que es responsable.
-- **Respuesta:** _pendiente_
-- **Respondida por / fecha:** _pendiente_
+_Ninguna._
 
 ---
 
@@ -185,3 +103,86 @@
 - **Respuesta:** B
 - **Respondida por / fecha:** Developer KoryCarreraDev, 16/11/2026
 
+### Q-006 · Idioma de los títulos de los tests
+- **Fecha:** 2026-11-16
+- **Modelo:** Fable (Claude Code)
+- **Fase / tarea:** F0-T02, R11
+- **Bloquea:** No
+- **Pregunta:** ¿Los títulos de `describe` e `it` van en español (como documentación del comportamiento) o en inglés (como código)?
+- **Contexto:** R11 no menciona los tests. Los títulos son frases que describen reglas de negocio y salen en el reporte de CI; los identificadores de los tests ya están en inglés.
+- **Opciones:** a) Títulos en español. b) Títulos en inglés.
+- **Supuesto mientras tanto:** a) español. Los 453 tests actuales están escritos así (`tests/README.md`).
+- **Respuesta:** Opción a). Títulos de `describe` e `it` en español: son documentación del comportamiento y es como están escritos los tests actuales.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-007 · Tests de defectos conocidos con `it.fails`
+- **Fecha:** 2026-11-16
+- **Modelo:** Fable (Claude Code)
+- **Fase / tarea:** F0-T02, R2
+- **Bloquea:** No
+- **Pregunta:** ¿Se acepta `itKnownDefect` (envoltura de `it.fails` de Vitest) para dejar escrito el comportamiento correcto de los hallazgos H2 a H15 antes de corregirlos?
+- **Contexto:** R2 prohíbe `.skip` y `.only`. `itKnownDefect` (`tests/support/knownDefect.ts`) no omite nada: el test se ejecuta siempre y solo se da por bueno mientras el defecto exista; al corregirlo, falla y obliga a convertirlo en test de regresión. Hoy hay 30, listados en `tests/README.md`.
+- **Opciones:** a) Aceptarlo y, en F0-T03, que el lint prohíba `.skip`/`.only`/`.todo` pero permita `itKnownDefect`. b) Rechazarlo: borrar esos 30 tests y escribirlos cuando se corrija cada hallazgo.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** Opción a). Se acepta `itKnownDefect`: no omite nada, se ejecuta siempre y obliga a convertir el test en regresión al corregir el hallazgo. El lint prohíbe `.skip`, `.only` y `.todo`, pero lo permite.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-008 · Violaciones de lint heredadas congeladas en un archivo de supresiones
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F0-T03, R2, R13
+- **Bloquea:** No
+- **Pregunta:** ¿Se acepta congelar en `eslint-suppressions.json` las 77 violaciones que el código ya tenía, hasta corregirlas en F1-T15 y F1-T18?
+- **Contexto:** Con las reglas de R13 el código actual tiene 77 errores: 59 números mágicos (sobre todo códigos HTTP en controllers y números en tests), 6 nombres, 5 variables sin usar, 4 `any` y 3 más. Corregirlos en F0-T03 mezclaría cambios de lógica con la configuración, y F1-T15/F1-T18 ya tienen asignada esa limpieza. ESLint falla si un archivo supera su número congelado, así que el código nuevo no puede añadir violaciones. El archivo está en `CODEOWNERS`.
+- **Opciones:** a) Aceptar las supresiones; el archivo solo puede encoger. b) Corregir las 77 antes de fusionar F0-T03. c) Bajar esas reglas a aviso hasta F1.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** Opción a). Aceptado y ya resuelto: `eslint-suppressions.json` quedó vacío en F1-T18 y solo puede volver a tener entradas para encoger.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-009 · Tiempo mínimo de publicación para instalar dependencias
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F0 (informe `docs/audits/F0-seguridad.md`, F0-S3)
+- **Bloquea:** No
+- **Pregunta:** ¿Se configura en `pnpm-workspace.yaml` un `minimumReleaseAge` para que pnpm no instale versiones publicadas hace menos de N días?
+- **Contexto:** Las dependencias de F0 se eligieron a mano con más de dos semanas publicadas, pero nada lo impone en un `pnpm update` futuro. Los paquetes comprometidos suelen detectarse y retirarse en pocos días. La contrapartida: un parche de seguridad urgente tardaría N días en poder instalarse, salvo excepción explícita (`minimumReleaseAgeExclude`).
+- **Opciones:** a) 7 días. b) 14 días. c) No configurarlo.
+- **Supuesto mientras tanto:** c). No se configura sin decisión humana.
+- **Respuesta:** Opción c) por ahora: no se configura. Se probó `minimumReleaseAge: 20160` (14 días) el 17/11/2026 y `pnpm install --frozen-lockfile` falla: el `pnpm-lock.yaml` actual tiene 88 versiones publicadas hace menos de 14 días (p. ej. `@rolldown/binding-*` 1.2.19, del 11/11/2026), y con 7 días también falla. Sigue vigente el criterio manual de elegir versiones con más de dos semanas. Reabrir cuando se actualicen las dependencias de F2: entonces fijar 14 días y, si hace falta, `minimumReleaseAgeExclude` solo para esos paquetes.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-010 · Empezar F1 con la puerta de F0 abierta
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1, sección 11 de `PLAN.md`
+- **Bloquea:** No
+- **Pregunta:** ¿Se pueden preparar las ramas de F1 mientras la puerta de F0 sigue abierta?
+- **Contexto:** La sección 11 dice "No se escribe funcionalidad nueva hasta cerrar la puerta de F0". El 2026-11-16 faltan los PR de F0-T03, T04, T05, T06, T08 y T10, la firma de `docs/audits/00-linea-base.md` y `F0-seguridad.md` y la protección de ramas. F1 no añade funcionalidad: endurece y corrige lo existente. Sus ramas salen de `feat/F0-T10-baseline-audit`, porque necesitan el lint, los hooks y la CI de F0.
+- **Opciones:** a) Sí: preparar F1 en ramas apiladas, sin abrir sus PR hasta fusionar F0. b) No: esperar a cerrar la puerta de F0.
+- **Supuesto mientras tanto:** a). Ninguna rama de F1 se fusiona antes que las de F0.
+- **Respuesta:** Opción a). Sin efecto: las ramas de F0 y F1 ya están fusionadas en `develop`.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-011 · Cupos de los límites de tasa
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1-T06, H6
+- **Bloquea:** No
+- **Pregunta:** ¿Qué cupos por IP y ventana de 15 minutos se usan en producción?
+- **Contexto:** F1-T06 deja un límite global y otro, más bajo, para `/api/auth` (login y registro), configurables con `RATE_LIMIT_GLOBAL_MAX_REQUESTS` y `RATE_LIMIT_AUTH_MAX_REQUESTS` (`src/config/env.ts`). Por defecto, 100 y 10. Una oficina con muchos comerciales detrás de una misma IP pública comparte cupo; el bloqueo por cuenta llega en F2-T03.
+- **Opciones:** a) 100 global y 10 en autenticación. b) Otros valores (indicar cuáles).
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** Opción a). 100 peticiones globales y 10 en `/api/v1/auth` por IP cada 15 minutos. El bloqueo por cuenta de F2-T03 reduce el problema de las IP compartidas; se revisa con datos reales al desplegar.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
+
+### Q-012 · Borrado de contactos y empresas cliente
+- **Fecha:** 2026-11-16
+- **Modelo:** Opus
+- **Fase / tarea:** F1-T16
+- **Bloquea:** No
+- **Pregunta:** ¿Quién puede borrar contactos y empresas cliente, y qué pasa con los contactos de una empresa cliente que se borra?
+- **Contexto:** El plan pide borrado suave sin fijar permisos. Contactos y empresas aún no tienen responsable (llega en F1-T17), así que "solo los suyos" no se puede aplicar todavía.
+- **Opciones:** a) Solo gestión (dueño, socio, líder) borra; una empresa con contactos activos no se borra (409). b) También el comercial; borrar la empresa borra en cascada sus contactos. c) Borrar la empresa deja sus contactos sin empresa.
+- **Supuesto mientras tanto:** a). Con F1-T17 se puede revisar si el comercial borra los clientes de los que es responsable.
+- **Respuesta:** Opción a). Solo gestión (dueño, socio, líder) borra; una empresa con contactos activos no se borra (409 `COMPANY_CONTACT_HAS_CONTACTS`). Ya implementado en F1-T16; revisar en C-03 si el comercial borra los suyos.
+- **Respondida por / fecha:** Decidido por Claude por delegación de KoryCarreraDev, 17/11/2026; pendiente de su confirmación
