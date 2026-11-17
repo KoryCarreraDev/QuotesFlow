@@ -37,6 +37,7 @@ async function countStored(resource: ScenarioResource): Promise<number> {
   if (resource === 'invitation') return prisma.userInvitation.count();
   if (resource === 'tenant') return prisma.tenant.count();
   if (resource === 'product') return prisma.product.count();
+  if (resource === 'formula') return prisma.formula.count();
   return prisma.companyContact.count();
 }
 

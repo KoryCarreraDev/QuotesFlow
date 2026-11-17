@@ -26,6 +26,7 @@ const CONTACT_BASE_PATH = `${API_BASE_PATH}/contacts`;
 const COMPANY_CONTACT_BASE_PATH = `${API_BASE_PATH}/company-contacts`;
 const USER_BASE_PATH = `${API_BASE_PATH}/users`;
 const PRODUCT_BASE_PATH = `${API_BASE_PATH}/products`;
+const FORMULA_BASE_PATH = `${API_BASE_PATH}/formulas`;
 
 export const apiPaths = {
   health: '/health',
@@ -79,6 +80,12 @@ export const apiPaths = {
     filtered: `${PRODUCT_BASE_PATH}/search`,
     update: (productId: string) => `${PRODUCT_BASE_PATH}/${productId}`,
     delete: (productId: string) => `${PRODUCT_BASE_PATH}/${productId}`,
+  },
+  formulas: {
+    create: FORMULA_BASE_PATH,
+    filtered: `${FORMULA_BASE_PATH}/search`,
+    update: (formulaId: string) => `${FORMULA_BASE_PATH}/${formulaId}`,
+    delete: (formulaId: string) => `${FORMULA_BASE_PATH}/${formulaId}`,
   },
   companyContacts: {
     getAll: COMPANY_CONTACT_BASE_PATH,
@@ -143,6 +150,11 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.products.create, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.products.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.products.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+
+  { method: 'GET', pattern: apiPaths.formulas.filtered, access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.formulas.create, access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.formulas.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.formulas.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
 ];
 
 export const authenticatedRoutes = routeInventory.filter((route) => route.access === 'authenticated');

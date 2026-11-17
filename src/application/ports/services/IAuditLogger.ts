@@ -40,6 +40,9 @@ export enum AuditAction {
   PRODUCT_CREATED = 'PRODUCT_CREATED',
   PRODUCT_UPDATED = 'PRODUCT_UPDATED',
   PRODUCT_DELETED = 'PRODUCT_DELETED',
+  FORMULA_CREATED = 'FORMULA_CREATED',
+  FORMULA_UPDATED = 'FORMULA_UPDATED',
+  FORMULA_DELETED = 'FORMULA_DELETED',
 }
 
 /** Sobre qué tipo de registro. Se guarda en `AuditLog.entity`. */
@@ -53,6 +56,7 @@ export enum AuditEntity {
   CONTACT = 'Contact',
   COMPANY_CONTACT = 'CompanyContact',
   PRODUCT = 'Product',
+  FORMULA = 'Formula',
 }
 
 /**

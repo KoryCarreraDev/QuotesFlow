@@ -11,6 +11,7 @@ import {
   persistCompanyContact,
   persistContact,
   persistLead,
+  persistFormula,
   persistLeadStatus,
   persistProduct,
   persistUser,
@@ -22,7 +23,16 @@ import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/suppor
 
 /** Recurso de negocio sobre el que actúa la ruta. */
 export type ScenarioResource =
-  'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation' | 'tenant' | 'product';
+  | 'lead'
+  | 'leadStatus'
+  | 'contact'
+  | 'companyContact'
+  | 'session'
+  | 'user'
+  | 'invitation'
+  | 'tenant'
+  | 'product'
+  | 'formula';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
@@ -147,6 +157,17 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
     `DELETE ${apiPaths.products.delete(':id')}`,
     { action: Action.PRODUCT_DELETE, resource: 'product', operation: 'delete' },
   ],
+
+  [`GET ${apiPaths.formulas.filtered}`, { action: Action.FORMULA_LIST, resource: 'formula', operation: 'list' }],
+  [`POST ${apiPaths.formulas.create}`, { action: Action.FORMULA_CREATE, resource: 'formula', operation: 'create' }],
+  [
+    `PATCH ${apiPaths.formulas.update(':id')}`,
+    { action: Action.FORMULA_UPDATE, resource: 'formula', operation: 'update' },
+  ],
+  [
+    `DELETE ${apiPaths.formulas.delete(':id')}`,
+    { action: Action.FORMULA_DELETE, resource: 'formula', operation: 'delete' },
+  ],
 ]);
 
 /** Escenario de una ruta, o `undefined` si nadie lo ha declarado (la suite de cobertura lo reporta). */
@@ -189,6 +210,8 @@ export async function persistScenarioResource(
   if (resource === 'invitation') return (await persistUserInvitation(tenantId, company.owner.id)).id;
   // Los productos no tienen responsable: son del catálogo de la empresa.
   if (resource === 'product') return (await persistProduct(tenantId)).id;
+  // Las fórmulas tampoco: son de la empresa; el autor es el dueño.
+  if (resource === 'formula') return (await persistFormula(tenantId, company.owner.id)).id;
   return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
@@ -205,6 +228,9 @@ export function creationBody(resource: ScenarioResource): Record<string, unknown
     return { email: `invitado.escenario.${nextStatusOrder}@example.com`, role: Role.SALES_REP };
   }
   if (resource === 'product') return { name: 'Producto Escenario', basePrice: '150000' };
+  if (resource === 'formula') {
+    return { name: 'Fórmula Escenario', expression: 'ancho * 2', variables: [{ name: 'ancho', label: 'Ancho' }] };
+  }
   return { name: 'Empresa Escenario SAS' };
 }
 
@@ -221,6 +247,7 @@ export function updateBody(resource: ScenarioResource): Record<string, unknown> 
   if (resource === 'user') return { isActive: false };
   if (resource === 'tenant') return { timezone: 'America/Lima' };
   if (resource === 'product') return { name: 'Producto modificado' };
+  if (resource === 'formula') return { name: 'Fórmula modificada' };
   return { city: 'Modificada' };
 }
 
@@ -234,6 +261,7 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'invitation') return prisma.userInvitation.findUnique({ where: { id } });
   if (resource === 'tenant') return prisma.tenant.findUnique({ where: { id }, include: { tenantSettings: true } });
   if (resource === 'product') return prisma.product.findUnique({ where: { id } });
+  if (resource === 'formula') return prisma.formula.findUnique({ where: { id } });
   return prisma.companyContact.findUnique({ where: { id } });
 }
 

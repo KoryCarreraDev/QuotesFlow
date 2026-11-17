@@ -182,7 +182,7 @@ Bloqueada por: D-20 a D-26.
 - F3-T01 `[O]` Objeto de valor `Money` con decimales exactos; corregir H21. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** `Money` y `Percentage` sin librerías (R4); `decimal.js` no hace falta.
 - F3-T02 `[S]` Productos: CRUD, filtrado, borrado suave. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** Gestionan dueño, socio y líder; supuesto pendiente de confirmar.
 - F3-T03 `[O]` Puerto `IFormulaEvaluator` + adaptador mathjs endurecido: funciones peligrosas deshabilitadas (`import`, `createUnit`, `evaluate`, `parse`, `simplify`, `derivative`), lista blanca de nodos, longitud máxima, solo variables declaradas y numéricas. Tests de inyección obligatorios. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** Sin potencia ni factorial (números sin límite); `docs/modulos/formulas.md`.
-- F3-T04 `[S]` Fórmulas: CRUD; la expresión se valida al guardar.
+- F3-T04 `[S]` Fórmulas: CRUD; la expresión se valida al guardar. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** No se borra una fórmula que usa un producto (409).
 - F3-T05 `[O]` Cotizaciones: numeración consecutiva por tenant sin huecos por concurrencia, ítems con precio calculado en servidor y guardado como instantánea, descuento, impuestos, vigencia, máquina de estados, reglas por rol. Todo en transacción.
 - F3-T06 `[S]` Puerto `IPdfGenerator` + adaptador pdf-lib (logo, datos del tenant, ítems, totales, condiciones).
 - F3-T07 `[O]` Puerto `IFileStorage` + subida de logo con validación de tipo real y tamaño.

@@ -42,6 +42,10 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `product:create` | Crear un producto | Sí | Sí | Sí | No |
 | `product:update` | Modificar un producto (nombre, precio, fórmula, activo) | Sí | Sí | Sí | No |
 | `product:delete` | Borrar (suave) un producto | Sí | Sí | Sí | No |
+| `formula:list` | Buscar y consultar las fórmulas de precio y sus variables (`GET /formulas/search`) | Sí | Sí | Sí | Sí |
+| `formula:create` | Crear una fórmula de precio | Sí | Sí | Sí | No |
+| `formula:update` | Modificar una fórmula de precio | Sí | Sí | Sí | No |
+| `formula:delete` | Borrar (suave) una fórmula que ningún producto usa | Sí | Sí | Sí | No |
 
 Comportamientos que la tabla no muestra:
 
