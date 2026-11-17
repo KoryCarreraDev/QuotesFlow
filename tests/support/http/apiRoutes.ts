@@ -41,6 +41,9 @@ export const apiPaths = {
     resetPassword: `${API_BASE_PATH}/auth/password/reset`,
     acceptInvitation: `${API_BASE_PATH}/auth/invitations/accept`,
   },
+  tenant: {
+    profile: `${API_BASE_PATH}/tenant`,
+  },
   users: {
     getAll: USER_BASE_PATH,
     update: (userId: string) => `${USER_BASE_PATH}/${userId}`,
@@ -119,6 +122,9 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.companyContacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.companyContacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.companyContacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+
+  { method: 'GET', pattern: apiPaths.tenant.profile, access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.tenant.profile, access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.users.getAll, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.users.update(ROUTE_ID_PARAMETER), access: 'authenticated' },

@@ -129,15 +129,31 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
     const victimResourceId = await persistScenarioResource(scenario.resource, victimCompany, victimCompany.owner.id);
     const recordBefore = await readScenarioResource(scenario.resource, victimResourceId);
 
-    const response = await request(app).post(route.pattern).set('Cookie', intruderCookie);
+    const response =
+      route.method === 'PATCH'
+        ? await request(app)
+            .patch(route.pattern)
+            .set('Cookie', intruderCookie)
+            .send(scenarioUpdateBody(scenario, intruderCompany))
+        : await request(app).post(route.pattern).set('Cookie', intruderCookie);
 
-    expect(response.status).toBe(HTTP_NO_CONTENT);
+    expect(response.status).toBe(scenario.successStatus ?? HTTP_NO_CONTENT);
     await expect(readScenarioResource(scenario.resource, victimResourceId)).resolves.toEqual(recordBefore);
+  }
+
+  // F2-T06: leer lo propio (el perfil de su empresa) devuelve lo del intruso, nunca lo de la víctima.
+  async function expectReadOwnReturnsOwnTenant(route: RouteInventoryEntry) {
+    const response = await request(app).get(route.pattern).set('Cookie', intruderCookie);
+
+    expect(response.status).toBe(HTTP_OK);
+    expect(response.body.id).toBe(intruderCompany.tenant.id);
+    expect(JSON.stringify(response.body)).not.toContain(victimCompany.tenant.id);
   }
 
   it.each(routesWithScenario)('$title no alcanza datos de otra empresa', async ({ route, scenario }) => {
     if (scenario.operation === 'list') await expectListExcludesForeignRecords(route, scenario);
     else if (scenario.operation === 'self') await expectSelfActionLeavesForeignRecords(route, scenario);
+    else if (scenario.operation === 'readOwn') await expectReadOwnReturnsOwnTenant(route);
     else if (scenario.operation === 'bulkUpdate') await expectBulkUpdateIgnoresForeignRecords(route);
     else if (scenario.operation === 'create') await expectCreationStaysInOwnTenant(route, scenario);
     else await expectForeignRecordUntouched(route, scenario);

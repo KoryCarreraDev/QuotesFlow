@@ -24,7 +24,8 @@ const HTTP_INTERNAL_SERVER_ERROR = 500;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  return scenario && scenario.operation !== 'list' ? [{ title: describeRoute(route), route, scenario }] : [];
+  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn';
+  return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
 async function countStored(resource: ScenarioResource): Promise<number> {
@@ -34,6 +35,7 @@ async function countStored(resource: ScenarioResource): Promise<number> {
   if (resource === 'session') return prisma.userSession.count();
   if (resource === 'user') return prisma.user.count();
   if (resource === 'invitation') return prisma.userInvitation.count();
+  if (resource === 'tenant') return prisma.tenant.count();
   return prisma.companyContact.count();
 }
 
@@ -99,7 +101,10 @@ describe('Auditoría en la misma transacción que la modificación', () => {
     const ownResourceId = await persistScenarioResource(scenario.resource, company, company.owner.id);
     const recordBefore = await readScenarioResource(scenario.resource, ownResourceId);
 
-    const response = await request(app).post(route.pattern).set('Cookie', ownerCookie);
+    const response =
+      route.method === 'PATCH'
+        ? await request(app).patch(route.pattern).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
+        : await request(app).post(route.pattern).set('Cookie', ownerCookie);
 
     expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
     await expect(readScenarioResource(scenario.resource, ownResourceId)).resolves.toEqual(recordBefore);

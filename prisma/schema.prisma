@@ -347,6 +347,8 @@ model TenantSettings {
   tenantId              String                @unique
   tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   leadAssignmentStrategy LeadAssignmentStrategy @default(MANUAL)
+  // F2-T06: zona horaria IANA de la empresa; por defecto Colombia.
+  timezone               String                 @default("America/Bogota")
   deleted                DeletedState           @default(INUSE)
 }
 

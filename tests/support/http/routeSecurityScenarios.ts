@@ -20,24 +20,36 @@ import { Role } from '@/domain/enums/Role.js';
 import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/support/http/apiRoutes.js';
 
 /** Recurso de negocio sobre el que actúa la ruta. */
-export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation';
+export type ScenarioResource =
+  'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation' | 'tenant';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
-/** `self`: actúa sobre los registros del propio usuario, sin id ni cuerpo (cerrar sus sesiones, F2-T02). */
-export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self';
+/** `self`: modifica lo propio (sus sesiones, su empresa), sin id en la ruta (F2-T02, F2-T06). */
+/** `readOwn`: lee un registro propio que no es una colección (el perfil de su empresa, F2-T06). */
+export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self' | 'readOwn';
 
 export interface RouteSecurityScenario {
   /** Acción de `permissionMatrix` que autoriza la ruta. */
   action: Action;
   resource: ScenarioResource;
   operation: ScenarioOperation;
+  /** Código de éxito cuando no es el habitual de la operación (por defecto 201 al crear, 204 en `self`, 200 el resto). */
+  successStatus?: number;
   /** Cuerpo propio para `update`, cuando el genérico del recurso no sirve. Recibe la empresa de quien llama. */
   updateBody?: (company: TenantWithTeam) => Record<string, unknown>;
 }
 
+const HTTP_OK_STATUS = 200;
+
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`POST ${apiPaths.auth.logoutAll}`, { action: Action.SESSION_REVOKE_OWN, resource: 'session', operation: 'self' }],
+
+  [`GET ${apiPaths.tenant.profile}`, { action: Action.TENANT_VIEW, resource: 'tenant', operation: 'readOwn' }],
+  [
+    `PATCH ${apiPaths.tenant.profile}`,
+    { action: Action.TENANT_UPDATE, resource: 'tenant', operation: 'self', successStatus: HTTP_OK_STATUS },
+  ],
 
   [`GET ${apiPaths.users.getAll}`, { action: Action.USER_LIST, resource: 'user', operation: 'list' }],
   [`PATCH ${apiPaths.users.update(':id')}`, { action: Action.USER_MANAGE, resource: 'user', operation: 'update' }],
@@ -159,6 +171,7 @@ export async function persistScenarioResource(
   if (resource === 'contact') return (await persistContact(tenantId, { ownerId: ownerUserId })).id;
   // La sesión de test que `persistUser` abrió para el responsable.
   if (resource === 'session') return testSessionIdFor(ownerUserId ?? company.owner.id);
+  if (resource === 'tenant') return tenantId;
   // Usuarios e invitaciones no tienen responsable: siempre un comercial, que todo rol de gestión gestiona.
   if (resource === 'user') return (await persistUser(tenantId, { role: Role.SALES_REP })).id;
   if (resource === 'invitation') return (await persistUserInvitation(tenantId, company.owner.id)).id;
@@ -191,6 +204,7 @@ export function updateBody(resource: ScenarioResource): Record<string, unknown> 
   if (resource === 'leadStatus') return { name: 'Modificado en el escenario' };
   if (resource === 'contact') return { lastName: 'Modificado' };
   if (resource === 'user') return { isActive: false };
+  if (resource === 'tenant') return { timezone: 'America/Lima' };
   return { city: 'Modificada' };
 }
 
@@ -202,6 +216,7 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'session') return prisma.userSession.findUnique({ where: { id } });
   if (resource === 'user') return prisma.user.findUnique({ where: { id } });
   if (resource === 'invitation') return prisma.userInvitation.findUnique({ where: { id } });
+  if (resource === 'tenant') return prisma.tenant.findUnique({ where: { id }, include: { tenantSettings: true } });
   return prisma.companyContact.findUnique({ where: { id } });
 }
 

@@ -30,6 +30,10 @@ import {
   UpdateTenantUserUseCase,
 } from '@/application/use-case/users/TenantUserUseCases.js';
 import { AcceptInvitationUseCase } from '@/application/use-case/auth/AcceptInvitationUseCase.js';
+import {
+  GetTenantProfileUseCase,
+  UpdateTenantProfileUseCase,
+} from '@/application/use-case/tenant/TenantProfileUseCases.js';
 import { Role } from '@/domain/enums/Role.js';
 import { DEFAULT_TEST_TENANT_ID } from '@tests/support/builders/entityBuilders.js';
 
@@ -91,6 +95,12 @@ describe('ScopedContainer', () => {
       'email.getTransactionalEmailSender',
       () => container.email.getTransactionalEmailSender(),
       TransactionalEmailSender,
+    ],
+    ['tenant.getGetTenantProfileUseCase', () => container.tenant.getGetTenantProfileUseCase(), GetTenantProfileUseCase],
+    [
+      'tenant.getUpdateTenantProfileUseCase',
+      () => container.tenant.getUpdateTenantProfileUseCase(),
+      UpdateTenantProfileUseCase,
     ],
     ['users.getListTenantUsersUseCase', () => container.users.getListTenantUsersUseCase(), ListTenantUsersUseCase],
     [
