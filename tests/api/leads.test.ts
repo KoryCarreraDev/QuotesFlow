@@ -38,7 +38,7 @@ describe('API de leads', () => {
         contactName: 'Ana Gómez',
         companyName: 'Vidrios del Norte',
         email: 'ana@example.com',
-        estimatedValue: 2_500_000,
+        estimatedValue: '2500000',
         expectedCloseDate: '2026-06-30T00:00:00.000Z',
       });
 
@@ -47,7 +47,7 @@ describe('API de leads', () => {
         contactName: 'Ana Gómez',
         companyName: 'Vidrios del Norte',
         email: 'ana@example.com',
-        estimatedValue: 2_500_000,
+        estimatedValue: '2500000.00',
         expectedCloseDate: '2026-06-30T00:00:00.000Z',
         statusId: company.defaultLeadStatus.id,
       });

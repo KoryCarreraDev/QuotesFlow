@@ -1,4 +1,5 @@
 import { DocumentType } from '@/domain/enums/DocumentType.js';
+import { Money } from '@/domain/value-objects/money.js';
 import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 // Constructores de entidades de dominio para tests unitarios.
 // Cada uno devuelve una entidad válida con datos por defecto; el test solo declara lo que le importa.
@@ -20,7 +21,7 @@ export const DEFAULT_TEST_TENANT_ID = '11111111-1111-4111-8111-111111111111';
 export const NON_EXISTENT_ID = '00000000-0000-4000-8000-000000000000';
 
 const DEFAULT_TIMESTAMP = new Date('2026-01-15T10:00:00.000Z');
-const DEFAULT_ESTIMATED_VALUE = 1_500_000;
+const DEFAULT_ESTIMATED_VALUE = Money.fromDecimalString('1500000');
 const DEFAULT_STATUS_ORDER = 1;
 
 export interface LeadBuilderProps {
@@ -33,7 +34,7 @@ export interface LeadBuilderProps {
   statusId?: string;
   source?: string;
   assignedToId?: string;
-  estimatedValue?: number;
+  estimatedValue?: Money;
   expectedCloseDate?: Date;
   notes?: string;
   createdAt?: Date;

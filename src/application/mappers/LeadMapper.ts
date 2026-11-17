@@ -13,7 +13,7 @@ export class LeadMapper implements ILeadMapper {
       statusId: lead.statusId,
       source: lead.source,
       assignedToId: lead.assignedToId,
-      estimatedValue: lead.estimatedValue,
+      estimatedValue: lead.estimatedValue?.toDecimalString(),
       expectedCloseDate: lead.expectedCloseDate,
       notes: lead.notes,
     };

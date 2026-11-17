@@ -35,7 +35,7 @@ describe('LeadMapper', () => {
       statusId: 'status-id',
       source: lead.source,
       assignedToId: 'user-id',
-      estimatedValue: lead.estimatedValue,
+      estimatedValue: lead.estimatedValue?.toDecimalString(),
       expectedCloseDate,
       notes: 'Llamar el lunes',
     });

@@ -8,7 +8,7 @@ import {
   updateLeadStatusConfigSchema,
 } from '@/presentation/schemas/leadStatusConfigSchema.js';
 
-const SUBMITTED_ESTIMATED_VALUE = 2_500_000;
+const SUBMITTED_ESTIMATED_VALUE = '2500000.50';
 
 const VALID_UUID = '22222222-2222-4222-8222-222222222222';
 const STRONG_PASSWORD = 'Correct-Horse-Battery-9';
@@ -99,7 +99,7 @@ describe('createLeadSchema', () => {
       statusId: VALID_UUID,
       source: 'Referido',
       assignedToId: VALID_UUID,
-      estimatedValue: 2_500_000,
+      estimatedValue: SUBMITTED_ESTIMATED_VALUE,
       expectedCloseDate: '2026-06-30T00:00:00.000Z',
       notes: 'Llamar el lunes',
     });
@@ -116,7 +116,10 @@ describe('createLeadSchema', () => {
     { field: 'email', invalidValue: 'not-an-email' },
     { field: 'statusId', invalidValue: 'not-a-uuid' },
     { field: 'assignedToId', invalidValue: 'not-a-uuid' },
-    { field: 'estimatedValue', invalidValue: '2500000' },
+    // H21 (F3-T01): el dinero llega como texto; un number, un negativo o más de dos decimales no valen.
+    { field: 'estimatedValue', invalidValue: 2_500_000 },
+    { field: 'estimatedValue', invalidValue: '-100' },
+    { field: 'estimatedValue', invalidValue: '100.001' },
     { field: 'expectedCloseDate', invalidValue: 'not-a-date' },
   ])('rechaza $field con un valor inválido', ({ field, invalidValue }) => {
     expect(createLeadSchema.safeParse({ contactName: 'Ana Gómez', [field]: invalidValue }).success).toBe(false);

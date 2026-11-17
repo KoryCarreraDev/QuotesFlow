@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { moneyAmountSchema } from './moneySchema.js';
 
 export const createLeadSchema = z.object({
   companyName: z.string().optional(),
@@ -8,7 +9,7 @@ export const createLeadSchema = z.object({
   statusId: z.string().uuid().optional(),
   source: z.string().optional(),
   assignedToId: z.string().uuid().optional(),
-  estimatedValue: z.number().optional(),
+  estimatedValue: moneyAmountSchema.optional(),
   expectedCloseDate: z.coerce.date().optional(),
   notes: z.string().optional(),
 });
@@ -21,7 +22,7 @@ export const updateLeadSchema = z.object({
   phone: z.string().optional(),
   source: z.string().optional(),
   assignedToId: z.string().uuid().optional(),
-  estimatedValue: z.number().optional(),
+  estimatedValue: moneyAmountSchema.optional(),
   expectedCloseDate: z.coerce.date().optional(),
   notes: z.string().optional(),
 });

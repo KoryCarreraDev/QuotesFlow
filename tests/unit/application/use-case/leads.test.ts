@@ -9,6 +9,7 @@ import { GetLeadsUseCase } from '@/application/use-case/leads/getLeadsUseCase.js
 import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCase.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
+import { Money } from '@/domain/value-objects/money.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import {
@@ -178,7 +179,7 @@ describe('CreateLeadUseCase', () => {
         email: 'ana@example.com',
         phone: '3001234567',
         source: 'Referido',
-        estimatedValue: 2_500_000,
+        estimatedValue: '2500000',
         expectedCloseDate,
         notes: 'Llamar el lunes',
       },
@@ -193,7 +194,7 @@ describe('CreateLeadUseCase', () => {
       email: 'ana@example.com',
       phone: '3001234567',
       source: 'Referido',
-      estimatedValue: 2_500_000,
+      estimatedValue: Money.fromDecimalString('2500000'),
       expectedCloseDate,
       notes: 'Llamar el lunes',
     });
@@ -251,7 +252,7 @@ describe('UpdateLeadUseCase', () => {
 
     const updatedLead = await updateLeadUseCase.execute(
       lead.id,
-      { contactName: 'Ana María Gómez', estimatedValue: 3_000_000 },
+      { contactName: 'Ana María Gómez', estimatedValue: '3000000' },
       Role.OWNER,
       randomUUID(),
     );
@@ -259,13 +260,13 @@ describe('UpdateLeadUseCase', () => {
     expect(updatedLead).toMatchObject({
       id: lead.id,
       contactName: 'Ana María Gómez',
-      estimatedValue: 3_000_000,
+      estimatedValue: '3000000.00',
       phone: '3001234567',
       notes: 'Nota original',
     });
     expect(leadRepository.findStoredById(lead.id)).toMatchObject({
       contactName: 'Ana María Gómez',
-      estimatedValue: 3_000_000,
+      estimatedValue: Money.fromDecimalString('3000000'),
       phone: '3001234567',
     });
   });
@@ -281,7 +282,7 @@ describe('UpdateLeadUseCase', () => {
       phone: '3007654321',
       source: 'Feria',
       assignedToId: salesRep.id,
-      estimatedValue: 3_000_000,
+      estimatedValue: '3000000.00',
       expectedCloseDate: new Date('2026-09-15T00:00:00.000Z'),
       notes: 'Reasignado',
     };
@@ -289,7 +290,10 @@ describe('UpdateLeadUseCase', () => {
     const updatedLead = await updateLeadUseCase.execute(lead.id, allFieldsUpdate, Role.OWNER, randomUUID());
 
     expect(updatedLead).toMatchObject(allFieldsUpdate);
-    expect(leadRepository.findStoredById(lead.id)).toMatchObject(allFieldsUpdate);
+    expect(leadRepository.findStoredById(lead.id)).toMatchObject({
+      ...allFieldsUpdate,
+      estimatedValue: Money.fromDecimalString('3000000'),
+    });
   });
 
   it('no cambia el estado del lead: el cambio de estado no pasa por la actualización', async () => {
