@@ -12,6 +12,7 @@ import type {
   LeadStatusConfig as LeadStatusConfigRecord,
   Tenant as TenantRecord,
   User as UserRecord,
+  UserInvitation as UserInvitationRecord,
   DocumentType as DocumentTypeRecord,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -223,6 +224,44 @@ export async function persistCompanyContact(
       ...overrides,
     },
   });
+}
+
+/** Secreto del enlace de toda invitación creada por `persistUserInvitation`. */
+export const TEST_INVITATION_SECRET = 'test-invitation-secret-for-every-persisted-invitation';
+const INVITATION_LIFETIME_MS = 604_800_000;
+
+export interface UserInvitationOverrides {
+  id?: string;
+  email?: string;
+  role?: Role;
+  expiresAt?: Date;
+  acceptedAt?: Date;
+  revokedAt?: Date;
+}
+
+/** Invitación pendiente (F2-T05); su enlace es `testInvitationTokenFor(invitación.id)`. */
+export async function persistUserInvitation(
+  tenantId: string,
+  invitedById: string,
+  overrides: UserInvitationOverrides = {},
+): Promise<UserInvitationRecord> {
+  const id = overrides.id ?? randomUUID();
+  return prisma.userInvitation.create({
+    data: {
+      id,
+      tenantId,
+      invitedById,
+      email: `invitado.${id}@example.com`,
+      role: Role.SALES_REP,
+      tokenHash: hashOpaqueSecret(TEST_INVITATION_SECRET),
+      expiresAt: new Date(Date.now() + INVITATION_LIFETIME_MS),
+      ...overrides,
+    },
+  });
+}
+
+export function testInvitationTokenFor(invitationId: string): string {
+  return `${invitationId}.${TEST_INVITATION_SECRET}`;
 }
 
 /** Una empresa lista para usar: un usuario por rol, un segundo comercial y los estados por defecto. */

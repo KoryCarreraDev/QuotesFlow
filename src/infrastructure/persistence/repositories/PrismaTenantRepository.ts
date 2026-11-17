@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { DeletedState as StoredDeletedState, Prisma } from '@prisma/client';
 import { ITenantRepository } from '../../../application/ports/repositories/ITenantRepository.js';
 import { Tenant } from '../../../domain/entities/Tenant.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -17,7 +17,7 @@ export class PrismaTenantRepository extends BasePrismaRepository implements ITen
   }
 
   async findById(id: string): Promise<Tenant | null> {
-    const record = await this.prisma.tenant.findUnique({ where: { id } });
+    const record = await this.prisma.tenant.findFirst({ where: { id, deleted: StoredDeletedState.INUSE } });
     if (!record) return null;
     return new Tenant(
       record.id,

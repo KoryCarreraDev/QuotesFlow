@@ -12,12 +12,15 @@ import {
   persistContact,
   persistLead,
   persistLeadStatus,
+  persistUser,
+  persistUserInvitation,
   testSessionIdFor,
 } from '@tests/support/database/persistenceFactories.js';
+import { Role } from '@/domain/enums/Role.js';
 import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/support/http/apiRoutes.js';
 
 /** Recurso de negocio sobre el que actúa la ruta. */
-export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session';
+export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
@@ -35,6 +38,15 @@ export interface RouteSecurityScenario {
 
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`POST ${apiPaths.auth.logoutAll}`, { action: Action.SESSION_REVOKE_OWN, resource: 'session', operation: 'self' }],
+
+  [`GET ${apiPaths.users.getAll}`, { action: Action.USER_LIST, resource: 'user', operation: 'list' }],
+  [`PATCH ${apiPaths.users.update(':id')}`, { action: Action.USER_MANAGE, resource: 'user', operation: 'update' }],
+  [`GET ${apiPaths.users.invitations}`, { action: Action.USER_LIST, resource: 'invitation', operation: 'list' }],
+  [`POST ${apiPaths.users.invite}`, { action: Action.USER_INVITE, resource: 'invitation', operation: 'create' }],
+  [
+    `DELETE ${apiPaths.users.revokeInvitation(':id')}`,
+    { action: Action.USER_INVITE, resource: 'invitation', operation: 'delete' },
+  ],
 
   [`GET ${apiPaths.leads.getAll}`, { action: Action.LEAD_LIST, resource: 'lead', operation: 'list' }],
   [`GET ${apiPaths.leads.filtered}`, { action: Action.LEAD_LIST, resource: 'lead', operation: 'list' }],
@@ -147,6 +159,9 @@ export async function persistScenarioResource(
   if (resource === 'contact') return (await persistContact(tenantId, { ownerId: ownerUserId })).id;
   // La sesión de test que `persistUser` abrió para el responsable.
   if (resource === 'session') return testSessionIdFor(ownerUserId ?? company.owner.id);
+  // Usuarios e invitaciones no tienen responsable: siempre un comercial, que todo rol de gestión gestiona.
+  if (resource === 'user') return (await persistUser(tenantId, { role: Role.SALES_REP })).id;
+  if (resource === 'invitation') return (await persistUserInvitation(tenantId, company.owner.id)).id;
   return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
@@ -158,6 +173,10 @@ export function creationBody(resource: ScenarioResource): Record<string, unknown
     return { name: `Estado ${nextStatusOrder}`, order: nextStatusOrder };
   }
   if (resource === 'contact') return { firstName: 'Julián', lastName: 'Escenario' };
+  if (resource === 'invitation') {
+    nextStatusOrder += 1;
+    return { email: `invitado.escenario.${nextStatusOrder}@example.com`, role: Role.SALES_REP };
+  }
   return { name: 'Empresa Escenario SAS' };
 }
 
@@ -171,6 +190,7 @@ export function updateBody(resource: ScenarioResource): Record<string, unknown> 
   if (resource === 'lead') return { notes: 'Modificado en el escenario' };
   if (resource === 'leadStatus') return { name: 'Modificado en el escenario' };
   if (resource === 'contact') return { lastName: 'Modificado' };
+  if (resource === 'user') return { isActive: false };
   return { city: 'Modificada' };
 }
 
@@ -180,6 +200,8 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'leadStatus') return prisma.leadStatusConfig.findUnique({ where: { id } });
   if (resource === 'contact') return prisma.contact.findUnique({ where: { id } });
   if (resource === 'session') return prisma.userSession.findUnique({ where: { id } });
+  if (resource === 'user') return prisma.user.findUnique({ where: { id } });
+  if (resource === 'invitation') return prisma.userInvitation.findUnique({ where: { id } });
   return prisma.companyContact.findUnique({ where: { id } });
 }
 

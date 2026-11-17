@@ -16,6 +16,8 @@ export enum ErrorCode {
 
   // Permisos
   INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
+  // F2-T05: nadie cambia su propio rol ni desactiva su propia cuenta.
+  CANNOT_MANAGE_OWN_ACCOUNT = 'CANNOT_MANAGE_OWN_ACCOUNT',
   // Petición que modifica datos enviada desde un origen fuera de la lista blanca (CSRF, F2-T07).
   ORIGIN_NOT_ALLOWED = 'ORIGIN_NOT_ALLOWED',
 
@@ -24,6 +26,8 @@ export enum ErrorCode {
   LEAD_STATUS_NOT_FOUND = 'LEAD_STATUS_NOT_FOUND',
   CONTACT_NOT_FOUND = 'CONTACT_NOT_FOUND',
   COMPANY_CONTACT_NOT_FOUND = 'COMPANY_CONTACT_NOT_FOUND',
+  USER_NOT_FOUND = 'USER_NOT_FOUND',
+  INVITATION_NOT_FOUND = 'INVITATION_NOT_FOUND',
   RECORD_NOT_FOUND = 'RECORD_NOT_FOUND',
   ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
 

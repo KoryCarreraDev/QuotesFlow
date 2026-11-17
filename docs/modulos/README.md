@@ -10,6 +10,7 @@ Un archivo por módulo funcional: `docs/modulos/<modulo>.md` (regla R12 de `PLAN
 | Contactos y empresas cliente | [contactos.md](contactos.md) |
 | Filtrado genérico | [filtrado.md](filtrado.md) |
 | Correo transaccional | [correo.md](correo.md) |
+| Usuarios de la empresa | [usuarios.md](usuarios.md) |
 
 El contrato completo de la API (esquemas de cada petición y respuestas de error) está en [`docs/openapi.json`](../openapi.json), generado con `pnpm docs:openapi`.
 

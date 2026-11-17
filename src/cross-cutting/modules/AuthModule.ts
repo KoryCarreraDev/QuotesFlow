@@ -20,6 +20,8 @@ import {
 } from '../../application/use-case/auth/PasswordResetUseCases.js';
 import { PrismaAccountTokenRepository } from '../../infrastructure/persistence/repositories/PrismaAccountTokenRepository.js';
 import { EmailModule } from './EmailModule.js';
+import { AcceptInvitationUseCase } from '../../application/use-case/auth/AcceptInvitationUseCase.js';
+import { PrismaUserInvitationRepository } from '../../infrastructure/persistence/repositories/PrismaUserInvitationRepository.js';
 import { durationToMilliseconds, env } from '../../config/env.js';
 import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
 import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
@@ -180,6 +182,20 @@ export class AuthModule {
       new PrismaTransactionManager(this.dependencies.prisma),
       this.createAuditLogger(),
     );
+  }
+
+  getAcceptInvitationUseCase(): AcceptInvitationUseCase {
+    const { prisma, tenantContext } = this.dependencies;
+    return new AcceptInvitationUseCase({
+      invitationRepository: new PrismaUserInvitationRepository(prisma, tenantContext),
+      userRepository: this.createUserRepository(),
+      tenantRepository: new PrismaTenantRepository(prisma, tenantContext),
+      hashService: this.hashService,
+      passwordPolicy,
+      sessionIssuer: this.createSessionIssuer(),
+      transactionManager: new PrismaTransactionManager(prisma),
+      auditLogger: this.createAuditLogger(),
+    });
   }
 
   getAuthenticateSessionUseCase(): AuthenticateSessionUseCase {

@@ -27,6 +27,11 @@ import {
   reorderLeadStatusConfigsSchema,
   updateLeadStatusConfigSchema,
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
+import {
+  acceptInvitationSchema,
+  inviteUserSchema,
+  updateUserSchema,
+} from '../../src/presentation/schemas/userSchema.js';
 
 // Genera `docs/openapi.json` (OpenAPI 3.1) desde los esquemas Zod de la API (D-07, F1-T11): el contrato
 // con el frontend sale del mismo código que valida las peticiones, así no se desincroniza.
@@ -125,6 +130,7 @@ const companyContacts = crudOperations('company-contacts', 'Empresas cliente', {
   plural: 'empresas cliente',
 });
 const leadStatusesPath = `${API_BASE_PATH}/lead-statuses`;
+const usersPath = `${API_BASE_PATH}/users`;
 
 /** Todas las operaciones de la API. Un test compara esta lista con el inventario de rutas. */
 export const openApiOperations: OperationEntry[] = [
@@ -205,6 +211,16 @@ export const openApiOperations: OperationEntry[] = [
     body: loginSchema,
     successStatus: 200,
     successDescription: '{ success: true } y cookies accessToken (15 min) y refreshToken (Path=/api/v1/auth)',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/auth/invitations/accept`,
+    tag: 'Autenticación',
+    summary: 'Acepta una invitación: crea la cuenta con el rol invitado, el correo verificado y la sesión abierta',
+    isPublic: true,
+    body: acceptInvitationSchema,
+    successStatus: 201,
+    successDescription: '{ success: true } y cookies de sesión; 400 INVALID_ACCOUNT_TOKEN si no vale',
   },
   {
     method: 'post',
@@ -299,6 +315,48 @@ export const openApiOperations: OperationEntry[] = [
   { ...companyContacts.create, body: createCompanyContactSchema },
   { ...companyContacts.update, body: updateCompanyContactSchema },
   companyContacts.remove,
+  {
+    method: 'get',
+    path: usersPath,
+    tag: 'Usuarios',
+    summary: 'Lista los usuarios de la empresa (solo gestión)',
+    successStatus: 200,
+    successDescription: 'Usuarios, sin datos de acceso',
+  },
+  {
+    method: 'patch',
+    path: `${usersPath}/{id}`,
+    tag: 'Usuarios',
+    summary: 'Cambia el rol de un usuario o lo desactiva o reactiva; desactivar cierra sus sesiones',
+    body: updateUserSchema,
+    successStatus: 200,
+    successDescription: 'Usuario modificado',
+  },
+  {
+    method: 'get',
+    path: `${usersPath}/invitations`,
+    tag: 'Usuarios',
+    summary: 'Lista las invitaciones pendientes',
+    successStatus: 200,
+    successDescription: 'Invitaciones pendientes, sin el token',
+  },
+  {
+    method: 'post',
+    path: `${usersPath}/invitations`,
+    tag: 'Usuarios',
+    summary: 'Invita a alguien con un rol que el actor gestiona y le envía el enlace (7 días)',
+    body: inviteUserSchema,
+    successStatus: 201,
+    successDescription: 'Invitación creada; 409 EMAIL_ALREADY_IN_USE',
+  },
+  {
+    method: 'delete',
+    path: `${usersPath}/invitations/{id}`,
+    tag: 'Usuarios',
+    summary: 'Revoca una invitación pendiente',
+    successStatus: 200,
+    successDescription: 'Revocada',
+  },
 ];
 
 // F2-T07: toda petición que modifica datos puede recibir 403 ORIGIN_NOT_ALLOWED, también las públicas.

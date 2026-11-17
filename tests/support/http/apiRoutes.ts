@@ -24,6 +24,7 @@ const LEAD_BASE_PATH = `${API_BASE_PATH}/leads`;
 const LEAD_STATUS_CONFIG_BASE_PATH = `${API_BASE_PATH}/lead-statuses`;
 const CONTACT_BASE_PATH = `${API_BASE_PATH}/contacts`;
 const COMPANY_CONTACT_BASE_PATH = `${API_BASE_PATH}/company-contacts`;
+const USER_BASE_PATH = `${API_BASE_PATH}/users`;
 
 export const apiPaths = {
   health: '/health',
@@ -38,6 +39,14 @@ export const apiPaths = {
     resendEmailVerification: `${API_BASE_PATH}/auth/verify-email/resend`,
     forgotPassword: `${API_BASE_PATH}/auth/password/forgot`,
     resetPassword: `${API_BASE_PATH}/auth/password/reset`,
+    acceptInvitation: `${API_BASE_PATH}/auth/invitations/accept`,
+  },
+  users: {
+    getAll: USER_BASE_PATH,
+    update: (userId: string) => `${USER_BASE_PATH}/${userId}`,
+    invitations: `${USER_BASE_PATH}/invitations`,
+    invite: `${USER_BASE_PATH}/invitations`,
+    revokeInvitation: (invitationId: string) => `${USER_BASE_PATH}/invitations/${invitationId}`,
   },
   leads: {
     getAll: LEAD_BASE_PATH,
@@ -84,6 +93,7 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.auth.resendEmailVerification, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.forgotPassword, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.resetPassword, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.acceptInvitation, access: 'public' },
 
   { method: 'GET', pattern: apiPaths.leads.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leads.create, access: 'authenticated' },
@@ -109,6 +119,12 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.companyContacts.filtered, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.companyContacts.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.companyContacts.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+
+  { method: 'GET', pattern: apiPaths.users.getAll, access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.users.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'GET', pattern: apiPaths.users.invitations, access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.users.invite, access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.users.revokeInvitation(ROUTE_ID_PARAMETER), access: 'authenticated' },
 ];
 
 export const authenticatedRoutes = routeInventory.filter((route) => route.access === 'authenticated');

@@ -41,4 +41,10 @@ export interface IUserRepository {
 
   /** Guarda el hash de la contraseña nueva. */
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
+
+  /** Usuarios no borrados del tenant actual, activos o no, por fecha de alta. */
+  listByTenant(): Promise<User[]>;
+
+  /** Cambia el rol o el estado activo de un usuario del tenant actual (F2-T05). */
+  updateRoleAndStatus(userId: string, changes: { role?: User['role']; isActive?: boolean }): Promise<void>;
 }

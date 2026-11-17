@@ -36,6 +36,9 @@ export enum Action {
   COMPANY_CONTACT_DELETE = 'company-contact:delete',
   COMPANY_CONTACT_ASSIGN_OWNER = 'company-contact:assign-owner',
   SESSION_REVOKE_OWN = 'session:revoke-own',
+  USER_LIST = 'user:list',
+  USER_INVITE = 'user:invite',
+  USER_MANAGE = 'user:manage',
 }
 
 /**
@@ -105,7 +108,33 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.COMPANY_CONTACT_DELETE]: managementOnly,
   // F2-T02: cualquiera cierra todas sus propias sesiones; nunca las de otro usuario.
   [Action.SESSION_REVOKE_OWN]: everyone,
+  // F2-T05 (D-16, D-17): gestión de usuarios. Además del permiso, cada rol solo invita y gestiona los roles de
+  // `manageableRolesByRole`; nadie gestiona al dueño ni a sí mismo.
+  [Action.USER_LIST]: managementOnly,
+  // Invitar y revocar invitaciones.
+  [Action.USER_INVITE]: managementOnly,
+  // Cambiar el rol, desactivar o reactivar.
+  [Action.USER_MANAGE]: managementOnly,
 };
+
+/**
+ * Roles que cada rol puede invitar y gestionar (F2-T05). D-16: el socio tiene los permisos del dueño salvo
+ * suscripción y borrar la empresa, así que gestiona como él. D-17: el líder comercial solo a los comerciales.
+ * Nadie gestiona al dueño: la empresa siempre conserva uno.
+ */
+export const manageableRolesByRole: Readonly<Record<Role, readonly Role[]>> = {
+  [Role.OWNER]: [Role.PARTNER, Role.SALES_LEADER, Role.SALES_REP],
+  [Role.PARTNER]: [Role.PARTNER, Role.SALES_LEADER, Role.SALES_REP],
+  [Role.SALES_LEADER]: [Role.SALES_REP],
+  [Role.SALES_REP]: [],
+};
+
+const manageableRoles: ReadonlyMap<string, readonly Role[]> = new Map(Object.entries(manageableRolesByRole));
+
+/** Indica si el actor puede invitar o gestionar a alguien con ese rol. Un rol desconocido no gestiona a nadie. */
+export function canManageRole(actor: Actor, targetRole: Role): boolean {
+  return (manageableRoles.get(actor.role) ?? []).includes(targetRole);
+}
 
 // Con Map, un rol con un nombre inesperado (`__proto__`, `constructor`) nunca resuelve a una propiedad
 // heredada de Object: simplemente no está.

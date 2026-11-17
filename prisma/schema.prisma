@@ -67,6 +67,7 @@ model Tenant {
   emailLogs          EmailLog[]
   userSessions       UserSession[]
   accountTokens      AccountToken[]
+  userInvitations    UserInvitation[]
 
 }
 
@@ -100,6 +101,7 @@ model User {
   emailLogs            EmailLog[]
   sessions             UserSession[]
   accountTokens        AccountToken[]
+  sentInvitations      UserInvitation[]
 
   @@index([tenantId])
   @@index([email])
@@ -432,4 +434,24 @@ model AccountToken {
 
   @@index([tenantId])
   @@index([userId, purpose])
+}
+
+// F2-T05: invitación a unirse a la empresa con un rol. El enlace lleva `<id>.<secreto>`; aquí solo el hash.
+// Sin borrado suave: se acepta, se revoca o caduca.
+model UserInvitation {
+  id          String    @id
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        Role
+  invitedById String
+  invitedBy   User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  tokenHash   String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, email])
 }

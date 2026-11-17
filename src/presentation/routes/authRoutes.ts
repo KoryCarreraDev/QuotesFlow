@@ -12,6 +12,7 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
 } from '../../presentation/schemas/authSchema.js';
+import { acceptInvitationSchema } from '../../presentation/schemas/userSchema.js';
 
 /**
  * Rutas de `/api/v1/auth`. El cupo estricto por IP (H6) solo va donde se prueban credenciales o tokens de
@@ -33,6 +34,7 @@ export function authRouter(
     resendEmailVerification: container.auth.getResendEmailVerificationUseCase(),
     requestPasswordReset: container.auth.getRequestPasswordResetUseCase(),
     resetPassword: container.auth.getResetPasswordUseCase(),
+    acceptInvitation: container.auth.getAcceptInvitationUseCase(),
   });
 
   router.post('/register', credentialRateLimiter, validateBody(registerSchema), controller.register);
@@ -52,6 +54,12 @@ export function authRouter(
     controller.requestPasswordReset,
   );
   router.post('/password/reset', credentialRateLimiter, validateBody(resetPasswordSchema), controller.resetPassword);
+  router.post(
+    '/invitations/accept',
+    credentialRateLimiter,
+    validateBody(acceptInvitationSchema),
+    controller.acceptInvitation,
+  );
   router.post('/refresh', controller.refresh);
   router.post('/logout', controller.logout);
   router.post(

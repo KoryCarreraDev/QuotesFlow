@@ -37,6 +37,7 @@ export const ROLE_COVERAGE_GROUPS: Record<string, readonly ScenarioResource[]> =
   leads: ['lead', 'leadStatus'],
   contacts: ['contact', 'companyContact'],
   sessions: ['session'],
+  users: ['user', 'invitation'],
 };
 
 type TeamMember = 'owner' | 'partner' | 'salesLeader' | 'salesRep';

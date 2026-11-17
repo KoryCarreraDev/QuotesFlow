@@ -5,5 +5,6 @@ import { Tenant } from '../../../domain/entities/Tenant.js';
  */
 export interface ITenantRepository {
   create(tenant: Tenant): Promise<void>;
+  /** La empresa, o `null` si no existe o está borrada (F2-T05: una empresa borrada no acepta invitaciones). */
   findById(id: string): Promise<Tenant | null>;
 }

@@ -70,6 +70,22 @@ export class PrismaUserRepository extends BasePrismaRepository implements IUserR
     });
   }
 
+  async listByTenant(): Promise<User[]> {
+    const records = await this.prisma.user.findMany({
+      where: { tenantId: this.tenantId, deleted: StoredDeletedState.INUSE },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return records.map((record) => this.toDomain(record));
+  }
+
+  async updateRoleAndStatus(userId: string, changes: { role?: Role; isActive?: boolean }): Promise<void> {
+    // `updateMany` con el tenant en el filtro: un id de otra empresa no modifica nada (R5).
+    await this.prisma.user.updateMany({
+      where: { id: userId, tenantId: this.tenantId, deleted: StoredDeletedState.INUSE },
+      data: { role: changes.role, isActive: changes.isActive },
+    });
+  }
+
   async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   }
