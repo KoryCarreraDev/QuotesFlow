@@ -38,6 +38,7 @@ export const ROLE_COVERAGE_GROUPS: Record<string, readonly ScenarioResource[]> =
   contacts: ['contact', 'companyContact'],
   sessions: ['session'],
   users: ['user', 'invitation'],
+  tenant: ['tenant'],
 };
 
 type TeamMember = 'owner' | 'partner' | 'salesLeader' | 'salesRep';
@@ -61,6 +62,7 @@ function casesFor(resources: readonly ScenarioResource[]) {
 }
 
 function successStatusFor(scenario: RouteSecurityScenario): number {
+  if (scenario.successStatus !== undefined) return scenario.successStatus;
   if (scenario.operation === 'create') return HTTP_CREATED;
   return scenario.operation === 'self' ? HTTP_NO_CONTENT : HTTP_OK;
 }

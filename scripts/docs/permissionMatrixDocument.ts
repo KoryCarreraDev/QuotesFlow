@@ -34,6 +34,8 @@ const actionDescriptions: Record<Action, string> = {
   [Action.USER_LIST]: 'Listar los usuarios y las invitaciones pendientes de la empresa',
   [Action.USER_INVITE]: 'Invitar usuarios y revocar invitaciones (solo de los roles que gestiona)',
   [Action.USER_MANAGE]: 'Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona)',
+  [Action.TENANT_VIEW]: 'Ver el perfil de la empresa (nombre, logo, zona horaria)',
+  [Action.TENANT_UPDATE]: 'Cambiar el nombre o la zona horaria de la empresa',
 };
 
 const grantLabels = new Map<Grant, string>([

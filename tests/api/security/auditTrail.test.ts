@@ -25,7 +25,8 @@ const FIRST_NON_SUCCESS_STATUS = 300;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  return scenario && scenario.operation !== 'list' ? [{ title: describeRoute(route), route, scenario }] : [];
+  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn';
+  return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
 describe('Rastro de auditoría', () => {
@@ -47,7 +48,13 @@ describe('Rastro de auditoría', () => {
           .set('Cookie', ownerCookie)
           .send(scenarioUpdateBody(scenario, company));
       } else if (scenario.operation === 'self') {
-        response = await request(app).post(route.pattern).set('Cookie', ownerCookie);
+        response =
+          route.method === 'PATCH'
+            ? await request(app)
+                .patch(route.pattern)
+                .set('Cookie', ownerCookie)
+                .send(scenarioUpdateBody(scenario, company))
+            : await request(app).post(route.pattern).set('Cookie', ownerCookie);
       } else if (scenario.operation === 'create') {
         response = await request(app)
           .post(route.pattern)

@@ -39,6 +39,8 @@ export enum Action {
   USER_LIST = 'user:list',
   USER_INVITE = 'user:invite',
   USER_MANAGE = 'user:manage',
+  TENANT_VIEW = 'tenant:view',
+  TENANT_UPDATE = 'tenant:update',
 }
 
 /**
@@ -62,6 +64,14 @@ const managementOnly: Record<Role, Grant> = {
   [Role.OWNER]: 'all',
   [Role.PARTNER]: 'all',
   [Role.SALES_LEADER]: 'all',
+  [Role.SALES_REP]: 'none',
+};
+
+// D-16: el socio tiene los permisos del dueño salvo suscripción y borrar la empresa.
+const ownerAndPartner: Record<Role, Grant> = {
+  [Role.OWNER]: 'all',
+  [Role.PARTNER]: 'all',
+  [Role.SALES_LEADER]: 'none',
   [Role.SALES_REP]: 'none',
 };
 
@@ -115,6 +125,9 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.USER_INVITE]: managementOnly,
   // Cambiar el rol, desactivar o reactivar.
   [Action.USER_MANAGE]: managementOnly,
+  // F2-T06: el perfil de la empresa lo ve todo el equipo; lo cambian el dueño y el socio.
+  [Action.TENANT_VIEW]: everyone,
+  [Action.TENANT_UPDATE]: ownerAndPartner,
 };
 
 /**

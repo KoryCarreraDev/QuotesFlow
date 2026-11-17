@@ -27,6 +27,7 @@ import {
   reorderLeadStatusConfigsSchema,
   updateLeadStatusConfigSchema,
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
+import { updateTenantProfileSchema } from '../../src/presentation/schemas/tenantSchema.js';
 import {
   acceptInvitationSchema,
   inviteUserSchema,
@@ -315,6 +316,23 @@ export const openApiOperations: OperationEntry[] = [
   { ...companyContacts.create, body: createCompanyContactSchema },
   { ...companyContacts.update, body: updateCompanyContactSchema },
   companyContacts.remove,
+  {
+    method: 'get',
+    path: `${API_BASE_PATH}/tenant`,
+    tag: 'Empresa',
+    summary: 'Perfil de la empresa de la sesión: nombre, logo y zona horaria',
+    successStatus: 200,
+    successDescription: '{ id, name, logoUrl?, timezone }',
+  },
+  {
+    method: 'patch',
+    path: `${API_BASE_PATH}/tenant`,
+    tag: 'Empresa',
+    summary: 'Cambia el nombre o la zona horaria (IANA) de la empresa; solo dueño y socio',
+    body: updateTenantProfileSchema,
+    successStatus: 200,
+    successDescription: 'Perfil actualizado',
+  },
   {
     method: 'get',
     path: usersPath,
