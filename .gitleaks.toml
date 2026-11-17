@@ -1,0 +1,24 @@
+# Configuración de gitleaks para el job `secret-scan` de la CI.
+# Usa las reglas por defecto y solo exime valores de prueba inventados.
+# Cada exención exige a la vez: archivo bajo tests/, regla generic-api-key y un patrón concreto.
+
+title = "QuotesFlow"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Contraseñas de prueba inventadas (frases tipo Palabra-Horse-Battery-N)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tests/''']
+regexTarget = "match"
+regexes = ['''[A-Za-z0-9]+-Horse-Battery-[A-Za-z0-9-]+''']
+
+[[allowlists]]
+description = "Secretos de token de prueba en base64 de la palabra secret (c2VjcmV0...)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tests/''']
+regexTarget = "match"
+regexes = ['''c2VjcmV0''']

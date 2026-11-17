@@ -56,7 +56,7 @@ TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `
 | `quality` | `pnpm typecheck`, `pnpm lint`, `pnpm arch:check` |
 | `tests` | `pnpm test:coverage` (los 4 proyectos, con PostgreSQL vía testcontainers) y umbrales de D-03; sube `coverage/` como artefacto |
 | `dependency-audit` | `pnpm audit --prod` sin ningún aviso; `pnpm audit --audit-level high` para todo |
-| `secret-scan` | gitleaks 8.30.1 (imagen por digest) sobre todo el historial |
+| `secret-scan` | gitleaks 8.30.1 (imagen por digest) sobre todo el historial, con las reglas por defecto. `.gitleaks.toml` solo exime, en `tests/` y para la regla `generic-api-key`, las contraseñas de prueba `*-Horse-Battery-*` y los secretos de token de prueba `c2VjcmV0…` (base64 de «secret») |
 | `context-updated` | Solo en PR: `pnpm check:context origin/<base>` falla si cambian `src/` o `prisma/` sin una fila nueva en el registro de `CONTEXT.md` (R3; `scripts/ci/`) |
 | `docker-image` | Construye `runtime` y `migrator`, migra un PostgreSQL de servicio, arranca la API con `--init` y comprueba `/health`, usuario no root y registro (201) |
 
