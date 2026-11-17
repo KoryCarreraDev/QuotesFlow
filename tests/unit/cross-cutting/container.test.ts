@@ -20,6 +20,7 @@ import { UpdateLeadUseCase } from '@/application/use-case/leads/updateLeadUseCas
 import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
 import { DeleteContactUseCase } from '@/application/use-case/contacts/deleteContactUseCase.js';
 import { DeleteCompanyContactUseCase } from '@/application/use-case/companyContacts/deleteCompanyContactUseCase.js';
+import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
 import { ScopedContainer } from '@/cross-cutting/container.js';
 import { Role } from '@/domain/enums/Role.js';
 import { DEFAULT_TEST_TENANT_ID } from '@tests/support/builders/entityBuilders.js';
@@ -78,6 +79,11 @@ describe('ScopedContainer', () => {
       ReorderLeadStatusConfigsUseCase,
     ],
     ['contacts.getGetContactsUseCase', () => container.contacts.getGetContactsUseCase(), GetContactsUseCase],
+    [
+      'email.getTransactionalEmailSender',
+      () => container.email.getTransactionalEmailSender(),
+      TransactionalEmailSender,
+    ],
     ['contacts.getCreateContactUseCase', () => container.contacts.getCreateContactUseCase(), CreateContactUseCase],
     ['contacts.getUpdateContactUseCase', () => container.contacts.getUpdateContactUseCase(), UpdateContactUseCase],
     [

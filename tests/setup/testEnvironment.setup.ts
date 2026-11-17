@@ -15,3 +15,5 @@ process.env.CORS_ALLOWED_ORIGINS = 'https://app.quotesflow.test';
 process.env.RATE_LIMIT_AUTH_MAX_REQUESTS = '50';
 // Sin ruido en la salida de los tests; los logs se prueban con transportes en memoria.
 process.env.LOG_LEVEL = 'silent';
+// Los correos se guardan en memoria (`memoryEmailOutbox`): ningún test envía correos de verdad.
+process.env.EMAIL_PROVIDER = 'memory';

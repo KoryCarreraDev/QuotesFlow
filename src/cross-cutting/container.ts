@@ -3,6 +3,7 @@ import { PrismaService } from '../infrastructure/persistence/prisma/PrismaServic
 import { AuthModule } from './modules/AuthModule.js';
 import { CompanyContactModule } from './modules/CompanyContactModule.js';
 import { ContactModule } from './modules/ContactModule.js';
+import { EmailModule } from './modules/EmailModule.js';
 import { LeadModule } from './modules/LeadModule.js';
 import { LeadStatusModule } from './modules/LeadStatusModule.js';
 import { ModuleDependencies } from './modules/ModuleDependencies.js';
@@ -27,6 +28,7 @@ export class ScopedContainer {
   readonly leadStatuses: LeadStatusModule;
   readonly contacts: ContactModule;
   readonly companyContacts: CompanyContactModule;
+  readonly email: EmailModule;
 
   /** @param tenantId Tenant de la sesión; sin él, solo sirven los casos de uso públicos (registro, login). */
   constructor(tenantId?: string) {
@@ -40,5 +42,6 @@ export class ScopedContainer {
     this.leadStatuses = new LeadStatusModule(dependencies);
     this.contacts = new ContactModule(dependencies);
     this.companyContacts = new CompanyContactModule(dependencies);
+    this.email = new EmailModule(dependencies);
   }
 }

@@ -158,7 +158,10 @@ jobs:
       - name: Arrancar la API como en producción
         run: >
           docker run -d --init --name api --network host
-          -e DATABASE_URL -e JWT_SECRET=ci-only-jwt-secret-never-used-outside-this-job quotesflow-api:ci
+          -e DATABASE_URL -e JWT_SECRET=ci-only-jwt-secret-never-used-outside-this-job
+          -e EMAIL_PROVIDER=resend -e RESEND_API_KEY=re_ci_example_key_not_valid
+          -e "EMAIL_FROM=QuotesFlow <no-reply@example.com>" -e APP_BASE_URL=https://app.example.com
+          quotesflow-api:ci
       - name: Comprobar /health, el usuario sin privilegios y el registro contra la base de datos
         run: |
           for _ in $(seq 1 30); do

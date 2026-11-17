@@ -1,0 +1,8 @@
+<mj-section padding="8px 0 24px">
+  <mj-column>
+    <mj-text font-size="12px" line-height="18px" color="#6b7280" align="center">
+      Recibiste este correo porque alguien usó esta dirección en QuotesFlow. Si no fuiste tú, puedes ignorarlo: no se
+      hará ningún cambio.
+    </mj-text>
+  </mj-column>
+</mj-section>

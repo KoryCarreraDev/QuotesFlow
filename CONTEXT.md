@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F2-T08-audit-in-transaction` (apilada sobre F2-T10, F2-T07 y F2-T09), 2026-11-17.
+> Última revisión: rama `feat/F2-T01-email-service` (apilada sobre F2-T10, F2-T07, F2-T09 y F2-T08), 2026-11-17.
 
 ---
 
@@ -26,7 +26,8 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
 | AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | TenantSettings / estrategia de asignación | ⏳ | Modelo existe; `ROUND_ROBIN`/`LOAD_BALANCED` sin lógica |
-| Mensajería, multer, mathjs, pdf-lib, axios | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07. `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
+| Correo transaccional (F2-T01) | ✅ | `TransactionalEmailSender`: plantillas MJML compiladas, Resend (por axios) y `EmailLog`. Sección 8 |
+| Mensajería, multer, mathjs, pdf-lib | ⏳ | Instalados, sin uso; se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07; axios, desde F2-T01 (adaptador de Resend). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
 | Tests | ✅ | Vitest: 988 tests (unit, integración con PostgreSQL efímero, API, build). 3 son defectos conocidos marcados con `itKnownDefect`. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
@@ -104,6 +105,8 @@ src/
   infrastructure/persistence/filters/                         lead|contact|companyContact FilterConfig
   infrastructure/services/                                    BcryptHashService (coste 12, D-10), JwtTokenService (clase JwTokenService)
   infrastructure/web/controllers/                             AuthController, LeadController, LeadStatusConfigController, ContactController, CompanyContactController
+  infrastructure/email/                                       ResendEmailService, LocalEmailServices (log, memoria), CompiledEmailTemplateRenderer, templates/*.mjml, compiledEmailTemplates.ts (generado)
+  application/services/                                       TransactionalEmailSender (F2-T01)
   infrastructure/web/gracefulShutdown.ts                      cierra el servidor (espera peticiones en curso), luego Prisma; plazo 10 s
   infrastructure/persistence/prisma/databaseReadiness.ts      SELECT 1 con plazo de 2 s para /ready
   presentation/routes/healthRoutes.ts                         manejadores de /health y /ready
@@ -203,7 +206,7 @@ Tenant ─┬ User[]  ─ role Role, isActive
         └ AuditLog[]
 ```
 Enums: `Role`, `QuoteStatus` (DRAFT/SENT/ACCEPTED/REJECTED), `LeadAssignmentStrategy`, `DeletedState`.
-Migraciones: `init` (2026-07-10), `add_deleted_to_models` (2026-09-01), `add_owner_and_document_to_clients` (F1-T17: `ownerId` con FK a `User` y `ON DELETE SET NULL`, enum `DocumentType`, `documentNumber`; rellena el NIT normalizado de las empresas existentes), `add_type_to_lead_status_config` (F1-T14: enum `LeadStatusType`; Ganado y Perdido se marcan `WON` y `LOST` por nombre), `add_partial_unique_document_index` (F2-T09: sustituye el índice `(tenantId, documentNumber)` de contactos y empresas cliente por uno único parcial; se detiene con un mensaje claro si ya hay duplicados activos) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
+Migraciones: `add_email_log` (F2-T01: tabla `EmailLog` y enum `EmailDeliveryStatus`), `init` (2026-07-10), `add_deleted_to_models` (2026-09-01), `add_owner_and_document_to_clients` (F1-T17: `ownerId` con FK a `User` y `ON DELETE SET NULL`, enum `DocumentType`, `documentNumber`; rellena el NIT normalizado de las empresas existentes), `add_type_to_lead_status_config` (F1-T14: enum `LeadStatusType`; Ganado y Perdido se marcan `WON` y `LOST` por nombre), `add_partial_unique_document_index` (F2-T09: sustituye el índice `(tenantId, documentNumber)` de contactos y empresas cliente por uno único parcial; se detiene con un mensaje claro si ya hay duplicados activos) y `add_tenant_id_to_history_and_quote_items` (F1-T10: rellena `tenantId` desde el lead o la cotización antes de exigir NOT NULL; FK a `Tenant` con borrado en cascada e índice). Todas las tablas de negocio tienen `tenantId NOT NULL` con FK a `Tenant`, salvo `Tenant`; lo comprueba `tests/integration/schema/databaseSchema.test.ts`.
 
 Comprobar que las migraciones coinciden con `schema.prisma`: `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, con un `prisma.config` que declare `shadowDatabaseUrl` (Prisma 7 no acepta la URL por parámetro). En producción las aplica Operaciones con la imagen `migrator` (R6).
 
@@ -238,6 +241,13 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
 | DELETE | `/api/v1/contacts/:id` | — (borrado suave; solo gestión) |
 | GET, POST, PATCH `/:id`, GET `/search` | `/api/v1/company-contacts` | `{ name, industry?, taxNumber?, phone?, email?, address?, city?, state?, zip?, country?, ownerId? }` |
 | DELETE | `/api/v1/company-contacts/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
+
+### Correo transaccional (F2-T01)
+
+- **Piezas:** puertos `IEmailService` (enviar un mensaje), `IEmailTemplateRenderer` (plantilla + datos → asunto, HTML y texto) e `IEmailLogRepository`; servicio de aplicación `TransactionalEmailSender` (`application/services/`), que renderiza, envía y deja el envío en `EmailLog`. Nunca lanza por un fallo del proveedor: devuelve `false`, registra `FAILED` con el motivo (`PROVIDER_REJECTED`, `PROVIDER_UNREACHABLE`, `UNEXPECTED_ERROR`) y un aviso técnico sin el destinatario.
+- **Plantillas (D-28):** MJML en `src/infrastructure/email/templates/` (cabecera, pie y una por correo: verificación, recuperación, contraseña cambiada, invitación, cuenta ya registrada), en español. `pnpm emails:build` las compila a `compiledEmailTemplates.ts`; MJML 5.4.1 es solo devDependency y no entra en la imagen. Un test falla si el módulo generado no coincide. Asunto, vista previa y texto plano viven en `CompiledEmailTemplateRenderer`, que escapa los datos en el HTML y quita saltos de línea del asunto.
+- **Proveedor:** `ResendEmailService` llama a `POST https://api.resend.com/emails` con axios (URL fija, 10 s de plazo, sin redirecciones, respuesta validada con Zod; el error nunca lleva la clave). Se usa axios en lugar del SDK `resend` para no añadir dependencias (D-49). `EMAIL_PROVIDER=log` (desarrollo) escribe el texto del correo en el log; `memory` (tests) lo guarda en `memoryEmailOutbox`. Hasta que Operaciones verifique el dominio, `RESEND_API_KEY` es de ejemplo y los envíos quedan como `FAILED` en `EmailLog`.
+- **`EmailLog`:** tenant (explícito: registro y recuperación no tienen sesión), usuario si existe, plantilla, destinatario, estado, id del proveedor y motivo del fallo. Nunca el cuerpo: lleva tokens de un solo uso. Historial inmutable, sin borrado suave.
 
 ### Logs y auditoría (F1-T07)
 
@@ -333,6 +343,10 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `RATE_LIMIT_GLOBAL_MAX_REQUESTS` | Entero positivo | `100` |
 | `RATE_LIMIT_AUTH_MAX_REQUESTS` | Entero positivo | `10` |
 | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` o `silent` (solo tests) | `info` |
+| `EMAIL_PROVIDER` | `resend`, `log` (escribe el correo en el log) o `memory` (tests). En producción solo `resend` | `log` |
+| `RESEND_API_KEY` | Clave de Resend (`re_…`). Obligatoria con `resend`; secreto, sin valor por defecto | Ninguno |
+| `EMAIL_FROM` | Remitente verificado, `Nombre <correo>` o `correo`. Obligatorio con `resend` | `QuotesFlow <no-reply@localhost>` |
+| `APP_BASE_URL` | URL del frontend para los enlaces de los correos, sin barra final; `https` en producción | `http://localhost:5173` |
 
 Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
@@ -353,6 +367,7 @@ pnpm arch:check     # reglas de capas (R4) con dependency-cruiser
 pnpm check:context develop   # R3: CONTEXT.md actualizado respecto a la rama base
 pnpm docs:permissions        # regenera docs/security/matriz-permisos.md desde la matriz del código
 pnpm docs:openapi            # regenera docs/openapi.json (OpenAPI 3.1) desde los esquemas Zod
+pnpm emails:build            # recompila las plantillas MJML de correo a src/infrastructure/email/compiledEmailTemplates.ts
 pnpm typecheck:tests
 pnpm build          # tsc + tsc-alias  ->  pnpm start (node dist/server.js)
 docker-compose up   # DESARROLLO (Dockerfile.dev): db (host 3363), backend (4000), prisma-studio (3364)
@@ -413,3 +428,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-17 | F2-T07 | pendiente | Protección CSRF por verificación de origen (D-14): `createOriginCheckMiddleware` en `httpSecurity.ts`, montado tras CORS con la misma lista blanca; 403 `ORIGIN_NOT_ALLOWED` en POST/PATCH/PUT/DELETE desde otro origen (también login y registro). OpenAPI documenta el 403 en las operaciones que modifican. 15 tests nuevos (11 unitarios, 4 de API). |
 | 2026-11-17 | F2-T09 | pendiente | Migración `add_partial_unique_document_index` (F1-S2): índice único parcial del documento en `Contact` y `CompanyContact` entre clientes activos, con la función preview `partialIndexes` de Prisma y comprobación previa de duplicados. Los repositorios traducen la violación a 409 `DOCUMENT_ALREADY_REGISTERED` (`prismaErrors.ts`, compartido con `PrismaUserRepository`). Verificada con `prisma migrate diff` (sin diferencias) y sobre una base con duplicados (se detiene) y sin ellos. 8 tests nuevos (7 de integración, 1 de API con dos altas simultáneas). Pendiente: aplicarla en producción (Operaciones, R6). |
 | 2026-11-17 | F2-T08 | pendiente | Auditoría en la misma transacción que la modificación (F1-S1) en los 9 casos de uso que aún la escribían después: crear, modificar y borrar leads, contactos y empresas cliente. Reciben `ITransactionManager` como último parámetro (los módulos del contenedor pasan `PrismaTransactionManager`). Suite nueva `auditAtomicity.test.ts` (14 tests, uno por ruta que modifica): sin el cambio fallaban los 9. Cambia la construcción de esos casos de uso en 4 archivos de tests unitarios (nuevo parámetro `RecordingTransactionManager`). |
+| 2026-11-17 | F2-T01 | pendiente | Correo transaccional: puertos `IEmailService`, `IEmailTemplateRenderer`, `IEmailLogRepository`; `TransactionalEmailSender` (nunca lanza por el proveedor, registra cada envío); adaptadores `ResendEmailService` (axios, URL fija, respuesta validada), `LogEmailService` y `MemoryEmailService`; plantillas MJML compiladas con `pnpm emails:build` (D-28, `mjml` 5.4.1 como devDependency); migración `add_email_log`. Variables `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL` (en producción, Resend y https obligatorios). 47 tests nuevos. Cambian el test de configuración completa y sus variables de producción (añaden las de correo), la lista de tablas sin borrado suave del test de esquema (`EmailLog`) y la CI de la imagen Docker (variables de correo de ejemplo). | |
