@@ -49,20 +49,22 @@ app.use(express.json({ limit: JSON_BODY_LIMIT }));
 // Parseo de Cookies
 app.use(cookieParser());
 
-// Límites de tasa por IP: uno global y otro, más bajo, para login y registro (H6).
-app.use(createRateLimiter({ maxRequests: env.RATE_LIMIT_GLOBAL_MAX_REQUESTS, windowMs: RATE_LIMIT_WINDOW_MS }));
-const authRateLimiter = createRateLimiter({
-  maxRequests: env.RATE_LIMIT_AUTH_MAX_REQUESTS,
-  windowMs: RATE_LIMIT_WINDOW_MS,
-});
-
-// Sondas de vida y de disponibilidad (F1-T08)
+// Sondas de vida y de disponibilidad (F1-T08). Van antes del limitador global (F2-T10, F1-S5): el
+// orquestador sondea cada pocos segundos desde la misma IP y un 429 lo haría reiniciar una instancia sana.
+// No abren la puerta a un abuso: `/health` no hace trabajo y `/ready` es un `SELECT 1` con plazo.
 const prismaClient = PrismaService.getInstance().client;
 app.get('/health', createLivenessHandler());
 app.get(
   '/ready',
   createReadinessHandler(() => isDatabaseReachable(prismaClient, appLogger)),
 );
+
+// Límites de tasa por IP: uno global y otro, más bajo, para login y registro (H6).
+app.use(createRateLimiter({ maxRequests: env.RATE_LIMIT_GLOBAL_MAX_REQUESTS, windowMs: RATE_LIMIT_WINDOW_MS }));
+const authRateLimiter = createRateLimiter({
+  maxRequests: env.RATE_LIMIT_AUTH_MAX_REQUESTS,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+});
 
 // API REST versionada (D-06, F1-T11). Las sondas /health y /ready quedan fuera: son del orquestador.
 const API_BASE_PATH = '/api/v1';

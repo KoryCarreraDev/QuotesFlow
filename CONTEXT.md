@@ -1,7 +1,7 @@
 # CONTEXT.md — QuotesFlow (SaaS Comerciales)
 
 > Resumen del proyecto para personas e IAs. Léelo en lugar de explorar todo el código. Si cambias algo estructural (rutas, reglas, modelos), actualiza este archivo.
-> Última revisión: rama `feat/F1-T11-rest-v1-openapi` (apilada sobre F1-T01 a F1-T18 y las ramas de F0), 2026-11-16.
+> Última revisión: rama `feat/F2-T10-probes-outside-rate-limit` (sobre `develop` con F0 y F1 fusionadas), 2026-11-17.
 
 ---
 
@@ -56,7 +56,7 @@ TypeScript (ESM, imports terminan en `.js`) · Node 24 LTS (D-04; `engines` en `
 | `quality` | `pnpm typecheck`, `pnpm lint`, `pnpm arch:check` |
 | `tests` | `pnpm test:coverage` (los 4 proyectos, con PostgreSQL vía testcontainers) y umbrales de D-03; sube `coverage/` como artefacto |
 | `dependency-audit` | `pnpm audit --prod` sin ningún aviso; `pnpm audit --audit-level high` para todo |
-| `secret-scan` | gitleaks 8.30.1 (imagen por digest) sobre todo el historial |
+| `secret-scan` | gitleaks 8.30.1 (imagen por digest) sobre todo el historial, con las reglas por defecto. `.gitleaks.toml` solo exime, en `tests/` y para la regla `generic-api-key`, las contraseñas de prueba `*-Horse-Battery-*` y los secretos de token de prueba `c2VjcmV0…` (base64 de «secret») |
 | `context-updated` | Solo en PR: `pnpm check:context origin/<base>` falla si cambian `src/` o `prisma/` sin una fila nueva en el registro de `CONTEXT.md` (R3; `scripts/ci/`) |
 | `docker-image` | Construye `runtime` y `migrator`, migra un PostgreSQL de servicio, arranca la API con `--init` y comprueba `/health`, usuario no root y registro (201) |
 
@@ -219,8 +219,8 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health` y `/api/v1/auth/*`).
 
 | Método | Ruta | Body / Query |
 |---|---|---|
-| GET | `/health` | — (vida: el proceso responde; no toca la base de datos) |
-| GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`) |
+| GET | `/health` | — (vida: el proceso responde; no toca la base de datos; fuera del limitador global desde F2-T10) |
+| GET | `/ready` | — (listo: la base responde a `SELECT 1` en menos de 2 s; si no, 503 `SERVICE_UNAVAILABLE`; fuera del limitador global desde F2-T10) |
 | POST | `/api/v1/auth/register` | `{ companyName, ownerEmail, password, ownerFirstName, ownerLastName }` |
 | POST | `/api/v1/auth/login` | `{ email, password }` |
 | GET | `/api/v1/leads` | — |
@@ -409,3 +409,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-16 | F1-T17 | pendiente | Migración `add_owner_and_document_to_clients`: `ownerId` en contactos y empresas cliente; `documentType` y `documentNumber` en contactos; `documentNumber` normalizado del NIT en empresas. Visibilidad por responsable (D-18) en listados, filtrado (`ownershipScope` sobre `ownerId`) y modificación, con acciones nuevas `contact:assign-owner` y `company-contact:assign-owner`; los clientes sin responsable solo los ve gestión (Q-005). Documento normalizado y único por empresa entre clientes activos (D-19, 409). Matriz de permisos regenerada. 27 tests nuevos. Cambian tests existentes por D-18: los de `api/contacts.test.ts` usan clientes del propio comercial, la matriz de `authorizationPolicy.test.ts` pasa contactos a "solo los suyos", el DTO de empresa incluye `documentNumber` y las construcciones y llamadas de los casos de uso de clientes reciben el repositorio de usuarios y el actor. |
 | 2026-11-16 | F1-T18 | pendiente | Código al día con R11 a R13: `eslint-suppressions.json` vacío (las 77 violaciones heredadas corregidas, Q-008); identificadores renombrados (`leadmap`, `rolUser`, `existingRepo`, `leadProperty`, `statusProperty`, `*Repo`, `*Map`, `als`…); clases de controller en PascalCase; enum `DeletedState` con miembros `ACTIVE`/`INACTIVE`; bcrypt con coste 12 (D-10, antes 10); JSDoc en todos los puertos, casos de uso y entidades; `docs/modulos/` de auth, leads, estados de lead, contactos y filtrado. Sin cambio de comportamiento salvo el coste de bcrypt. En tests existentes solo cambian `DeletedState.Active/Inactive` por `ACTIVE/INACTIVE` y 20 números mágicos por constantes con nombre. |
 | 2026-11-16 | F1-T11 | pendiente | API REST bajo `/api/v1` (D-06): recursos `auth`, `leads`, `lead-statuses`, `contacts`, `company-contacts`; `GET /recurso`, `GET /recurso/search`, `POST /recurso`, `PATCH /recurso/:id`, `DELETE /recurso/:id`, `PATCH /leads/:id/status`, `PATCH /lead-statuses/order`. Las rutas anteriores dejan de existir. OpenAPI 3.1 generado desde los esquemas Zod (D-07) en `docs/openapi.json` con `pnpm docs:openapi` (`@asteasolutions/zod-to-openapi` 9.1.0 como devDependency, fuera de la imagen); un test compara el documento con el código y con el inventario de rutas. CI y documentación de módulos al día. 4 tests nuevos. En tests existentes cambian las rutas centralizadas en `apiRoutes.ts`, los borrados pasan de POST a DELETE y los títulos que citaban rutas antiguas. |
+| 2026-11-17 | F2-T10 | pendiente | `/health` y `/ready` se registran antes del limitador global (F1-S5): un orquestador que sondea a menudo ya no recibe 429. 2 tests de regresión. La suite del límite global agota el cupo con una ruta inexistente en lugar de `/health` (cambio declarado de un test existente). |

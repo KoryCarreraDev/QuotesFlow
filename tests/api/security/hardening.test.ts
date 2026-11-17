@@ -16,6 +16,8 @@ const HTTP_PAYLOAD_TOO_LARGE = 413;
 const HTTP_TOO_MANY_REQUESTS = 429;
 
 const UNTRUSTED_ORIGIN = 'https://untrusted-site.example';
+// Cualquier ruta que pase por el limitador global sirve para agotarlo; una inexistente no toca la base.
+const RATE_LIMITED_PATH = '/api/v1/route-that-does-not-exist';
 const ALLOW_ANY_ORIGIN = '*';
 
 // Límite de cuerpo previsto en la tarea F1-T06 (hallazgo H14): 100 kb.
@@ -81,12 +83,12 @@ describe('Cabeceras de seguridad', () => {
 // Va al final del archivo: agota el cupo de peticiones de esta instancia de la aplicación.
 describe('Límite global de peticiones', () => {
   it(`tras ${GLOBAL_RATE_LIMIT_MAX_REQUESTS} peticiones en la ventana responde 429`, async () => {
-    let lastAllowedResponseStatus = HTTP_OK;
+    let lastAllowedResponseStatus = HTTP_NOT_FOUND;
     let firstRejectedRequestNumber: number | undefined;
 
     // Las peticiones de los tests anteriores de este archivo ya cuentan para el cupo.
     for (let requestNumber = 1; requestNumber <= GLOBAL_RATE_LIMIT_MAX_REQUESTS + 1; requestNumber += 1) {
-      const response = await request(app).get(apiPaths.health);
+      const response = await request(app).get(RATE_LIMITED_PATH);
       if (response.status === HTTP_TOO_MANY_REQUESTS) {
         firstRejectedRequestNumber = requestNumber;
         break;
@@ -94,15 +96,29 @@ describe('Límite global de peticiones', () => {
       lastAllowedResponseStatus = response.status;
     }
 
-    expect(lastAllowedResponseStatus).toBe(HTTP_OK);
+    expect(lastAllowedResponseStatus).toBe(HTTP_NOT_FOUND);
     expect(firstRejectedRequestNumber).toBeDefined();
     expect(firstRejectedRequestNumber).toBeLessThanOrEqual(GLOBAL_RATE_LIMIT_MAX_REQUESTS + 1);
   });
 
   it('una vez superado el límite, sigue rechazando y anuncia el cupo en las cabeceras', async () => {
-    const response = await request(app).get(apiPaths.health);
+    const response = await request(app).get(RATE_LIMITED_PATH);
 
     expect(response.status).toBe(HTTP_TOO_MANY_REQUESTS);
     expect(response.headers['ratelimit-limit'] ?? response.headers['ratelimit']).toBeDefined();
+  });
+
+  // Regresión de F1-S5 (F2-T10): un orquestador que sondea a menudo no debe recibir 429.
+  it('con el cupo agotado, /health sigue respondiendo 200 y sin cabeceras de límite', async () => {
+    const response = await request(app).get(apiPaths.health);
+
+    expect(response.status).toBe(HTTP_OK);
+    expect(response.headers['ratelimit-limit']).toBeUndefined();
+  });
+
+  it('con el cupo agotado, /ready sigue respondiendo según la base de datos, no 429', async () => {
+    const response = await request(app).get(apiPaths.ready);
+
+    expect(response.status).toBe(HTTP_OK);
   });
 });
