@@ -117,6 +117,15 @@ export class InMemoryUserRepository implements IUserRepository {
     this.usersById.set(userId, withUserChanges(this.requireStored(userId), { passwordHash }));
   }
 
+  async listByTenant(): Promise<User[]> {
+    return this.listStored().filter((user) => user.tenantId === this.tenantContext.getTenantId());
+  }
+
+  async updateRoleAndStatus(userId: string, changes: { role?: User['role']; isActive?: boolean }): Promise<void> {
+    const user = await this.findById(userId);
+    if (user) this.usersById.set(userId, withUserChanges(user, changes));
+  }
+
   private requireStored(userId: string): User {
     const user = this.usersById.get(userId);
     if (!user) throw new Error(`User not stored: ${userId}`);

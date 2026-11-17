@@ -22,6 +22,14 @@ import { DeleteContactUseCase } from '@/application/use-case/contacts/deleteCont
 import { DeleteCompanyContactUseCase } from '@/application/use-case/companyContacts/deleteCompanyContactUseCase.js';
 import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
 import { ScopedContainer } from '@/cross-cutting/container.js';
+import {
+  InviteUserUseCase,
+  ListTenantUsersUseCase,
+  ListUserInvitationsUseCase,
+  RevokeUserInvitationUseCase,
+  UpdateTenantUserUseCase,
+} from '@/application/use-case/users/TenantUserUseCases.js';
+import { AcceptInvitationUseCase } from '@/application/use-case/auth/AcceptInvitationUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
 import { DEFAULT_TEST_TENANT_ID } from '@tests/support/builders/entityBuilders.js';
 
@@ -84,6 +92,20 @@ describe('ScopedContainer', () => {
       () => container.email.getTransactionalEmailSender(),
       TransactionalEmailSender,
     ],
+    ['users.getListTenantUsersUseCase', () => container.users.getListTenantUsersUseCase(), ListTenantUsersUseCase],
+    [
+      'users.getListUserInvitationsUseCase',
+      () => container.users.getListUserInvitationsUseCase(),
+      ListUserInvitationsUseCase,
+    ],
+    ['users.getInviteUserUseCase', () => container.users.getInviteUserUseCase(), InviteUserUseCase],
+    [
+      'users.getRevokeUserInvitationUseCase',
+      () => container.users.getRevokeUserInvitationUseCase(),
+      RevokeUserInvitationUseCase,
+    ],
+    ['users.getUpdateTenantUserUseCase', () => container.users.getUpdateTenantUserUseCase(), UpdateTenantUserUseCase],
+    ['auth.getAcceptInvitationUseCase', () => container.auth.getAcceptInvitationUseCase(), AcceptInvitationUseCase],
     ['contacts.getCreateContactUseCase', () => container.contacts.getCreateContactUseCase(), CreateContactUseCase],
     ['contacts.getUpdateContactUseCase', () => container.contacts.getUpdateContactUseCase(), UpdateContactUseCase],
     [

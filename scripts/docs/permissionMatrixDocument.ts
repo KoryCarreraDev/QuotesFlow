@@ -1,4 +1,9 @@
-import { Action, type Grant, permissionMatrix } from '../../src/application/policies/authorizationPolicy.js';
+import {
+  Action,
+  type Grant,
+  manageableRolesByRole,
+  permissionMatrix,
+} from '../../src/application/policies/authorizationPolicy.js';
 import { Role } from '../../src/domain/enums/Role.js';
 
 // Genera `docs/security/matriz-permisos.md` a partir de `permissionMatrix` (F1-T04).
@@ -26,6 +31,9 @@ const actionDescriptions: Record<Action, string> = {
   [Action.COMPANY_CONTACT_DELETE]: 'Borrar (suave) una empresa cliente sin contactos activos',
   [Action.COMPANY_CONTACT_ASSIGN_OWNER]: 'Elegir o cambiar el comercial responsable de una empresa cliente',
   [Action.SESSION_REVOKE_OWN]: 'Cerrar todas sus propias sesiones (`POST /auth/logout-all`)',
+  [Action.USER_LIST]: 'Listar los usuarios y las invitaciones pendientes de la empresa',
+  [Action.USER_INVITE]: 'Invitar usuarios y revocar invitaciones (solo de los roles que gestiona)',
+  [Action.USER_MANAGE]: 'Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona)',
 };
 
 const grantLabels = new Map<Grant, string>([
@@ -49,6 +57,11 @@ export function renderPermissionMatrixDocument(): string {
   const header = `| Acción | Qué permite | ${roleColumns.join(' | ')} |`;
   const separator = `|---|---|${roleColumns.map(() => '---').join('|')}|`;
   const rows = Object.entries(permissionMatrix).map(renderMatrixRow);
+  const manageableRolesOf = new Map<string, readonly Role[]>(Object.entries(manageableRolesByRole));
+  const manageableRows = roleColumns.map((role) => {
+    const roles = manageableRolesOf.get(role) ?? [];
+    return `| ${role} | ${roles.length > 0 ? roles.join(', ') : 'Ninguno'} |`;
+  });
 
   return [
     '# Matriz de permisos',
@@ -75,7 +88,13 @@ export function renderPermissionMatrixDocument(): string {
     '- Un `SALES_REP` que crea un contacto o una empresa cliente queda como su responsable; solo puede vincular un contacto a una empresa cliente de la que es responsable.',
     '- Los clientes sin responsable (anteriores a F1-T17) solo los ven los roles de gestión hasta que se asignen (Q-005).',
     '',
-    'Pendiente de decisiones ya tomadas: la gestión de usuarios por el líder comercial (D-17) llega con F2.',
+    '## Roles que cada rol invita y gestiona (D-16, D-17)',
+    '',
+    'Además de tener `user:invite` o `user:manage`, el rol de la persona invitada o gestionada (el actual y el nuevo, si cambia) tiene que estar en esta lista. Nadie gestiona al dueño ni su propia cuenta.',
+    '',
+    '| Rol | Gestiona a |',
+    '|---|---|',
+    ...manageableRows,
     '',
     'Limitación conocida: `lead-status:list` todavía no consulta la política en el código, porque se permite a todos los roles; para esa acción no se cumple aún que un rol desconocido no tenga permisos. Contactos y empresas cliente la consultan desde F1-T17.',
     '',

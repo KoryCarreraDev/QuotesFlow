@@ -33,6 +33,9 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `company-contact:assign-owner` | Elegir o cambiar el comercial responsable de una empresa cliente | Sí | Sí | Sí | No |
 | `company-contact:delete` | Borrar (suave) una empresa cliente sin contactos activos | Sí | Sí | Sí | No |
 | `session:revoke-own` | Cerrar todas sus propias sesiones (`POST /auth/logout-all`) | Sí | Sí | Sí | Sí |
+| `user:list` | Listar los usuarios y las invitaciones pendientes de la empresa | Sí | Sí | Sí | No |
+| `user:invite` | Invitar usuarios y revocar invitaciones (solo de los roles que gestiona) | Sí | Sí | Sí | No |
+| `user:manage` | Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona) | Sí | Sí | Sí | No |
 
 Comportamientos que la tabla no muestra:
 
@@ -42,7 +45,16 @@ Comportamientos que la tabla no muestra:
 - Un `SALES_REP` que crea un contacto o una empresa cliente queda como su responsable; solo puede vincular un contacto a una empresa cliente de la que es responsable.
 - Los clientes sin responsable (anteriores a F1-T17) solo los ven los roles de gestión hasta que se asignen (Q-005).
 
-Pendiente de decisiones ya tomadas: la gestión de usuarios por el líder comercial (D-17) llega con F2.
+## Roles que cada rol invita y gestiona (D-16, D-17)
+
+Además de tener `user:invite` o `user:manage`, el rol de la persona invitada o gestionada (el actual y el nuevo, si cambia) tiene que estar en esta lista. Nadie gestiona al dueño ni su propia cuenta.
+
+| Rol | Gestiona a |
+|---|---|
+| OWNER | PARTNER, SALES_LEADER, SALES_REP |
+| PARTNER | PARTNER, SALES_LEADER, SALES_REP |
+| SALES_LEADER | SALES_REP |
+| SALES_REP | Ninguno |
 
 Limitación conocida: `lead-status:list` todavía no consulta la política en el código, porque se permite a todos los roles; para esa acción no se cumple aún que un rol desconocido no tenga permisos. Contactos y empresas cliente la consultan desde F1-T17.
 

@@ -13,6 +13,7 @@ import {
   RequestPasswordResetUseCase,
   ResetPasswordUseCase,
 } from '../../../application/use-case/auth/PasswordResetUseCases.js';
+import { AcceptInvitationUseCase } from '../../../application/use-case/auth/AcceptInvitationUseCase.js';
 import { Role } from '../../../domain/enums/Role.js';
 import { clearSessionCookies, readRefreshTokenCookie, setSessionCookies } from '../sessionCookies.js';
 
@@ -26,6 +27,7 @@ export interface PublicAuthUseCases {
   resendEmailVerification: ResendEmailVerificationUseCase;
   requestPasswordReset: RequestPasswordResetUseCase;
   resetPassword: ResetPasswordUseCase;
+  acceptInvitation: AcceptInvitationUseCase;
 }
 
 // Las peticiones que no deben revelar si un correo existe responden siempre esto (H8, F2-T04).
@@ -99,6 +101,17 @@ export class AuthController {
       // Todas las sesiones quedaron cerradas, también la de este navegador si la había.
       clearSessionCookies(res);
       res.status(HttpStatus.OK).json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  acceptInvitation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // F2-T05: la cuenta nace con el correo verificado y la sesión abierta.
+      const session = await this.useCases.acceptInvitation.execute(req.body);
+      setSessionCookies(res, session);
+      res.status(HttpStatus.CREATED).json({ success: true });
     } catch (error) {
       next(error);
     }
