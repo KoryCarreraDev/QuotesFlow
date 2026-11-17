@@ -188,6 +188,10 @@ Bloqueada por: D-20 a D-26.
 - F3-T07 `[O]` Puerto `IFileStorage` + subida de logo con validación de tipo real y tamaño.
 - F3-T08 `[S]` Enviar cotización por correo con PDF adjunto; pasa a `SENT`; queda en auditoría.
 - F3-T09 `[S]` Crear cotización desde un lead; al aceptar, el lead puede pasar a ganado.
+- F3-T10 `[S]` Canal de correo por empresa (D-57): `TenantSettings.emailDeliveryEnabled`, desactivado por defecto, lo cambian dueño y socio. Con el correo desactivado, enviar una cotización la marca como `SENT` sin correo y el comercial comparte el PDF; las notificaciones de F4 quedan solo dentro de la aplicación. Los correos de la cuenta (verificación, recuperación, invitación) no dependen de este ajuste.
+- F3-T11 `[S]` Entorno de pruebas (D-58): frontend en Vercel con proxy (`rewrites`) hacia la API publicada por ngrok, para que las cookies sigan siendo del mismo sitio (D-14). Test de que CORS acepta la cabecera `ngrok-skip-browser-warning`. Guía en `docs/despliegue-pruebas.md`.
+
+Detalles de cotización respondidos el 2026-11-17 (`QUESTION.md`): cada ítem guarda el precio calculado y el manual, con motivo obligatorio y auditoría; la alerta al líder llega en F4-T06 (Q-015). F3 añade `EXPIRED` calculado al leer, en la zona horaria de la empresa; F4 lo guarda con una tarea diaria (Q-016). Una versión nueva conserva el número: `COT-000123 v2`, y la anterior queda de solo lectura (Q-018). Descuento porcentual global y por ítem; topes por defecto: `SALES_REP` 10 %, `SALES_LEADER` 20 %, `OWNER` y `PARTNER` sin tope, configurables por dueño y socio (Q-019). Se cotiza antes de IVA y luego se suma el IVA: tasa por defecto configurada por dueño o socio; mientras no se configure, se pide al cotizar (Q-020).
 
 ### F4 — Tareas en segundo plano, alertas y notificaciones
 Bloqueada por: D-27 a D-30.
@@ -197,7 +201,7 @@ Bloqueada por: D-27 a D-30.
 - F4-T03 `[S]` Notificaciones in-app: modelo, listar, contador de no leídas, marcar leídas.
 - F4-T04 `[S]` Preferencias por usuario, tipo y canal (correo / in-app).
 - F4-T05 `[O]` Servicio de notificación único que resuelve destinatarios, preferencias y canales.
-- F4-T06 `[S]` Alertas iniciales: lead asignado, cotización aceptada o rechazada, cotización por vencer, tarea de seguimiento vencida (si C-01 = Sí).
+- F4-T06 `[S]` Alertas iniciales: lead asignado, cotización aceptada o rechazada, cotización por vencer, tarea de seguimiento vencida (si C-01 = Sí), precio cambiado a mano en una cotización (a los líderes y al dueño, D-24, Q-015). Por correo solo si la empresa lo activó (D-57).
 
 ### F5 — Suscripciones y administración de plataforma
 Bloqueada por: D-31 a D-39 y la tabla de precios (sección 8).
@@ -403,6 +407,8 @@ Marca **Sí** o **No**, o escribe en **Otro**. Las decisiones sin marcar bloquea
 | D-54 | Prueba de penetración externa antes de tener clientes de pago | Sí | [X] | [ ] | |
 | D-55 | Proveedor de hosting y de PostgreSQL: escribir en "Otro" | — | [ ] | [ ] |PostgreSQL en Neon (plan Free): crear el proyecto en Neon, generar la migración y poner la URL de conexión en `.env` (`DATABASE_URL`). Hosting del backend: por definir|
 | D-56 | Revisión legal de términos y política de datos (Ley 1581) antes de salir | Sí | [ ] | [ ] |Dejar genericos mientras se establece el mvp luego de testeos|
+| D-57 | Cada empresa decide si usa solo las notificaciones del sistema o también el correo | Sí | [X] | [ ] | Correo desactivado por defecto; Resend listo para cuando se compre el dominio (2026-11-17) |
+| D-58 | Entorno de pruebas: frontend en Vercel (gratis) y API por ngrok (`https://crepe-waviness-ploy.ngrok-free.dev`) hasta comprar dominio | Sí | [X] | [ ] | Las peticiones llevan `ngrok-skip-browser-warning` (2026-11-17) |
 
 ### 9.8 Funcionalidades comunes de CRM sugeridas (¿entran al MVP?)
 "Sí" las agrega a F1/F3/F4 como tareas nuevas; "No" las deja en F9.
