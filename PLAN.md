@@ -1,6 +1,6 @@
 # PLAN.md — QuotesFlow: de base actual a MVP
 
-> **Estado: F2 hecha el 2026-11-17, pendiente de PR, revisión humana y firma de `docs/audits/F2-seguridad.md`.** Las tareas hechas se marcan aquí y quedan pendientes de PR y revisión humana hasta su merge.
+> **Estado: F2 fusionada el 2026-11-17 (PR #45 a #55), pendiente de firma de `docs/audits/F2-seguridad.md` y de la matriz de permisos. F3 lista para empezar: D-20 a D-26 respondidas; sus detalles abiertos están en `QUESTION.md` (Q-015 a Q-020), ninguno bloquea F3-T01 a F3-T04.** Las tareas hechas se marcan aquí y quedan pendientes de PR y revisión humana hasta su merge.
 > Este archivo es la fuente de verdad del trabajo pendiente. `CONTEXT.md` es la fuente de verdad de lo ya hecho. `QUESTION.md` recoge las dudas de los modelos.
 
 ## 0. Contexto

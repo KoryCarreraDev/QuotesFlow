@@ -61,6 +61,78 @@
 - **Respuesta:** _pendiente_
 - **Respondida por / fecha:** _pendiente_
 
+### Q-015 · Alerta al líder cuando el comercial cambia el precio calculado (D-24)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T05, D-24
+- **Bloquea:** No (solo el envío de la alerta)
+- **Pregunta:** D-24 permite cambiar a mano el precio calculado con alerta al líder comercial. ¿A quién, por qué canal y cuándo llega la alerta? ¿El motivo del cambio es obligatorio?
+- **Contexto:** El modelo no tiene relación entre un comercial y su líder (`User` en `prisma/schema.prisma` no tiene `leaderId`), así que "su líder" hoy significa todos los `SALES_LEADER` activos de la empresa. Las notificaciones in-app y las preferencias de canal llegan en F4 (F4-T03 a F4-T06); el correo transaccional ya existe (F2-T01).
+- **Opciones:** a) En F3, correo inmediato a todos los líderes y al dueño. b) En F3 solo se registra (precio calculado, precio manual, motivo, auditoría) y la alerta in-app y por correo llega en F4-T06. c) Añadir un líder por comercial (`leaderId`) y avisar solo a ese.
+- **Supuesto mientras tanto:** b), con motivo obligatorio. Cada ítem guarda el precio calculado y el manual; el cambio queda en `AuditLog` y la alerta se suma a F4-T06.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-016 · Cómo pasa una cotización a "vencida" antes de tener tareas programadas (D-23)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T05, D-23
+- **Bloquea:** No
+- **Pregunta:** D-23 pide el estado "vencida" automático al pasar la vigencia. La cola de tareas llega en F4 (F4-T01). ¿Qué se hace en F3?
+- **Contexto:** `QuoteStatus` hoy es `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED`. La vigencia se compara en la zona horaria de la empresa (`TenantSettings.timezone`, F2-T06).
+- **Opciones:** a) F3 añade `EXPIRED` y lo calcula al leer (vigencia pasada → se muestra y se trata como vencida, no se puede aceptar); F4 lo guarda con una tarea diaria y avisa antes de vencer. b) Esperar a F4 para todo lo de vencimiento.
+- **Supuesto mientras tanto:** a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-017 · Proveedor gratuito de almacenamiento de archivos para el MVP (D-26)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T07 (logo), F3-T06 (PDF), D-26
+- **Bloquea:** No para el código; sí para desplegar la subida de logo
+- **Pregunta:** ¿Qué servicio gratuito se usa para los logos (y, si se guardan, los PDF)?
+- **Contexto:** D-26 dice "tipo S3, pero gratuito en el MVP". Crear la cuenta y guardar las claves es tarea humana (R6, operaciones).
+- **Opciones:** a) Cloudflare R2: 10 GB gratis, compatible con S3 y sin coste por descarga. b) Backblaze B2: 10 GB gratis, compatible con S3. c) Supabase Storage: 1 GB gratis, API propia.
+- **Supuesto mientras tanto:** puerto `IFileStorage` con un adaptador compatible con S3 (sirve para R2, B2 y S3 sin cambiar código) y uno en disco local para desarrollo y tests. Los PDF se generan al pedirlos y no se guardan. Se recomienda a).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-018 · Numeración de las versiones de una cotización (D-22)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T05, D-22
+- **Bloquea:** No
+- **Pregunta:** Una cotización enviada no se edita: los cambios generan una versión nueva. ¿La versión nueva conserva el número o recibe uno nuevo?
+- **Contexto:** F3-T05 pide numeración consecutiva por empresa sin huecos. El número es lo que ve el cliente final en el PDF.
+- **Opciones:** a) Mismo número con versión (`COT-000123 v2`); la anterior queda de solo lectura como reemplazada. b) Número nuevo enlazado a la cotización original.
+- **Supuesto mientras tanto:** a), con prefijo `COT-` y 6 dígitos.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-019 · Alcance y valores por defecto del descuento máximo por rol (D-25)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T05, D-25
+- **Bloquea:** No
+- **Pregunta:** ¿El descuento se aplica a toda la cotización, a cada ítem o a ambos? ¿Qué topes tiene cada rol mientras el dueño no los configure?
+- **Contexto:** `Quote.discount` existe hoy como un único valor. D-16 da a `PARTNER` los permisos de `OWNER`.
+- **Opciones:** a) Solo descuento porcentual sobre el subtotal de la cotización. b) Descuento por ítem además del global. Topes por defecto: c) `SALES_REP` 10 %, `SALES_LEADER` 20 %, `OWNER` y `PARTNER` sin tope. d) Todos 0 % hasta que el dueño los configure.
+- **Supuesto mientras tanto:** a) y c), configurables por el dueño y el socio en `TenantSettings`.
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
+### Q-020 · Tasas de IVA permitidas y si los precios incluyen IVA (D-20)
+- **Fecha:** 2026-11-17
+- **Modelo:** Opus
+- **Fase / tarea:** F3-T02, F3-T05, D-20
+- **Bloquea:** No
+- **Pregunta:** D-20 pide IVA de Colombia por defecto y configurable al cotizar. ¿Se permite cualquier tasa o solo las colombianas? ¿El precio de producto y el de fórmula son antes de IVA?
+- **Contexto:** En Colombia las tasas vigentes son 19 % (general), 5 % (reducida) y 0 % (exento o excluido).
+- **Opciones:** a) Solo 19 %, 5 % y 0 %, con 19 % por defecto. b) Cualquier tasa entre 0 % y 100 %. Precios: c) siempre antes de IVA. d) Configurable por producto.
+- **Supuesto mientras tanto:** a) y c).
+- **Respuesta:** _pendiente_
+- **Respondida por / fecha:** _pendiente_
+
 ---
 
 ## Preguntas respondidas
