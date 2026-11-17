@@ -16,6 +16,7 @@ import type {
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
+import { hashOpaqueSecret } from '@/application/services/opaqueTokens.js';
 import prisma from '@/config/database.js';
 import { Role } from '@/domain/enums/Role.js';
 
@@ -27,6 +28,10 @@ const FAST_BCRYPT_COST = 4;
 const TEST_USER_PASSWORD_HASH = bcrypt.hashSync(TEST_USER_PASSWORD, FAST_BCRYPT_COST);
 
 const DEFAULT_ESTIMATED_VALUE = 1_500_000;
+// Las sesiones de test duran un día: más que cualquier ejecución de la suite.
+const TEST_SESSION_LIFETIME_MS = 86_400_000;
+// Refresh token de la sesión de test: sirve para probar /auth/refresh y /auth/logout sin hacer login.
+export const TEST_REFRESH_SECRET = 'test-refresh-secret-for-every-persisted-user';
 const DEFAULT_STATUS_ORDER = 1;
 
 export interface TenantOverrides {
@@ -55,9 +60,23 @@ export interface UserOverrides {
   deleted?: DeletedStateRecord;
 }
 
+/**
+ * Id de la sesión abierta que `persistUser` crea para cada usuario (F2-T02): el mismo id que el usuario.
+ * Así `sessionCookieFor` firma un token válido sin consultar la base.
+ */
+export function testSessionIdFor(userId: string): string {
+  return userId;
+}
+
+/** Refresh token completo de la sesión de test del usuario. */
+export function testRefreshTokenFor(userId: string): string {
+  return `${testSessionIdFor(userId)}.${TEST_REFRESH_SECRET}`;
+}
+
+/** Crea el usuario con una sesión abierta (F2-T02): toda petición autenticada de los tests la necesita. */
 export async function persistUser(tenantId: string, overrides: UserOverrides = {}): Promise<UserRecord> {
   const id = overrides.id ?? randomUUID();
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       id,
       tenantId,
@@ -69,6 +88,16 @@ export async function persistUser(tenantId: string, overrides: UserOverrides = {
       ...overrides,
     },
   });
+  await prisma.userSession.create({
+    data: {
+      id: testSessionIdFor(id),
+      tenantId,
+      userId: id,
+      refreshTokenHash: hashOpaqueSecret(TEST_REFRESH_SECRET),
+      expiresAt: new Date(Date.now() + TEST_SESSION_LIFETIME_MS),
+    },
+  });
+  return user;
 }
 
 export interface LeadStatusOverrides {

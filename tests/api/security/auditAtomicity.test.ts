@@ -31,6 +31,7 @@ async function countStored(resource: ScenarioResource): Promise<number> {
   if (resource === 'lead') return prisma.lead.count();
   if (resource === 'leadStatus') return prisma.leadStatusConfig.count();
   if (resource === 'contact') return prisma.contact.count();
+  if (resource === 'session') return prisma.userSession.count();
   return prisma.companyContact.count();
 }
 
@@ -89,8 +90,22 @@ describe('Auditoría en la misma transacción que la modificación', () => {
     await expect(readScenarioResource(scenario.resource, resourceId)).resolves.toEqual(recordBefore);
   }
 
+  async function expectSelfActionRolledBack(
+    route: (typeof mutatingRoutes)[number]['route'],
+    scenario: RouteSecurityScenario,
+  ) {
+    const ownResourceId = await persistScenarioResource(scenario.resource, company, company.owner.id);
+    const recordBefore = await readScenarioResource(scenario.resource, ownResourceId);
+
+    const response = await request(app).post(route.pattern).set('Cookie', ownerCookie);
+
+    expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
+    await expect(readScenarioResource(scenario.resource, ownResourceId)).resolves.toEqual(recordBefore);
+  }
+
   it.each(mutatingRoutes)('$title no deja la modificación si falla su auditoría', async ({ route, scenario }) => {
     if (scenario.operation === 'create') await expectCreationRolledBack(route, scenario.resource);
+    else if (scenario.operation === 'self') await expectSelfActionRolledBack(route, scenario);
     else if (scenario.operation === 'bulkUpdate') await expectBulkUpdateRolledBack(route, scenario);
     else await expectRecordChangeRolledBack(route, scenario);
   });

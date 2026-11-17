@@ -109,7 +109,7 @@ const response = await request(app)
 ```
 
 - Rutas: siempre desde `apiPaths` (`support/http/apiRoutes.ts`), nunca escritas a mano. Así un cambio de rutas (D-06, `/api/v1`) se corrige en un solo archivo.
-- Sesión: `sessionCookieFor(usuario)` firma una cookie válida sin pasar por el login.
+- Sesión: `persistUser` abre una sesión de test para cada usuario (F2-T02); `sessionCookieFor(usuario)` firma una cookie válida sobre ella sin pasar por el login y `refreshCookieFor(usuario)` da su cookie de refresh. Un usuario creado de otra forma no tiene sesión y recibe 401.
 - Además de la respuesta, comprueba el estado en la base de datos con `prisma` cuando la petición debía (o no debía) escribir.
 - **Límite de peticiones:** `src/app.ts` admite 100 peticiones cada 15 minutos por IP. Cada archivo de test recibe una aplicación nueva con el contador en cero, pero **un archivo no puede pasar de 100 peticiones**. Si te acercas, divide el archivo.
 
@@ -140,11 +140,10 @@ $env:SHOW_KNOWN_DEFECTS = '1'; pnpm test             # PowerShell
 
 No uses `itKnownDefect` para esquivar un test que no consigues hacer pasar. Solo vale para un hallazgo registrado en `PLAN.md` o en una auditoría, y hay que añadirlo a esta tabla.
 
-Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06), H15 (1 test, F1-T10), H3 (3 tests) y la parte de leads de H9 (1 test), F1-T13; H10 (3 tests) y la parte de contactos de H9 (1 test), F1-T16; el resto de H11 (1 test), F1-T12; F1-T14 (1 test), F1-T14.
+Corregidos y convertidos en regresión: H5 (13 tests, F1-T02), la parte de H11 del campo no permitido (1 test, F1-T02), H4 y H14 (1 test cada uno, F1-T06), H15 (1 test, F1-T10), H3 (3 tests) y la parte de leads de H9 (1 test), F1-T13; H10 (3 tests) y la parte de contactos de H9 (1 test), F1-T16; el resto de H11 (1 test), F1-T12; F1-T14 (1 test), F1-T14; H2 (2 tests), F2-T02.
 
 | Hallazgo | Comportamiento esperado | Tests | Dónde |
 |---|---|---|---|
-| H2 | Un usuario desactivado o con el rol cambiado pierde los permisos de su token ya emitido | 2 | `api/security/authentication.test.ts`, `api/security/roles.test.ts` |
 | H7 | Contraseña mínima de 12 caracteres (D-11) | 1 | `unit/presentation/schemas.test.ts` |
 
 ## Cobertura

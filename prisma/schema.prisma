@@ -65,6 +65,7 @@ model Tenant {
   leadStatusHistory  LeadStatusHistory[]
   quoteItems         QuoteItem[]
   emailLogs          EmailLog[]
+  userSessions       UserSession[]
 
 }
 
@@ -91,6 +92,7 @@ model User {
   ownedContacts        Contact[]        @relation("ContactOwner")
   ownedCompanyContacts CompanyContact[] @relation("CompanyContactOwner")
   emailLogs            EmailLog[]
+  sessions             UserSession[]
 
   @@index([tenantId])
   @@index([email])
@@ -376,6 +378,26 @@ model EmailLog {
   providerMessageId String?
   failureReason     String?
   createdAt         DateTime            @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// F2-T02 (D-09): sesión de un usuario. El navegador guarda el refresh token `<id>.<secreto>`; aquí solo el
+// hash SHA-256 del secreto, que cambia en cada renovación. Sin borrado suave: una sesión se revoca
+// (`revokedAt`) y las caducadas se purgarán con las tareas de mantenimiento de F5-T11.
+model UserSession {
+  id               String    @id
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedReason    String?
+  lastRefreshedAt  DateTime?
+  createdAt        DateTime  @default(now())
 
   @@index([tenantId])
   @@index([userId])

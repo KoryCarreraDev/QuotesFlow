@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import { RegisterCompanyDTO } from '@/application/dtos/RegisterCompanyDTO.js';
 import { LoginUseCase } from '@/application/use-case/auth/LoginUseCase.js';
+import { hashOpaqueSecret } from '@/application/services/opaqueTokens.js';
+import { SessionIssuer } from '@/application/services/SessionIssuer.js';
+import { InMemorySessionRepository } from '@tests/support/doubles/InMemorySessionRepository.js';
 import { RegisterCompanyAndOwnerUseCase } from '@/application/use-case/auth/RegisterCompanyAndOwnerUseCase.js';
 import { Role } from '@/domain/enums/Role.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
@@ -16,6 +19,7 @@ import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTra
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 
 const PLAIN_PASSWORD = 'Correct-Horse-Battery-9';
+const SESSION_LIFETIME_MS = 604_800_000;
 
 describe('LoginUseCase', () => {
   async function setupLogin() {
@@ -29,20 +33,51 @@ describe('LoginUseCase', () => {
     });
     userRepository.seed(registeredUser);
 
-    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
-    return { loginUseCase, authTokenService, registeredUser };
+    const sessionRepository = new InMemorySessionRepository();
+    const loginUseCase = new LoginUseCase(
+      userRepository,
+      hashService,
+      new SessionIssuer(sessionRepository, authTokenService, { refreshTokenLifetimeMs: SESSION_LIFETIME_MS }),
+      new RecordingTransactionManager(),
+      new RecordingAuditLogger(),
+    );
+    return { loginUseCase, authTokenService, registeredUser, sessionRepository };
   }
 
-  it('emite un token con el id del usuario, su tenant y su rol', async () => {
-    const { loginUseCase, authTokenService, registeredUser } = await setupLogin();
+  // F2-T02 (D-09): el login abre una sesión con refresh token rotatorio; el rol ya no viaja en el token (H2).
+  it('abre una sesión y emite un token de acceso con el usuario, su tenant y la sesión, sin el rol', async () => {
+    const { loginUseCase, authTokenService, registeredUser, sessionRepository } = await setupLogin();
 
     const result = await loginUseCase.execute({ email: 'owner@example.com', password: PLAIN_PASSWORD });
 
-    expect(authTokenService.verifyToken(result.token)).toEqual({
-      sub: registeredUser.id,
+    const claims = authTokenService.verifyToken(result.accessToken);
+    expect(claims).toEqual({ sub: registeredUser.id, tenantId: registeredUser.tenantId, sid: expect.any(String) });
+    expect(sessionRepository.findStoredById(claims.sid)).toMatchObject({
+      userId: registeredUser.id,
       tenantId: registeredUser.tenantId,
-      role: Role.OWNER,
     });
+  });
+
+  it('el refresh token es <sesión>.<secreto> y la sesión guarda solo el hash del secreto', async () => {
+    const { loginUseCase, sessionRepository } = await setupLogin();
+
+    const result = await loginUseCase.execute({ email: 'owner@example.com', password: PLAIN_PASSWORD });
+
+    const [sessionId, secret] = result.refreshToken.split('.');
+    const storedSession = sessionRepository.findStoredById(sessionId);
+    expect(storedSession?.refreshTokenHash).toBe(hashOpaqueSecret(secret));
+    expect(storedSession?.refreshTokenHash).not.toContain(secret);
+  });
+
+  it('la sesión caduca según la política, sin depender del token de acceso', async () => {
+    const { loginUseCase, sessionRepository } = await setupLogin();
+    const before = Date.now();
+
+    const result = await loginUseCase.execute({ email: 'owner@example.com', password: PLAIN_PASSWORD });
+
+    const [sessionId] = result.refreshToken.split('.');
+    const expiresAt = sessionRepository.findStoredById(sessionId)?.expiresAt.getTime() ?? 0;
+    expect(expiresAt).toBeGreaterThanOrEqual(before + SESSION_LIFETIME_MS);
   });
 
   it('rechaza una contraseña incorrecta y no emite token', async () => {
@@ -78,7 +113,15 @@ describe('LoginUseCase con cuentas que no pueden iniciar sesión (H3)', () => {
       }),
     );
     const authTokenService = new FakeAuthTokenService();
-    const loginUseCase = new LoginUseCase(userRepository, hashService, authTokenService, new RecordingAuditLogger());
+    const loginUseCase = new LoginUseCase(
+      userRepository,
+      hashService,
+      new SessionIssuer(new InMemorySessionRepository(), authTokenService, {
+        refreshTokenLifetimeMs: SESSION_LIFETIME_MS,
+      }),
+      new RecordingTransactionManager(),
+      new RecordingAuditLogger(),
+    );
 
     await expect(
       loginUseCase.execute({ email: 'inactive@example.com', password: PLAIN_PASSWORD }),

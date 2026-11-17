@@ -12,15 +12,17 @@ import {
   persistContact,
   persistLead,
   persistLeadStatus,
+  testSessionIdFor,
 } from '@tests/support/database/persistenceFactories.js';
 import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/support/http/apiRoutes.js';
 
 /** Recurso de negocio sobre el que actúa la ruta. */
-export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact';
+export type ScenarioResource = 'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
-export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate';
+/** `self`: actúa sobre los registros del propio usuario, sin id ni cuerpo (cerrar sus sesiones, F2-T02). */
+export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self';
 
 export interface RouteSecurityScenario {
   /** Acción de `permissionMatrix` que autoriza la ruta. */
@@ -32,6 +34,8 @@ export interface RouteSecurityScenario {
 }
 
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
+  [`POST ${apiPaths.auth.logoutAll}`, { action: Action.SESSION_REVOKE_OWN, resource: 'session', operation: 'self' }],
+
   [`GET ${apiPaths.leads.getAll}`, { action: Action.LEAD_LIST, resource: 'lead', operation: 'list' }],
   [`GET ${apiPaths.leads.filtered}`, { action: Action.LEAD_LIST, resource: 'lead', operation: 'list' }],
   [`POST ${apiPaths.leads.create}`, { action: Action.LEAD_CREATE, resource: 'lead', operation: 'create' }],
@@ -141,6 +145,8 @@ export async function persistScenarioResource(
     return (await persistLeadStatus(tenantId, { name: `Estado ${nextStatusOrder}`, order: nextStatusOrder })).id;
   }
   if (resource === 'contact') return (await persistContact(tenantId, { ownerId: ownerUserId })).id;
+  // La sesión de test que `persistUser` abrió para el responsable.
+  if (resource === 'session') return testSessionIdFor(ownerUserId ?? company.owner.id);
   return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
@@ -173,6 +179,7 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'lead') return prisma.lead.findUnique({ where: { id } });
   if (resource === 'leadStatus') return prisma.leadStatusConfig.findUnique({ where: { id } });
   if (resource === 'contact') return prisma.contact.findUnique({ where: { id } });
+  if (resource === 'session') return prisma.userSession.findUnique({ where: { id } });
   return prisma.companyContact.findUnique({ where: { id } });
 }
 

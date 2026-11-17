@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
-import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
+import { AuthenticateSessionUseCase } from '../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { Request } from 'express';
 import { LeadStatusConfigController } from '@/infrastructure/web/controllers/leadStatusConfigControllers.js';
@@ -24,9 +24,9 @@ function getLeadStatusConfigController(req: Request): LeadStatusConfigController
   );
 }
 
-export function leadStatusConfigRouter(jwtService: IAuthTokenService): Router {
+export function leadStatusConfigRouter(authenticateSession: AuthenticateSessionUseCase): Router {
   const router = Router();
-  const authMiddleware = createAuthValidateCookie(jwtService);
+  const authMiddleware = createAuthValidateCookie(authenticateSession);
   const tenantMiddleware = createTenantMiddleware();
 
   router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {

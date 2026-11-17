@@ -31,6 +31,9 @@ export const apiPaths = {
   auth: {
     register: `${API_BASE_PATH}/auth/register`,
     login: `${API_BASE_PATH}/auth/login`,
+    refresh: `${API_BASE_PATH}/auth/refresh`,
+    logout: `${API_BASE_PATH}/auth/logout`,
+    logoutAll: `${API_BASE_PATH}/auth/logout-all`,
   },
   leads: {
     getAll: LEAD_BASE_PATH,
@@ -68,6 +71,10 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.ready, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.register, access: 'public' },
   { method: 'POST', pattern: apiPaths.auth.login, access: 'public' },
+  // F2-T02: renovar y cerrar la sesión usan el refresh token, no la sesión de acceso.
+  { method: 'POST', pattern: apiPaths.auth.refresh, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.logout, access: 'public' },
+  { method: 'POST', pattern: apiPaths.auth.logoutAll, access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.leads.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leads.create, access: 'authenticated' },

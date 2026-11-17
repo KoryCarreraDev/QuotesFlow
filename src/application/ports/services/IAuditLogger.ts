@@ -3,6 +3,10 @@ export enum AuditAction {
   COMPANY_REGISTERED = 'COMPANY_REGISTERED',
   LOGIN_SUCCEEDED = 'LOGIN_SUCCEEDED',
   LOGIN_FAILED = 'LOGIN_FAILED',
+  LOGOUT = 'LOGOUT',
+  LOGOUT_ALL_SESSIONS = 'LOGOUT_ALL_SESSIONS',
+  /** Se presentó un refresh token ya rotado y la sesión se revocó (F2-T02). */
+  SESSION_REUSE_DETECTED = 'SESSION_REUSE_DETECTED',
   LEAD_CREATED = 'LEAD_CREATED',
   LEAD_UPDATED = 'LEAD_UPDATED',
   LEAD_DELETED = 'LEAD_DELETED',
@@ -23,6 +27,7 @@ export enum AuditAction {
 export enum AuditEntity {
   TENANT = 'Tenant',
   USER = 'User',
+  SESSION = 'UserSession',
   LEAD = 'Lead',
   LEAD_STATUS_CONFIG = 'LeadStatusConfig',
   CONTACT = 'Contact',

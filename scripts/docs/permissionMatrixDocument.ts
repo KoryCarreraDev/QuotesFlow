@@ -25,6 +25,7 @@ const actionDescriptions: Record<Action, string> = {
   [Action.COMPANY_CONTACT_UPDATE]: 'Modificar una empresa cliente',
   [Action.COMPANY_CONTACT_DELETE]: 'Borrar (suave) una empresa cliente sin contactos activos',
   [Action.COMPANY_CONTACT_ASSIGN_OWNER]: 'Elegir o cambiar el comercial responsable de una empresa cliente',
+  [Action.SESSION_REVOKE_OWN]: 'Cerrar todas sus propias sesiones (`POST /auth/logout-all`)',
 };
 
 const grantLabels = new Map<Grant, string>([

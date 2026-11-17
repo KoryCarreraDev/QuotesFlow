@@ -14,7 +14,6 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { apiPaths } from '@tests/support/http/apiRoutes.js';
-import { itKnownDefect } from '@tests/support/knownDefect.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -192,7 +191,8 @@ describe('Permisos por rol', () => {
       expect(response.status).toBe(HTTP_FORBIDDEN);
     });
 
-    itKnownDefect('H2', 'el rol de un token ya emitido deja de valer cuando al usuario le cambian el rol', async () => {
+    // Regresión de H2 (F2-T02): el rol se lee de la base en cada petición, no del token.
+    it('el rol de un token ya emitido deja de valer cuando al usuario le cambian el rol', async () => {
       const cookieIssuedAsSalesLeader = cookieOf('salesLeader');
       await prisma.user.update({ where: { id: company.salesLeader.id }, data: { role: 'SALES_REP' } });
 

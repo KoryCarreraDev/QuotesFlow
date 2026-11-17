@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
-import { IAuthTokenService } from '../../application/ports/services/IAuthTokenService.js';
+import { AuthenticateSessionUseCase } from '../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { ContactController } from '../../infrastructure/web/controllers/contactControllers.js';
 import { createContactSchema, updateContactSchema } from '../schemas/contactSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
@@ -16,9 +16,9 @@ function getContactController(req: Request): ContactController {
   return new ContactController(getContactsUseCase, listFilteredUseCase, createUseCase, updateUseCase, deleteUseCase);
 }
 
-export function contactRouter(jwtService: IAuthTokenService): Router {
+export function contactRouter(authenticateSession: AuthenticateSessionUseCase): Router {
   const router = Router();
-  const authMiddleware = createAuthValidateCookie(jwtService);
+  const authMiddleware = createAuthValidateCookie(authenticateSession);
   const tenantMiddleware = createTenantMiddleware();
 
   router.get('/', authMiddleware, tenantMiddleware, (req, res, next) => {

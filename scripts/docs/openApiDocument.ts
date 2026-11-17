@@ -158,7 +158,33 @@ export const openApiOperations: OperationEntry[] = [
     isPublic: true,
     body: loginSchema,
     successStatus: 200,
-    successDescription: '{ success: true } y cookie de sesión',
+    successDescription: '{ success: true } y cookies accessToken (15 min) y refreshToken (Path=/api/v1/auth)',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/auth/refresh`,
+    tag: 'Autenticación',
+    summary: 'Renueva la sesión con la cookie refreshToken y la rota; un refresh reutilizado revoca la sesión',
+    isPublic: true,
+    successStatus: 200,
+    successDescription: '{ success: true } y cookies nuevas; 401 INVALID_SESSION si no vale',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/auth/logout`,
+    tag: 'Autenticación',
+    summary: 'Cierra la sesión del navegador (idempotente) y borra las cookies',
+    isPublic: true,
+    successStatus: 204,
+    successDescription: 'Sin contenido',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/auth/logout-all`,
+    tag: 'Autenticación',
+    summary: 'Cierra todas las sesiones del usuario, también la actual',
+    successStatus: 204,
+    successDescription: 'Sin contenido',
   },
   leads.list,
   leads.search,
@@ -276,7 +302,8 @@ export function buildOpenApiDocument() {
     type: 'apiKey',
     in: 'cookie',
     name: 'accessToken',
-    description: 'Cookie HTTP-only que deja POST /api/v1/auth/login',
+    description:
+      'Cookie HTTP-only con el token de acceso (15 min) que deja POST /api/v1/auth/login; caducado responde 401 SESSION_EXPIRED y se renueva con POST /api/v1/auth/refresh',
   });
   for (const operation of openApiOperations) registry.registerPath(routeConfigFor(operation));
 

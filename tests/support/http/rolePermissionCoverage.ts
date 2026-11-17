@@ -29,12 +29,14 @@ import {
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
+const HTTP_NO_CONTENT = 204;
 const HTTP_FORBIDDEN = 403;
 
 /** Grupos de recursos, uno por archivo de la suite. Entre todos cubren todos los recursos. */
 export const ROLE_COVERAGE_GROUPS: Record<string, readonly ScenarioResource[]> = {
   leads: ['lead', 'leadStatus'],
   contacts: ['contact', 'companyContact'],
+  sessions: ['session'],
 };
 
 type TeamMember = 'owner' | 'partner' | 'salesLeader' | 'salesRep';
@@ -58,7 +60,8 @@ function casesFor(resources: readonly ScenarioResource[]) {
 }
 
 function successStatusFor(scenario: RouteSecurityScenario): number {
-  return scenario.operation === 'create' ? HTTP_CREATED : HTTP_OK;
+  if (scenario.operation === 'create') return HTTP_CREATED;
+  return scenario.operation === 'self' ? HTTP_NO_CONTENT : HTTP_OK;
 }
 
 function targetsOneRecord(scenario: RouteSecurityScenario): boolean {
