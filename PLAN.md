@@ -172,7 +172,7 @@ Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
 - F2-T06 `[S]` Perfil del tenant y `TenantSettings` (nombre, logo, zona horaria; por defecto `America/Bogota`).
 - F2-T07 `[O]` Protección CSRF acorde a D-14 (verificación de `Origin` en peticiones que modifican). **Hecha el 2026-11-17, pendiente de PR y revisión humana.** `createOriginCheckMiddleware`; sin `Origin` usa `Referer`.
 - F2-T08 `[O]` Auditoría en la misma transacción que la modificación en todos los casos de uso que escriben (F1-S1 de `docs/audits/F1-seguridad.md`).
-- F2-T09 `[S]` Índice único parcial `(tenantId, documentNumber) WHERE deleted = 'INUSE'` en contactos y empresas cliente, con SQL propio en la migración, y traducción del conflicto a 409 (F1-S2).
+- F2-T09 `[S]` Índice único parcial `(tenantId, documentNumber) WHERE deleted = 'INUSE'` en contactos y empresas cliente, con SQL propio en la migración, y traducción del conflicto a 409 (F1-S2). **Hecha el 2026-11-17, pendiente de PR, revisión humana y migración en producción (R6).** Declarado en `schema.prisma` con la función preview `partialIndexes`.
 - F2-T10 `[S]` Sacar `/health` y `/ready` del limitador global de peticiones, o documentar la frecuencia máxima de sondeo para el orquestador (F1-S5). **Hecha el 2026-11-17, pendiente de PR y revisión humana.** Las sondas se registran antes del limitador.
 
 ### F3 — Productos, fórmulas y cotizaciones

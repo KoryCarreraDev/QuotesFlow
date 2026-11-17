@@ -96,4 +96,25 @@ describe('clientes por responsable y documento único', () => {
     expect(response.status).toBe(HTTP_CREATED);
     expect(response.body.documentNumber).toBe('900123456');
   });
+
+  // Regresión de F1-S2 (F2-T09): las dos altas pasaban la comprobación de la aplicación a la vez.
+  it('dos altas simultáneas con el mismo documento crean un solo contacto y la otra recibe 409', async () => {
+    const ownerCookie = sessionCookieFor(company.owner);
+    const sameDocument = { lastName: 'Martínez', documentType: 'CC', documentNumber: '1020304050' };
+
+    const responses = await Promise.all([
+      request(app)
+        .post(apiPaths.contacts.create)
+        .set('Cookie', ownerCookie)
+        .send({ firstName: 'Laura', ...sameDocument }),
+      request(app)
+        .post(apiPaths.contacts.create)
+        .set('Cookie', ownerCookie)
+        .send({ firstName: 'Lorena', ...sameDocument }),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([HTTP_CREATED, HTTP_CONFLICT]);
+    const conflict = responses.find((response) => response.status === HTTP_CONFLICT);
+    expect(conflict?.body.error.code).toBe(ErrorCode.DOCUMENT_ALREADY_REGISTERED);
+  });
 });

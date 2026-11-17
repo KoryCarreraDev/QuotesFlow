@@ -1,6 +1,9 @@
 //Cliente (Siempre el recomendado)
 generator client {
   provider = "prisma-client-js"
+  // F2-T09: índice único parcial del documento de clientes (D-19). Sin la función preview, Prisma no
+  // conocería el índice y una migración futura generada con `migrate dev` lo borraría.
+  previewFeatures = ["partialIndexes"]
 }
 
 //Configuracion de conexión a la BD (Tomado de las .env)
@@ -207,7 +210,9 @@ model Contact {
 
   @@index([tenantId])
   @@index([ownerId])
-  @@index([tenantId, documentNumber])
+  // D-19 (F2-T09): la base garantiza que un documento no se repite entre clientes activos del tenant, también
+  // con dos altas simultáneas. Los borrados quedan fuera para poder reutilizar su documento.
+  @@unique([tenantId, documentNumber], map: "Contact_tenantId_documentNumber_active_key", where: raw("(deleted = 'INUSE'::\"DeletedState\") AND (\"documentNumber\" IS NOT NULL)"))
 }
 
 //Contacto del tipo empresa (Mas extenso y complejo pero necesario para facturación)
@@ -236,7 +241,8 @@ model CompanyContact {
 
   @@index([tenantId])
   @@index([ownerId])
-  @@index([tenantId, documentNumber])
+  // D-19 (F2-T09): mismo índice parcial que en `Contact`.
+  @@unique([tenantId, documentNumber], map: "CompanyContact_tenantId_documentNumber_active_key", where: raw("(deleted = 'INUSE'::\"DeletedState\") AND (\"documentNumber\" IS NOT NULL)"))
 }
 
 //Modelo para la gestión de fórmulas matemáticas 
