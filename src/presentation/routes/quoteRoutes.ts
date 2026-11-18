@@ -18,6 +18,7 @@ function getQuoteController(req: Request): QuoteController {
     quotes.getAcceptQuoteUseCase(),
     quotes.getRejectQuoteUseCase(),
     quotes.getReviseQuoteUseCase(),
+    quotes.getGenerateQuotePdfUseCase(),
   );
 }
 
@@ -37,6 +38,10 @@ export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Ro
 
   router.get('/:id', authMiddleware, tenantMiddleware, (req, res, next) => {
     getQuoteController(req).get(req, res, next);
+  });
+
+  router.get('/:id/pdf', authMiddleware, tenantMiddleware, (req, res, next) => {
+    getQuoteController(req).pdf(req, res, next);
   });
 
   router.patch('/:id', authMiddleware, tenantMiddleware, validateBody(updateQuoteSchema), (req, res, next) => {

@@ -11,6 +11,7 @@ import {
   SendQuoteUseCase,
   UpdateQuoteUseCase,
 } from '../../../application/use-case/quotes/QuoteUseCases.js';
+import { GenerateQuotePdfUseCase } from '../../../application/use-case/quotes/QuotePdfUseCase.js';
 import { Role } from '../../../domain/enums/Role.js';
 import { quoteFilterConfig } from '../../persistence/filters/quoteFilterConfig.js';
 import { HttpStatus } from '../errors/errorResponse.js';
@@ -32,6 +33,7 @@ export class QuoteController {
     private readonly acceptQuote: AcceptQuoteUseCase,
     private readonly rejectQuote: RejectQuoteUseCase,
     private readonly reviseQuote: ReviseQuoteUseCase,
+    private readonly generateQuotePdf: GenerateQuotePdfUseCase,
   ) {}
 
   search = async (req: Request, res: Response, next: NextFunction) => {
@@ -103,6 +105,23 @@ export class QuoteController {
   revise = async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.status(HttpStatus.CREATED).json(await this.reviseQuote.execute(actorOf(req), String(req.params.id)));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  pdf = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = await this.generateQuotePdf.execute(actorOf(req), String(req.params.id));
+      // Contiene datos de clientes: nunca se guarda en cachés compartidas. El nombre sale del número de la cotización.
+      res
+        .status(HttpStatus.OK)
+        .set({
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${file.fileName}"`,
+          'Cache-Control': 'private, no-store',
+        })
+        .send(Buffer.from(file.content));
     } catch (error) {
       next(error);
     }

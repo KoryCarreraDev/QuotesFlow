@@ -210,6 +210,7 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`GET ${apiPaths.quotes.filtered}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'list' }],
   [`POST ${apiPaths.quotes.create}`, { action: Action.QUOTE_CREATE, resource: 'quote', operation: 'create' }],
   [`GET ${apiPaths.quotes.get(':id')}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'read' }],
+  [`GET ${apiPaths.quotes.pdf(':id')}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'read' }],
   [`PATCH ${apiPaths.quotes.update(':id')}`, { action: Action.QUOTE_UPDATE, resource: 'quote', operation: 'update' }],
   [`DELETE ${apiPaths.quotes.delete(':id')}`, { action: Action.QUOTE_DELETE, resource: 'quote', operation: 'delete' }],
   [`POST ${apiPaths.quotes.send(':id')}`, { action: Action.QUOTE_SEND, resource: 'quote', operation: 'transition' }],

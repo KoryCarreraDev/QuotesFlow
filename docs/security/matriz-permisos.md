@@ -46,7 +46,7 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `formula:create` | Crear una fórmula de precio | Sí | Sí | Sí | No |
 | `formula:update` | Modificar una fórmula de precio | Sí | Sí | Sí | No |
 | `formula:delete` | Borrar (suave) una fórmula que ningún producto usa | Sí | Sí | Sí | No |
-| `quote:list` | Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`) | Sí | Sí | Sí | Solo los suyos |
+| `quote:list` | Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`, `GET /quotes/:id/pdf`) | Sí | Sí | Sí | Solo los suyos |
 | `quote:create` | Crear una cotización (borrador) | Sí | Sí | Sí | Sí |
 | `quote:update` | Modificar un borrador o crear la versión siguiente de una cotización (`POST /quotes/:id/revise`) | Sí | Sí | Sí | Solo los suyos |
 | `quote:delete` | Borrar (suave) un borrador | Sí | Sí | Sí | Solo los suyos |

@@ -7,16 +7,12 @@ import {
   GetTenantProfileUseCase,
   UpdateTenantProfileUseCase,
 } from '../../application/use-case/tenant/TenantProfileUseCases.js';
-import { env } from '../../config/env.js';
 import { appLogger } from '../../infrastructure/logging/appLogger.js';
 import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
 import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
 import { PrismaTenantProfileRepository } from '../../infrastructure/persistence/repositories/PrismaTenantProfileRepository.js';
-import { LocalDiskFileStorage } from '../../infrastructure/services/LocalDiskFileStorage.js';
+import { fileStorage } from '../sharedServices.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
-
-// Q-017: en desarrollo los logos van a disco; un adaptador compatible con S3 lo reemplazará al desplegar.
-const fileStorage = new LocalDiskFileStorage(env.FILE_STORAGE_DIRECTORY);
 
 /** Perfil y configuración de la empresa (F2-T06). */
 export class TenantModule {

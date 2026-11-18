@@ -45,7 +45,8 @@ const actionDescriptions: Record<Action, string> = {
   [Action.FORMULA_CREATE]: 'Crear una fórmula de precio',
   [Action.FORMULA_UPDATE]: 'Modificar una fórmula de precio',
   [Action.FORMULA_DELETE]: 'Borrar (suave) una fórmula que ningún producto usa',
-  [Action.QUOTE_LIST]: 'Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`)',
+  [Action.QUOTE_LIST]:
+    'Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`, `GET /quotes/:id/pdf`)',
   [Action.QUOTE_CREATE]: 'Crear una cotización (borrador)',
   [Action.QUOTE_UPDATE]:
     'Modificar un borrador o crear la versión siguiente de una cotización (`POST /quotes/:id/revise`)',
