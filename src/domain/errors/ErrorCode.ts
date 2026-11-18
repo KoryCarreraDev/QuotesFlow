@@ -33,6 +33,7 @@ export enum ErrorCode {
   PRODUCT_NOT_FOUND = 'PRODUCT_NOT_FOUND',
   FORMULA_NOT_FOUND = 'FORMULA_NOT_FOUND',
   QUOTE_NOT_FOUND = 'QUOTE_NOT_FOUND',
+  LOGO_NOT_FOUND = 'LOGO_NOT_FOUND',
   RECORD_NOT_FOUND = 'RECORD_NOT_FOUND',
   ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
 
@@ -75,6 +76,8 @@ export enum ErrorCode {
   // Productos (F3-T02): sin precio fijo ni fórmula, o con una fórmula que no es de la empresa.
   PRODUCT_PRICE_REQUIRED = 'PRODUCT_PRICE_REQUIRED',
   INVALID_PRODUCT_FORMULA = 'INVALID_PRODUCT_FORMULA',
+  // Logo de la empresa (F3-T07): no es un PNG o JPEG válido, o supera el tamaño permitido.
+  INVALID_LOGO_IMAGE = 'INVALID_LOGO_IMAGE',
   // Cotizaciones (F3-T05).
   QUOTE_CUSTOMER_REQUIRED = 'QUOTE_CUSTOMER_REQUIRED',
   INVALID_QUOTE_CUSTOMER = 'INVALID_QUOTE_CUSTOMER',

@@ -4,6 +4,8 @@
 // así los tests no dependen del `.env` local ni usan sus secretos.
 //
 // Este archivo no puede importar nada de `src/` (los imports se evalúan antes que estas líneas).
+import os from 'node:os';
+import path from 'node:path';
 
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-only-jwt-secret-never-use-outside-tests';
@@ -19,3 +21,5 @@ process.env.LOG_LEVEL = 'silent';
 process.env.EMAIL_PROVIDER = 'memory';
 // Ningún test consulta Have I Been Pwned; el adaptador se prueba contra un servidor local.
 process.env.PASSWORD_BREACH_CHECK = 'off';
+// Los logos de los tests van a una carpeta temporal propia de cada proceso, nunca a `./storage`.
+process.env.FILE_STORAGE_DIRECTORY = path.join(os.tmpdir(), `quotesflow-test-storage-${process.pid}`);

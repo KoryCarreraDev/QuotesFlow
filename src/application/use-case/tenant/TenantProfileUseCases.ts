@@ -1,6 +1,7 @@
+import { TenantProfileDTO } from '@/application/dtos/TenantProfileDTO.js';
+import { toTenantProfileDTO } from '@/application/mappers/TenantProfileMapper.js';
 import {
   ITenantProfileRepository,
-  TenantProfile,
   TenantProfileChanges,
 } from '@/application/ports/repositories/ITenantProfileRepository.js';
 import {
@@ -22,14 +23,14 @@ import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 export class GetTenantProfileUseCase {
   constructor(private readonly tenantProfileRepository: ITenantProfileRepository) {}
 
-  async execute(actor: Actor): Promise<TenantProfile> {
+  async execute(actor: Actor): Promise<TenantProfileDTO> {
     if (!can(actor, Action.TENANT_VIEW)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
     const profile = await this.tenantProfileRepository.findCurrent();
     // Con sesión válida la empresa existe y está activa (lo comprueba la autenticación): es un fallo interno.
     if (!profile) throw new Error('Tenant of the session not found');
-    return profile;
+    return toTenantProfileDTO(profile);
   }
 }
 
@@ -46,7 +47,7 @@ export class UpdateTenantProfileUseCase {
     private readonly auditLogger: IAuditLogger,
   ) {}
 
-  async execute(actor: Actor, changes: TenantProfileChanges): Promise<TenantProfile> {
+  async execute(actor: Actor, changes: TenantProfileChanges): Promise<TenantProfileDTO> {
     if (!can(actor, Action.TENANT_UPDATE)) {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
@@ -61,7 +62,7 @@ export class UpdateTenantProfileUseCase {
         entityId: profile.id,
         metadata: { changedFields: changedFieldNames(changes) },
       });
-      return profile;
+      return toTenantProfileDTO(profile);
     });
   }
 }

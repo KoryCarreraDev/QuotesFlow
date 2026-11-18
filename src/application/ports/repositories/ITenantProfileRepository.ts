@@ -2,8 +2,8 @@
 export interface TenantProfile {
   id: string;
   name: string;
-  /** Lo subirá F3-T07 (`IFileStorage`); hasta entonces solo se lee. */
-  logoUrl?: string;
+  /** Clave del logo en `IFileStorage` (F3-T07). Es interna: la API publica `logoUrl`, nunca esta clave. */
+  logoKey?: string;
   /** Zona horaria IANA para fechas de cotizaciones, alertas y reportes. */
   timezone: string;
   /**
@@ -37,4 +37,7 @@ export interface ITenantProfileRepository {
 
   /** Aplica los cambios a la empresa del contexto; crea su configuración si aún no la tenía. */
   updateCurrent(changes: TenantProfileChanges): Promise<void>;
+
+  /** Guarda (o quita, con `null`) la clave del logo de la empresa del contexto. */
+  updateLogoKey(logoKey: string | null): Promise<void>;
 }

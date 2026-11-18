@@ -15,8 +15,11 @@ import {
   type ScenarioResource,
   creationBodyFor,
   persistScenarioResource,
+  prepareSelfScenario,
   readScenarioResource,
   requestOnRecord,
+  requestSelf,
+  isReadOnlyScenario,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -25,8 +28,7 @@ const HTTP_INTERNAL_SERVER_ERROR = 500;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn' || scenario?.operation === 'read';
-  return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
+  return scenario && !isReadOnlyScenario(scenario) ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
 async function countStored(resource: ScenarioResource): Promise<number> {
@@ -100,13 +102,11 @@ describe('Auditoría en la misma transacción que la modificación', () => {
     route: (typeof mutatingRoutes)[number]['route'],
     scenario: RouteSecurityScenario,
   ) {
+    await prepareSelfScenario(scenario, company);
     const ownResourceId = await persistScenarioResource(scenario.resource, company, company.owner.id);
     const recordBefore = await readScenarioResource(scenario.resource, ownResourceId);
 
-    const response =
-      route.method === 'PATCH'
-        ? await request(app).patch(route.pattern).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
-        : await request(app).post(route.pattern).set('Cookie', ownerCookie);
+    const response = await requestSelf(route, ownerCookie, scenario, company);
 
     expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
     await expect(readScenarioResource(scenario.resource, ownResourceId)).resolves.toEqual(recordBefore);
