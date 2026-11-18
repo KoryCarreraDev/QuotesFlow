@@ -168,6 +168,7 @@ function setup() {
       leads,
       contacts,
       companyContacts,
+      resolver,
     ),
     accept: new AcceptQuoteUseCase(
       quotes,
@@ -829,6 +830,50 @@ describe('Enviar, aceptar, rechazar', () => {
     });
     expect(context.auditLogger.entries).toEqual([]);
     expect(context.transactionManager.failedTransactionCount).toBe(1);
+  });
+});
+
+describe('Enviar vuelve a comprobar el tope de descuento (F3-A05)', () => {
+  async function draftWithDiscount(context: Setup, createdBy: typeof salesRep) {
+    const created = await context.create.execute(
+      createdBy,
+      quoteInput(seedContact(context, createdBy.userId), { discountRate: '10' }),
+    );
+    return created.id;
+  }
+
+  it('si el tope del rol bajó después de crear el borrador, el comercial ya no lo envía', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.profiles.updateCurrent({ maximumDiscountRateSalesRep: '5.00' });
+
+    await expect(context.send.execute(salesRep, quoteId)).rejects.toMatchObject({
+      code: ErrorCode.DISCOUNT_ABOVE_ROLE_LIMIT,
+    });
+
+    expect(context.quotes.findStoredById(quoteId)?.status).toBe(QuoteStatus.DRAFT);
+    expect(context.auditLogger.entries.map((entry) => entry.action)).not.toContain(AuditAction.QUOTE_SENT);
+  });
+
+  it('gestión sin tope sí lo envía, y el comercial con el tope vigente también', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.profiles.updateCurrent({ maximumDiscountRateSalesRep: '5.00' });
+
+    await expect(context.send.execute(owner, quoteId)).resolves.toMatchObject({ status: 'SENT' });
+
+    const secondId = await draftWithDiscount(context, salesLeader);
+    await expect(context.send.execute(salesLeader, secondId)).resolves.toMatchObject({ status: 'SENT' });
+  });
+
+  it('un líder edita el borrador de un comercial con un 20 % y el comercial no puede enviarlo', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.update.execute(salesLeader, quoteId, { discountRate: '20' });
+
+    await expect(context.send.execute(salesRep, quoteId)).rejects.toMatchObject({
+      code: ErrorCode.DISCOUNT_ABOVE_ROLE_LIMIT,
+    });
   });
 });
 

@@ -34,7 +34,7 @@ servidor calcula y que no cambian después de enviada.
 - **Descuentos (D-25, Q-019).** Porcentaje por ítem y global. Tope por rol sobre el descuento total de cada ítem
   (el suyo y el global seguidos): comercial 10 %, líder comercial 20 % por defecto, dueño y socio sin tope; los
   topes los configuran dueño y socio (`maximumDiscountRateSalesRep`, `maximumDiscountRateSalesLeader`). Superarlo
-  responde `403 DISCOUNT_ABOVE_ROLE_LIMIT`. Se comprueba al crear y al modificar, también si solo cambia el global.
+  responde `403 DISCOUNT_ABOVE_ROLE_LIMIT`. Se comprueba al crear, al modificar (también si solo cambia el global) y **al enviar**, con el tope vigente de quien envía: si el dueño baja el tope o un líder edita el borrador, el comercial no puede enviar un descuento que ya no le corresponde (F3-A05).
 - **Vigencia (D-23).** `validUntil` es el último día válido (`AAAA-MM-DD`) en la zona horaria de la empresa; por
   defecto 30 días desde hoy. No puede estar en el pasado al crear o modificar (`400 INVALID_VALIDITY_DATE`) ni al
   enviar (`409 QUOTE_EXPIRED`).

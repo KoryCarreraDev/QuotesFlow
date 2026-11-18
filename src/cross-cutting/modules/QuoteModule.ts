@@ -104,6 +104,7 @@ export class QuoteModule {
       new PrismaLeadRepository(prisma, tenantContext),
       new PrismaContactRepository(prisma, tenantContext),
       new PrismaCompanyContactRepository(prisma, tenantContext),
+      this.createContentResolver(),
     );
   }
 

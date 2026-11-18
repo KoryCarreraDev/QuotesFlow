@@ -375,6 +375,7 @@ const FALLBACK_CUSTOMER_NAME = 'cliente';
  * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
  * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
  * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`, `QUOTE_EXPIRED` (vigencia pasada).
+ * @throws {ForbiddenError} `DISCOUNT_ABOVE_ROLE_LIMIT`: el descuento supera el tope actual del rol de quien envía.
  * @throws {ValidationError} `QUOTE_ITEMS_REQUIRED`, `QUOTE_RECIPIENT_REQUIRED` (correo activo y sin a quién escribir).
  * @throws {ServiceUnavailableError} `QUOTE_EMAIL_FAILED`.
  */
@@ -390,11 +391,14 @@ export class SendQuoteUseCase {
     private readonly leadRepository: ILeadRepository,
     private readonly contactRepository: IContactRepository,
     private readonly companyContactRepository: ICompanyContactRepository,
+    private readonly contentResolver: QuoteContentResolver,
   ) {}
 
   async execute(actor: ActorWithId, quoteId: string, input: SendQuoteInput = {}): Promise<SendQuoteResult> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_SEND, quoteId);
     const { profile, now, today } = await loadClock(this.tenantProfileRepository);
+    // El tope del rol puede haber bajado, o un líder puede haber editado el borrador, desde que se creó (F3-A05).
+    this.contentResolver.assertDiscountsWithinRoleLimit(actor, profile, quote.discountRate, quote.items);
     const sent = quote.markSent(now, today);
 
     const emailed = profile.emailDeliveryEnabled
