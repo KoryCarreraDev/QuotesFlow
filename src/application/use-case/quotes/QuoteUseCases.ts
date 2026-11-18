@@ -469,8 +469,14 @@ export class SendQuoteUseCase {
   }
 }
 
-/** Registra el rechazo del cliente a una cotización enviada. */
-export class DecideQuoteUseCase {
+/**
+ * El cliente rechazó. Vale también para una enviada ya vencida.
+ *
+ * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
+ * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
+ * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`.
+ */
+export class RejectQuoteUseCase {
   constructor(
     private readonly repository: IQuoteRepository,
     private readonly tenantProfileRepository: ITenantProfileRepository,
@@ -556,24 +562,6 @@ export class AcceptQuoteUseCase {
       actor,
     );
     return true;
-  }
-}
-
-/**
- * El cliente rechazó. Vale también para una enviada ya vencida.
- *
- * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
- * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
- * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`.
- */
-export class RejectQuoteUseCase extends DecideQuoteUseCase {
-  constructor(
-    repository: IQuoteRepository,
-    tenantProfileRepository: ITenantProfileRepository,
-    transactionManager: ITransactionManager,
-    auditLogger: IAuditLogger,
-  ) {
-    super(repository, tenantProfileRepository, transactionManager, auditLogger);
   }
 }
 
