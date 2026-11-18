@@ -61,4 +61,5 @@ Respuesta `200` con el perfil (`logoUrl` incluido). Errores: `400 INVALID_LOGO_I
 - El cuerpo de `PATCH` solo admite los campos de la tabla: el id y el logo que se envíen se descartan.
 - Cada cambio queda en auditoría (`TENANT_UPDATED`, con los nombres de los campos cambiados; `TENANT_LOGO_UPDATED` con el formato; `TENANT_LOGO_REMOVED`).
 - La clave del logo incluye el id de la empresa y un UUID; el adaptador de disco rechaza cualquier clave con `..`, rutas absolutas o caracteres fuera de `a-z 0-9 _ - .` y comprueba que la ruta resuelta queda dentro de la carpeta raíz.
+- `PUT /tenant/logo` comprueba `tenant:update` **antes** de leer el archivo (`requirePermission`): un comercial recibe 403 sin que el servidor cargue su archivo en memoria (F3-A17); el caso de uso lo vuelve a comprobar.
 - La carga se lee en memoria con tope de tamaño (`multer`, un archivo, sin campos de texto); una petición mayor se corta antes de procesarla.

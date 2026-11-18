@@ -1,10 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '@/app.js';
 import prisma from '@/config/database.js';
 import { env } from '@/config/env.js';
+import { UploadTenantLogoUseCase } from '@/application/use-case/tenant/TenantLogoUseCases.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { LOGO_MAXIMUM_BYTES } from '@/domain/value-objects/logoImage.js';
 import { buildJpeg, buildPngHeader } from '@tests/support/builders/imageFixtures.js';
@@ -174,6 +175,23 @@ describe('API del logo de la empresa', () => {
       expect(response.status).toBe(HTTP_BAD_REQUEST);
       expect(response.body.error.code).toBe(ErrorCode.INVALID_LOGO_IMAGE);
     }
+  });
+
+  it('el permiso se comprueba antes de leer el archivo: un comercial con un archivo inválido recibe 403, no 400 (F3-A17)', async () => {
+    // Con un cuerpo enorme el servidor corta la conexión al responder 403 y el cliente puede ver ECONNRESET en vez
+    // de la respuesta; un archivo que multer rechazaría (no es imagen) distingue igual el orden: 403 y no 400.
+    const notAnImage = Buffer.from('esto no es una imagen');
+    const uploadSpy = vi.spyOn(UploadTenantLogoUseCase.prototype, 'execute');
+
+    const asRep = await uploadLogo(salesRepCookie, notAnImage);
+    const notMultipart = await request(app).put(apiPaths.tenant.logo).set('Cookie', salesRepCookie).send({ file: 'x' });
+    const asOwner = await uploadLogo(ownerCookie, notAnImage);
+
+    expect(asRep.status).toBe(HTTP_FORBIDDEN);
+    expect(notMultipart.status).toBe(HTTP_FORBIDDEN);
+    expect(asOwner.status).toBe(HTTP_BAD_REQUEST);
+    // Solo la petición del dueño llega al caso de uso.
+    expect(uploadSpy).toHaveBeenCalledTimes(1);
   });
 
   it('un comercial no sube ni quita el logo, aunque sí lo ve', async () => {
