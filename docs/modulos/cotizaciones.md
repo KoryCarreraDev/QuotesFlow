@@ -101,7 +101,7 @@ servidor calcula y que no cambian después de enviada.
 
 Filtros: `id`, `leadId`, `contactId`, `companyContactId`, `createdById` (`id`, equals/in) · `number` (`number`) ·
 `status` (estado guardado, equals/in; un valor desconocido responde `400 INVALID_FILTER_VALUE`) · `total`
-(`number`) · `validUntil`, `createdAt` (`date`). Ordenables: `number`, `status`, `total`, `validUntil`,
+(`money`: importe en texto decimal, F3-A11) · `validUntil`, `createdAt` (`date`). Ordenables: `number`, `status`, `total`, `validUntil`,
 `createdAt`. Un comercial no puede ver las de otro filtrando por `createdById`: el servidor lo sustituye por el suyo.
 
 ## Ejemplos

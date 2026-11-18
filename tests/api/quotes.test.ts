@@ -23,6 +23,7 @@ const HTTP_BAD_REQUEST = 400;
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
+const QUOTE_TOTAL_AS_NUMBER = 238_000;
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const ISO_DATE_LENGTH = 10;
@@ -296,6 +297,24 @@ describe('API de cotizaciones', () => {
       expect(ids(sentOnly)).toEqual([mineSent.id]);
       expect(ids(forcedOtherAuthor)).not.toContain(others.id);
       expect(asLeader.body).toMatchObject({ total: 3, page: 1 });
+    });
+
+    it('el total se filtra con un importe en texto; un number responde 400 (R8, F3-A11)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id);
+      const search = (value: unknown) =>
+        request(app)
+          .get(apiPaths.quotes.filtered)
+          .query({ filters: serializeFilters([{ field: 'total', operator: 'gte', value }]) })
+          .set('Cookie', ownerCookie);
+
+      const exact = await search('238000.00');
+      const above = await search('238000.01');
+      const asNumber = await search(QUOTE_TOTAL_AS_NUMBER);
+
+      expect(exact.body.data).toHaveLength(1);
+      expect(above.body.data).toHaveLength(0);
+      expect(asNumber.status).toBe(HTTP_BAD_REQUEST);
+      expect(asNumber.body.error.code).toBe(ErrorCode.INVALID_FILTER_VALUE);
     });
 
     it('un estado inexistente en el filtro es 400, no 500', async () => {

@@ -15,11 +15,16 @@ const REQUESTED_PAGE = 3;
 const REQUESTED_LIMIT = 50;
 const MAXIMUM_FILTER_COUNT = 20;
 const MAXIMUM_TEXT_LENGTH = 200;
-const ESTIMATED_VALUE = 1_500_000;
+// R8 (F3-A11): los importes se filtran como texto decimal exacto, nunca como number.
+const POSITION = 7;
+const FRACTIONAL_NUMBER = 1_500_000.5;
+const WHOLE_NUMBER = 1000;
+const ESTIMATED_VALUE = '1500000.50';
 
 const config: IFilterFieldConfig = {
   contactName: { type: 'text', allowedOperators: ['contains', 'equals'], searchable: true, sortable: true },
-  estimatedValue: { type: 'number', allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'], searchable: false },
+  estimatedValue: { type: 'money', allowedOperators: ['equals', 'in', 'gt', 'gte', 'lt', 'lte'], searchable: false },
+  position: { type: 'number', allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'], searchable: false },
   createdAt: { type: 'date', allowedOperators: ['gt', 'gte', 'lt', 'lte'], searchable: false, sortable: true },
   statusId: { type: 'id', allowedOperators: ['equals', 'in'], searchable: false },
 };
@@ -63,12 +68,46 @@ describe('parseFilterQuery', () => {
     expect(parseFilterQuery({ page, limit }, config)).toMatchObject({ page: DEFAULT_PAGE, limit: DEFAULT_LIMIT });
   });
 
+  describe('importes como texto decimal (R8, F3-A11)', () => {
+    it.each(['0', '1500000', '1500000.5', '0.10', '98765432109876.54'])('acepta el importe %s', (amount) => {
+      const criteria = parseFilterQuery(
+        filtersQuery([{ field: 'estimatedValue', operator: 'gte', value: amount }]),
+        config,
+      );
+
+      expect(criteria.filters).toEqual([{ field: 'estimatedValue', operator: 'gte', value: amount }]);
+    });
+
+    it.each([
+      ['un number, que pierde céntimos', FRACTIONAL_NUMBER],
+      ['un number entero', WHOLE_NUMBER],
+      ['notación científica', '1e15'],
+      ['separador de miles', '1,500,000'],
+      ['más de dos decimales', '10.001'],
+      ['negativo', '-5'],
+      ['texto', 'mucho'],
+      ['vacío', ''],
+      ['un objeto de Prisma', { not: '1' }],
+    ])('rechaza %s con 400 INVALID_FILTER_VALUE', (_description, value) => {
+      expect(() =>
+        parseFilterQuery(filtersQuery([{ field: 'estimatedValue', operator: 'gte', value }]), config),
+      ).toThrow(expect.objectContaining({ code: ErrorCode.INVALID_FILTER_VALUE }));
+    });
+
+    it('con in exige una lista de importes en texto', () => {
+      expect(() =>
+        parseFilterQuery(filtersQuery([{ field: 'estimatedValue', operator: 'in', value: [WHOLE_NUMBER] }]), config),
+      ).toThrow(expect.objectContaining({ code: ErrorCode.INVALID_FILTER_VALUE }));
+    });
+  });
+
   describe('tipos de valor (H11)', () => {
     it('acepta texto, número, fecha e id con su tipo y convierte las fechas a Date', () => {
       const criteria = parseFilterQuery(
         filtersQuery([
           { field: 'contactName', operator: 'contains', value: 'Ana' },
           { field: 'estimatedValue', operator: 'gte', value: ESTIMATED_VALUE },
+          { field: 'position', operator: 'lt', value: POSITION },
           { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
           { field: 'statusId', operator: 'in', value: [VALID_ID, OTHER_VALID_ID] },
         ]),
@@ -78,14 +117,15 @@ describe('parseFilterQuery', () => {
       expect(criteria.filters).toEqual([
         { field: 'contactName', operator: 'contains', value: 'Ana' },
         { field: 'estimatedValue', operator: 'gte', value: ESTIMATED_VALUE },
+        { field: 'position', operator: 'lt', value: POSITION },
         { field: 'createdAt', operator: 'gte', value: new Date('2026-01-01') },
         { field: 'statusId', operator: 'in', value: [VALID_ID, OTHER_VALID_ID] },
       ]);
     });
 
     it.each([
-      ['un objeto en un campo numérico', { field: 'estimatedValue', operator: 'gte', value: { not: 'a number' } }],
-      ['texto en un campo numérico', { field: 'estimatedValue', operator: 'gte', value: '1000' }],
+      ['un objeto en un campo numérico', { field: 'position', operator: 'gte', value: { not: 'a number' } }],
+      ['texto en un campo numérico', { field: 'position', operator: 'gte', value: '1000' }],
       [
         'un objeto en un campo de texto (inyección de operadores de Prisma)',
         {

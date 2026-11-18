@@ -12,7 +12,7 @@ export const quoteFilterConfig: IFilterFieldConfig = {
   contactId: { type: 'id', allowedOperators: ['equals', 'in'], searchable: false },
   companyContactId: { type: 'id', allowedOperators: ['equals', 'in'], searchable: false },
   createdById: { type: 'id', allowedOperators: ['equals', 'in'], searchable: false },
-  total: { type: 'number', sortable: true, allowedOperators: ['gt', 'gte', 'lt', 'lte'], searchable: false },
+  total: { type: 'money', sortable: true, allowedOperators: ['gt', 'gte', 'lt', 'lte'], searchable: false },
   validUntil: {
     type: 'date',
     sortable: true,

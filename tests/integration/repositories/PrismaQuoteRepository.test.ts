@@ -423,6 +423,20 @@ describe('PrismaQuoteRepository', () => {
       expect(page.map((quote) => quote.number)).toEqual([THIRD]);
     });
 
+    it('filtra el total con importes en texto, con la exactitud de los centavos (R8)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id);
+
+      const find = async (operator: string, value: string) =>
+        (await repository.findFiltered({ filters: [{ field: 'total', operator, value }] }, quoteFilterConfig)).length;
+
+      // El total guardado es 238000.00.
+      expect(await find('gte', '238000.00')).toBe(1);
+      expect(await find('gt', '238000.00')).toBe(0);
+      expect(await find('gt', '237999.99')).toBe(1);
+      expect(await find('lt', '238000.01')).toBe(1);
+      expect(await find('lte', '237999.99')).toBe(0);
+    });
+
     it('filtra por vigencia', async () => {
       await persistQuote(company.tenant.id, company.salesRep.id, { validUntil: '2026-01-31' });
       await persistQuote(company.tenant.id, company.salesRep.id, { validUntil: '2027-01-31' });

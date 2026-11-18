@@ -6,7 +6,7 @@ Un mismo motor de búsqueda, filtros, orden y paginación para todos los listado
 ## Reglas de negocio
 - Parámetros: `search`, `filters` (JSON), `page`, `limit`, `sortBy`, `sortDir`.
 - `filters` es una lista JSON de `{ field, operator, value }`, como mucho 20. Solo valen los campos y operadores de la configuración de la entidad (`src/infrastructure/persistence/filters/*FilterConfig.ts`).
-- Cada campo declara su tipo y el valor tiene que serlo (H11): `text` (texto de 200 caracteres como máximo), `number`, `date` (`2026-01-31` o ISO con zona) o `id` (uuid). `in` exige una lista de 1 a 100 valores.
+- Cada campo declara su tipo y el valor tiene que serlo (H11): `text` (texto de 200 caracteres como máximo), `number` (enteros y contadores), `money` (importes: **texto decimal** como `"1500000.50"`, nunca un `number`, que pierde centavos; F3-A11), `date` (`2026-01-31` o ISO con zona) o `id` (uuid). `in` exige una lista de 1 a 100 valores.
 - Operadores: `contains` (sin distinguir mayúsculas), `equals`, `in`, `gt`, `gte`, `lt`, `lte`.
 - `search` busca con `contains` en los campos marcados como buscables (200 caracteres como máximo).
 - `page` por defecto 1; `limit` por defecto 20 y como mucho 100. Un valor inválido vuelve al de por defecto.
@@ -15,7 +15,7 @@ Un mismo motor de búsqueda, filtros, orden y paginación para todos los listado
 
 | Entidad | Campos (✔ buscable) |
 |---|---|
-| Lead | companyName✔, contactName✔, email✔, phone✔, notes✔, source · statusId, assignedToId (`id`) · estimatedValue (`number`) · expectedCloseDate, createdAt (`date`) |
+| Lead | companyName✔, contactName✔, email✔, phone✔, notes✔, source · statusId, assignedToId (`id`) · estimatedValue (`money`) · expectedCloseDate, createdAt (`date`) |
 | Contacto | firstName✔, lastName✔, email✔, phone✔ · companyId, ownerId (`id`) · documentNumber (`equals`) · createdAt |
 | Empresa cliente | name✔, industry✔, phone✔, email✔, city✔ · taxNumber, address, state, zip, country · ownerId · documentNumber · createdAt |
 

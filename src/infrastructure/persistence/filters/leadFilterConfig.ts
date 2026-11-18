@@ -40,7 +40,7 @@ export const leadFilterConfig: IFilterFieldConfig = {
     searchable: false,
   },
   estimatedValue: {
-    type: 'number',
+    type: 'money',
     sortable: true,
     allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'],
     searchable: false,

@@ -29,7 +29,7 @@ al cotizar (por ejemplo, ancho y alto de una ventana).
 | PATCH | `/api/v1/products/:id` | Gestión | Modificación parcial; `null` quita `description`, `basePrice` o `formulaId` |
 | DELETE | `/api/v1/products/:id` | Gestión | Borrado suave |
 
-Filtros: `id`, `formulaId` (`id`, equals/in) · `name`✔, `description`✔ (texto) · `basePrice` (`number`) ·
+Filtros: `id`, `formulaId` (`id`, equals/in) · `name`✔, `description`✔ (texto) · `basePrice` (`money`: importe en texto decimal, F3-A11) ·
 `isActive` (`boolean`, equals) · `createdAt` (`date`). Ordenables: `name`, `basePrice`, `createdAt`.
 
 ## Ejemplos

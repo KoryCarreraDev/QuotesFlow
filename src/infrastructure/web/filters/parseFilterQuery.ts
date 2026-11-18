@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { FilterCriteriaDTO, FilterCondition, SortDirection } from '../../../application/dtos/FilterCriteriaDTO.js';
 import { FilterFieldType, IFilterFieldConfig } from '../../../application/ports/services/IFilterFieldConfig.js';
+import { isNonNegativeMoneyText } from '../../../domain/value-objects/money.js';
 import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { ValidationError } from '../../../domain/errors/ValidationError.js';
 
@@ -24,6 +25,8 @@ const filterShapeSchema = z
 const valueSchemaByType: Record<FilterFieldType, z.ZodType> = {
   text: z.string().max(MAXIMUM_TEXT_LENGTH),
   number: z.number().finite(),
+  // Importes: texto decimal exacto (R8). Prisma acepta el texto para una columna `Decimal` sin pasar por `number`.
+  money: z.string().refine(isNonNegativeMoneyText),
   // Fecha (2026-01-31) o fecha y hora ISO con zona; llega al repositorio como Date.
   date: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).transform((value) => new Date(value)),
   id: z.uuid(),
