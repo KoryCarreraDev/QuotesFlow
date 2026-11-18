@@ -271,6 +271,27 @@ describe('API de cotizaciones', () => {
       expect(reject.body.status).toBe('REJECTED');
     });
 
+    it('una cotización enviada devuelve los importes guardados, no los recalculados (F3-A06)', async () => {
+      const sent = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+      const draft = await persistQuote(company.tenant.id, company.salesRep.id);
+      // Simula que la fórmula de cálculo cambió después: la base guarda otro total y otro IVA.
+      for (const quote of [sent, draft]) {
+        await prisma.quote.update({
+          where: { id: quote.id },
+          data: { subtotal: '700000', taxTotal: '1', total: '700001' },
+        });
+        await prisma.quoteItem.updateMany({ where: { quoteId: quote.id }, data: { taxAmount: '1', total: '700001' } });
+      }
+
+      const sentResponse = await request(app).get(apiPaths.quotes.get(sent.id)).set('Cookie', salesRepCookie);
+      const draftResponse = await request(app).get(apiPaths.quotes.get(draft.id)).set('Cookie', salesRepCookie);
+
+      expect(sentResponse.body).toMatchObject({ subtotal: '700000.00', taxTotal: '1.00', total: '700001.00' });
+      expect(sentResponse.body.items[0]).toMatchObject({ taxAmount: '1.00', total: '700001.00' });
+      // El borrador se calcula siempre: 2 × 100.000 con IVA del 19 %.
+      expect(draftResponse.body).toMatchObject({ subtotal: '200000.00', total: '238000.00' });
+    });
+
     it('el listado de un comercial solo trae las suyas; el del líder, todas; filtra por estado', async () => {
       const mineDraft = await persistQuote(company.tenant.id, company.salesRep.id);
       const mineSent = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });

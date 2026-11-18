@@ -15,7 +15,7 @@ export function quoteReference(number: number, version: number): string {
 export function toQuoteDTO(quote: Quote, today: string): QuoteDTO {
   const totals = quote.totals();
   const items: QuoteItemDTO[] = quote.items.map((item) => {
-    const amounts = item.amounts(quote.discountRate);
+    const amounts = quote.itemAmounts(item);
     return {
       position: item.position,
       productId: item.productId,

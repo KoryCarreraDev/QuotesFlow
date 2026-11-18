@@ -130,7 +130,7 @@ export class GenerateQuotePdfUseCase {
       validUntil: quote.validUntil,
       customerLines: context.customerLines,
       items: quote.items.map((item) => {
-        const amounts = item.amounts(quote.discountRate);
+        const amounts = quote.itemAmounts(item);
         return {
           position: item.position,
           description: `${item.description}${variablesSuffix(item.variables)}`,

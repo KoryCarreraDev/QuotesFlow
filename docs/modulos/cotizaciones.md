@@ -27,7 +27,9 @@ servidor calcula y que no cambian después de enviada.
   descuento del ítem, después el descuento global sobre lo que queda, y el IVA sobre esa base. Cada porcentaje se
   redondea a centavos por ítem, así que los totales son la suma exacta de los ítems. Los importes guardados en la
   base (`subtotal`, `discountTotal`, `taxTotal`, `total`, `netAmount`…) son una instantánea: no dependen de que el
-  producto o la fórmula cambien después.
+  producto o la fórmula cambien después. **Una cotización emitida (cualquier estado menos borrador) se lee y se
+  imprime con esos importes guardados**, no recalculados: si mañana cambia el redondeo o el orden de los
+  descuentos, lo que el cliente ya recibió no cambia (F3-A06). El borrador sí se calcula siempre.
 - **IVA (D-20, Q-020).** Por ítem. Si no envía `taxRate`, se usa el IVA por defecto de la empresa
   (`TenantSettings.defaultTaxRate`, que configuran dueño y socio en `PATCH /tenant`); si la empresa no lo
   configuró, se pide en cada ítem (`400 TAX_RATE_REQUIRED`).

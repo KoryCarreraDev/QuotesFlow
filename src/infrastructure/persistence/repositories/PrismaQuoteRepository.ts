@@ -2,7 +2,7 @@ import { DeletedState as StoredDeletedState, Prisma, QuoteStatus as StoredQuoteS
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IQuoteRepository } from '@/application/ports/repositories/IQuoteRepository.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
-import { Quote, QuoteItem, QuoteStatus } from '@/domain/entities/Quote.js';
+import { Quote, QuoteItem, QuoteItemAmounts, QuoteStatus } from '@/domain/entities/Quote.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -25,8 +25,22 @@ function moneyOf(value: Prisma.Decimal): Money {
   return Money.fromDecimalStringRounded(value.toFixed());
 }
 
+/** Importes del ítem que se guardaron al emitir la cotización (F3-A06). El bruto y el descuento salen de ellos. */
+function storedAmountsOf(record: QuoteItemRecord, unitPrice: Money): QuoteItemAmounts {
+  const grossAmount = unitPrice.multiply(record.quantity);
+  const netAmount = moneyOf(record.netAmount);
+  return {
+    grossAmount,
+    discountAmount: grossAmount.subtract(netAmount),
+    netAmount,
+    taxAmount: moneyOf(record.taxAmount),
+    total: moneyOf(record.total),
+  };
+}
+
 function toQuoteItem(record: QuoteItemRecord): QuoteItem {
   return new QuoteItem(record.position, {
+    storedAmounts: storedAmountsOf(record, moneyOf(record.unitPrice)),
     productId: record.productId ?? undefined,
     description: record.description,
     quantity: record.quantity,
@@ -55,6 +69,12 @@ function toQuote(record: QuoteRecord): Quote {
     discountRate: Percentage.fromDecimalString(record.discountRate.toFixed()),
     notes: record.notes ?? undefined,
     items: record.items.map(toQuoteItem),
+    storedTotals: {
+      subtotal: moneyOf(record.subtotal),
+      discountTotal: moneyOf(record.discountTotal),
+      taxTotal: moneyOf(record.taxTotal),
+      total: moneyOf(record.total),
+    },
     createdById: record.createdById,
     previousVersionId: record.previousVersionId ?? undefined,
     sentAt: record.sentAt ?? undefined,

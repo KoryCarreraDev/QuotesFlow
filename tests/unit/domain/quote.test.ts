@@ -321,3 +321,71 @@ describe('fechas de calendario', () => {
     expect(calendarDateOfStoredDate(new Date('2026-12-15T00:00:00.000Z'))).toBe('2026-12-15');
   });
 });
+
+describe('Importes guardados de una cotización emitida (F3-A06)', () => {
+  // Importes que ya no salen de la fórmula actual: simulan los que se calcularon y guardaron al enviar.
+  const storedAmounts = {
+    grossAmount: money('900000'),
+    discountAmount: money('0'),
+    netAmount: money('900000'),
+    taxAmount: money('1'),
+    total: money('900001'),
+  };
+  const storedTotals = {
+    subtotal: money('900000'),
+    discountTotal: money('0'),
+    taxTotal: money('1'),
+    total: money('900001'),
+  };
+
+  function quoteWithStoredAmounts(status: QuoteStatus): Quote {
+    return Quote.restore({
+      ...content({ items: [new QuoteItem(1, itemData({ storedAmounts }))] }),
+      id: 'quote-id',
+      tenantId: 'tenant-id',
+      number: 1,
+      version: 1,
+      status,
+      createdById: 'user-id',
+      storedTotals,
+    });
+  }
+
+  it.each([QuoteStatus.SENT, QuoteStatus.ACCEPTED, QuoteStatus.REJECTED, QuoteStatus.SUPERSEDED])(
+    'una cotización %s devuelve los importes guardados aunque la fórmula de hoy dé otros',
+    (status) => {
+      const quote = quoteWithStoredAmounts(status);
+
+      expect(quote.totals().total.toDecimalString()).toBe('900001.00');
+      expect(quote.itemAmounts(quote.items[0]).taxAmount.toDecimalString()).toBe('1.00');
+    },
+  );
+
+  it('un borrador calcula siempre: lo guardado no vale hasta que se envía', () => {
+    const draft = quoteWithStoredAmounts(QuoteStatus.DRAFT);
+
+    // 450.000 × 2 con IVA del 19 %.
+    expect(draft.totals().total.toDecimalString()).toBe('1071000.00');
+    expect(draft.itemAmounts(draft.items[0]).taxAmount.toDecimalString()).toBe('171000.00');
+  });
+
+  it('modificar un borrador descarta lo guardado', () => {
+    const draft = quoteWithStoredAmounts(QuoteStatus.DRAFT);
+
+    const edited = draft.withContent(content(), NOW);
+
+    expect(edited.storedTotals).toBeUndefined();
+    expect(edited.items[0].storedAmounts).toBeUndefined();
+  });
+
+  it('sin importes guardados (una cotización recién creada) se calcula', () => {
+    const sent = draftQuote().markSent(NOW, TODAY);
+
+    expect(sent.totals().total.toDecimalString()).toBe('1071000.00');
+  });
+
+  it('snapshotTotals da lo guardado si existe, y lo calculado si no', () => {
+    expect(quoteWithStoredAmounts(QuoteStatus.DRAFT).snapshotTotals().total.toDecimalString()).toBe('900001.00');
+    expect(draftQuote().snapshotTotals().total.toDecimalString()).toBe('1071000.00');
+  });
+});
