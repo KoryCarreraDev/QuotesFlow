@@ -54,8 +54,40 @@ function renderMatrixRow([action, grantsByRole]: [string, Readonly<Record<Role, 
   return `| \`${action}\` | ${descriptionsByAction.get(action)} | ${cells.join(' | ')} |`;
 }
 
-/** Contenido completo de `docs/security/matriz-permisos.md`. */
-export function renderPermissionMatrixDocument(): string {
+/** Línea de firma de un documento que nadie ha firmado. */
+export const UNSIGNED_SIGNATURE_LINE = 'Aprobado por ______ el ____-__-__';
+const SIGNATURE_HEADING = '## Firma';
+// "Aprobado por <nombre> el <fecha>": el nombre no puede quedar vacío y la fecha empieza por un dígito.
+const SIGNED_LINE_PATTERN = /^Aprobado por \S.* el \d[\d/-]*$/;
+
+/**
+ * Línea de firma de un documento: la que sigue a `## Firma`, sin firmar o firmada con nombre y fecha.
+ * `undefined` si falta o está mal escrita, para que el test lo detecte.
+ */
+export function signatureLineOf(document: string): string | undefined {
+  const lines = document.split('\n');
+  const signatureLine = lines.slice(lines.indexOf(SIGNATURE_HEADING) + 1).find((line) => line.trim() !== '');
+  if (signatureLine === undefined || !lines.includes(SIGNATURE_HEADING)) return undefined;
+  const isValid = signatureLine === UNSIGNED_SIGNATURE_LINE || SIGNED_LINE_PATTERN.test(signatureLine);
+  return isValid ? signatureLine : undefined;
+}
+
+/**
+ * Documento regenerado desde el código. Conserva la firma del documento anterior solo si la matriz no
+ * cambió: si cambió, lo firmado ya no es lo que dice el código y la firma vuelve a quedar en blanco.
+ */
+export function regeneratePermissionMatrixDocument(previousDocument: string | undefined): string {
+  const unsignedDocument = renderPermissionMatrixDocument();
+  if (previousDocument === undefined) return unsignedDocument;
+
+  const previousSignature = signatureLineOf(previousDocument);
+  if (previousSignature === undefined) return unsignedDocument;
+  const signedDocument = renderPermissionMatrixDocument(previousSignature);
+  return signedDocument === previousDocument ? signedDocument : unsignedDocument;
+}
+
+/** Contenido completo de `docs/security/matriz-permisos.md`, con la línea de firma indicada. */
+export function renderPermissionMatrixDocument(signatureLine: string = UNSIGNED_SIGNATURE_LINE): string {
   const header = `| Acción | Qué permite | ${roleColumns.join(' | ')} |`;
   const separator = `|---|---|${roleColumns.map(() => '---').join('|')}|`;
   const rows = Object.entries(permissionMatrix).map(renderMatrixRow);
@@ -102,9 +134,9 @@ export function renderPermissionMatrixDocument(): string {
     '',
     'Las pruebas de esta matriz contra la API están en `tests/api/security/roles.test.ts`.',
     '',
-    '## Firma',
+    SIGNATURE_HEADING,
     '',
-    'Aprobado por ______ el ____-__-__',
+    signatureLine,
     '',
   ].join('\n');
 }
