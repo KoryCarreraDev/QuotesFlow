@@ -146,6 +146,7 @@ export class QuoteModule {
       fileStorage,
       pdfGenerator,
       appLogger,
+      new PrismaAuditLogger(prisma, tenantContext),
     );
   }
 }

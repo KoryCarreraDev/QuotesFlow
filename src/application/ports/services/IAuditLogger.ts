@@ -56,6 +56,8 @@ export enum AuditAction {
   QUOTE_REVISED = 'QUOTE_REVISED',
   /** Un comercial cambió el precio calculado de un ítem (D-24, Q-015): F4-T06 avisará a los líderes. */
   QUOTE_PRICE_OVERRIDDEN = 'QUOTE_PRICE_OVERRIDDEN',
+  /** Se descargó el PDF de una cotización (H13: las descargas también se auditan, F3-A14). */
+  QUOTE_PDF_DOWNLOADED = 'QUOTE_PDF_DOWNLOADED',
 }
 
 /** Sobre qué tipo de registro. Se guarda en `AuditLog.entity`. */

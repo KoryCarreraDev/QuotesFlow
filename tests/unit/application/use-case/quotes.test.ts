@@ -162,6 +162,7 @@ function setup() {
         new InMemoryFileStorage(),
         pdfGenerator,
         new RecordingLogger(),
+        auditLogger,
       ),
       users,
       leads,

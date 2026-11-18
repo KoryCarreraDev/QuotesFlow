@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuditAction, AuditEntity } from '@/application/ports/services/IAuditLogger.js';
 import { IPdfGenerator, QuotePdfData } from '@/application/ports/services/IPdfGenerator.js';
 import { GenerateQuotePdfUseCase } from '@/application/use-case/quotes/QuotePdfUseCase.js';
 import { Quote, QuoteItem, QuoteStatus } from '@/domain/entities/Quote.js';
@@ -20,6 +21,7 @@ import { InMemoryFileStorage } from '@tests/support/doubles/InMemoryFileStorage.
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
 import { InMemoryQuoteRepository } from '@tests/support/doubles/InMemoryQuoteRepository.js';
 import { InMemoryTenantProfileRepository } from '@tests/support/doubles/InMemoryTenantProfileRepository.js';
+import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 import { RecordingLogger } from '@tests/support/doubles/RecordingLogger.js';
 
 // F3-T06: el caso de uso arma los datos del PDF; el dibujo se prueba en PdfLibQuoteGenerator.test.ts.
@@ -54,7 +56,9 @@ function setup() {
   const storage = new InMemoryFileStorage();
   const generator = new CapturingPdfGenerator();
   const logger = new RecordingLogger();
+  const auditLogger = new RecordingAuditLogger();
   return {
+    auditLogger,
     quotes,
     profiles,
     leads,
@@ -72,6 +76,7 @@ function setup() {
       storage,
       generator,
       logger,
+      auditLogger,
     ),
   };
 }
@@ -291,6 +296,41 @@ describe('Generar el PDF de una cotización', () => {
 
       expect(asRep).toEqual([]);
       expect(context.generator.received?.customerLines[0]).toBe('Laura Gómez');
+    });
+  });
+
+  describe('auditoría (H13, F3-A14)', () => {
+    it('la descarga queda auditada con la versión, después de generar el PDF', async () => {
+      const context = setup();
+      const quote = seedQuote(context, { version: 2 });
+
+      await context.generate.execute(salesRep, quote.id);
+
+      expect(context.auditLogger.entries).toEqual([
+        expect.objectContaining({
+          action: AuditAction.QUOTE_PDF_DOWNLOADED,
+          entity: AuditEntity.QUOTE,
+          entityId: quote.id,
+          metadata: { version: 2 },
+        }),
+      ]);
+    });
+
+    it('una descarga que falla o se rechaza no deja rastro', async () => {
+      const context = setup();
+      const others = seedQuote(context, { createdById: otherSalesRep.userId });
+      vi.spyOn(context.generator, 'generateQuotePdf').mockRejectedValueOnce(new Error('pdf failure'));
+      const own = seedQuote(context, { number: 2 });
+
+      await expect(context.generate.execute(salesRep, others.id)).rejects.toMatchObject({
+        code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+      });
+      await expect(context.generate.execute(salesRep, randomUUID())).rejects.toMatchObject({
+        code: ErrorCode.QUOTE_NOT_FOUND,
+      });
+      await expect(context.generate.execute(salesRep, own.id)).rejects.toThrow('pdf failure');
+
+      expect(context.auditLogger.entries).toEqual([]);
     });
   });
 

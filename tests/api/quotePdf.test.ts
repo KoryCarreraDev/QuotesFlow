@@ -2,6 +2,7 @@ import request from 'supertest';
 import { PDFDocument } from 'pdf-lib';
 import { beforeEach, describe, expect, it } from 'vitest';
 import app from '@/app.js';
+import prisma from '@/config/database.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import {
@@ -98,11 +99,21 @@ describe('GET /api/v1/quotes/:id/pdf', () => {
     expect(response.body.error.code).toBe(ErrorCode.QUOTE_NOT_FOUND);
   });
 
-  it('descargar el PDF no deja rastro de auditoría ni cambia la cotización', async () => {
+  it('descargar el PDF queda en auditoría y no cambia la cotización', async () => {
     const quote = await persistQuote(company.tenant.id, company.salesRep.id);
 
     await downloadPdf(quote.id, salesRepCookie);
 
+    const entries = await prisma.auditLog.findMany();
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: 'QUOTE_PDF_DOWNLOADED',
+        entityId: quote.id,
+        userId: company.salesRep.id,
+        tenantId: company.tenant.id,
+        metadata: expect.objectContaining({ version: 1 }),
+      }),
+    ]);
     const read = await request(app).get(apiPaths.quotes.get(quote.id)).set('Cookie', salesRepCookie);
     expect(read.body).toMatchObject({ status: 'DRAFT', total: '238000.00' });
   });
