@@ -151,6 +151,8 @@ export interface QuoteContent {
 }
 
 export interface QuoteRecord extends QuoteContent {
+  /** Estado que tenía antes de ser reemplazada por una versión nueva (F3-A03); solo en `SUPERSEDED`. */
+  supersededFromStatus?: QuoteStatus;
   /** Totales guardados al emitir o al guardar el borrador (F3-A06); solo los pone el repositorio al leer. */
   storedTotals?: QuoteTotals;
   id: string;
@@ -190,6 +192,7 @@ export class Quote {
   readonly notes?: string;
   readonly items: readonly QuoteItem[];
   readonly storedTotals?: QuoteTotals;
+  readonly supersededFromStatus?: QuoteStatus;
   readonly createdById: string;
   readonly previousVersionId?: string;
   readonly sentAt?: Date;
@@ -223,6 +226,7 @@ export class Quote {
     this.notes = record.notes;
     this.items = record.items;
     this.storedTotals = record.storedTotals;
+    this.supersededFromStatus = record.supersededFromStatus;
     this.createdById = record.createdById;
     this.previousVersionId = record.previousVersionId;
     this.sentAt = record.sentAt;
@@ -373,18 +377,25 @@ export class Quote {
   }
 
   /**
-   * Revisión (D-22): la versión siguiente en borrador, con el mismo número y el mismo contenido, y esta reemplazada.
+   * Revisión (D-22): la versión siguiente en borrador, con el mismo número y el mismo contenido, y esta reemplazada
+   * (guarda el estado que tenía, para poder restaurarla si se descarta la revisión, F3-A03).
    *
+   * @param nextVersionNumber Número de la versión nueva. Por defecto `version + 1`; quien persiste pasa el siguiente
+   * al mayor ya usado en el número (incluidas las versiones borradas, que siguen ocupando la unicidad).
    * @throws {ConflictError} `QUOTE_INVALID_TRANSITION` si es un borrador, ya está reemplazada o fue aceptada.
    */
-  revise(nextVersionId: string, now: Date): { superseded: Quote; nextVersion: Quote } {
+  revise(
+    nextVersionId: string,
+    now: Date,
+    nextVersionNumber = this.version + 1,
+  ): { superseded: Quote; nextVersion: Quote } {
     if (this.status !== QuoteStatus.SENT && this.status !== QuoteStatus.REJECTED) {
       throw invalidTransition('Only sent or rejected quotes can be revised');
     }
     const nextVersion = new Quote({
       ...this.toRecord(),
       id: nextVersionId,
-      version: this.version + 1,
+      version: nextVersionNumber,
       status: QuoteStatus.DRAFT,
       previousVersionId: this.id,
       sentAt: undefined,
@@ -392,7 +403,22 @@ export class Quote {
       createdAt: now,
       updatedAt: now,
     });
-    return { superseded: this.with({ status: QuoteStatus.SUPERSEDED }, now), nextVersion };
+    return {
+      superseded: this.with({ status: QuoteStatus.SUPERSEDED, supersededFromStatus: this.status }, now),
+      nextVersion,
+    };
+  }
+
+  /**
+   * Devuelve la cotización al estado que tenía antes de que se creara la revisión que se acaba de descartar.
+   *
+   * @throws {ConflictError} `QUOTE_INVALID_TRANSITION` si no está reemplazada o no se sabe qué estado tenía.
+   */
+  restoreAfterDiscardedRevision(now: Date): Quote {
+    if (this.status !== QuoteStatus.SUPERSEDED || this.supersededFromStatus === undefined) {
+      throw invalidTransition('Only a superseded quote with a known previous status can be restored');
+    }
+    return this.with({ status: this.supersededFromStatus, supersededFromStatus: undefined }, now);
   }
 
   /** @throws {ConflictError} `QUOTE_NOT_EDITABLE` si no es un borrador: lo enviado queda como historial. */

@@ -51,7 +51,11 @@ servidor calcula y que no cambian después de enviada.
     diaria.
 - **Revisar (D-22).** `POST /quotes/:id/revise` sobre una enviada, rechazada o vencida crea la versión siguiente
   en borrador (mismo número, mismos datos) y deja la anterior en `SUPERSEDED`. Dos revisiones simultáneas: una gana
-  y la otra recibe `409`.
+  y la otra recibe `409`. La anterior guarda el estado que tenía (`supersededFromStatus`). **Borrar el borrador de la
+  versión nueva descarta la revisión**: la anterior vuelve a `SENT` o `REJECTED` en la misma transacción (auditoría
+  `QUOTE_REVISION_DISCARDED`) y se puede revisar otra vez. El número de la versión siguiente es el mayor ya usado en
+  ese número más uno, contando las borradas: tras descartar la v2, la nueva revisión es la v3 (F3-A03). Una
+  reemplazada anterior a este cambio no recuerda su estado y no se restaura.
 - **Cambios de estado atómicos.** Se guardan comparando y cambiando el estado esperado: aceptar y rechazar a la vez
   no pueden ganar las dos (`409 QUOTE_INVALID_TRANSITION` para quien llega tarde).
 - **Límite de documentos (F3-A15).** Generar un PDF (y enviar la cotización, que lo genera) es caro, así que `GET /quotes/:id/pdf` y `POST /quotes/:id/send` comparten un cupo propio por IP, `RATE_LIMIT_DOCUMENT_MAX_REQUESTS` (20 cada 15 minutos por defecto, supuesto en `QUESTION.md`); al superarlo, 429 `TOO_MANY_REQUESTS`. El resto de la API solo cuenta contra el cupo global.

@@ -943,6 +943,63 @@ describe('Revisar (D-22, Q-018)', () => {
   });
 });
 
+describe('Borrar la revisión de una cotización (F3-A03)', () => {
+  async function revisedQuote(context: Setup, status: QuoteStatus = QuoteStatus.SENT) {
+    const original = seedQuote(context, status, { number: 7 });
+    const next = await context.revise.execute(salesRep, original.id);
+    return { original, next };
+  }
+
+  it.each([QuoteStatus.SENT, QuoteStatus.REJECTED])(
+    'borrar el borrador de la versión 2 devuelve la versión 1 a %s y lo audita',
+    async (status) => {
+      const context = setup();
+      const { original, next } = await revisedQuote(context, status);
+      context.auditLogger.entries.length = 0;
+
+      await context.remove.execute(salesRep, next.id);
+
+      expect(context.quotes.isDeleted(next.id)).toBe(true);
+      expect(context.quotes.findStoredById(original.id)?.status).toBe(status);
+      expect(context.auditLogger.entries.map((entry) => [entry.action, entry.entityId])).toEqual([
+        [AuditAction.QUOTE_DELETED, next.id],
+        [AuditAction.QUOTE_REVISION_DISCARDED, original.id],
+      ]);
+    },
+  );
+
+  it('después de descartar, la versión 1 se puede revisar otra vez y la nueva es la 3, no la 2 que ya existió', async () => {
+    const context = setup();
+    const { original, next } = await revisedQuote(context);
+    await context.remove.execute(salesRep, next.id);
+
+    const again = await context.revise.execute(salesRep, original.id);
+
+    expect(again).toMatchObject({ number: 7, version: 3, reference: 'COT-000007 v3', previousVersionId: original.id });
+  });
+
+  it('borrar un borrador que no es una revisión no toca ninguna otra cotización', async () => {
+    const context = setup();
+    const other = seedQuote(context, QuoteStatus.SUPERSEDED, { number: 9 });
+    const draft = seedQuote(context, QuoteStatus.DRAFT, { number: 8 });
+
+    await context.remove.execute(salesRep, draft.id);
+
+    expect(context.quotes.findStoredById(other.id)?.status).toBe(QuoteStatus.SUPERSEDED);
+    expect(context.auditLogger.entries.map((entry) => entry.action)).toEqual([AuditAction.QUOTE_DELETED]);
+  });
+
+  it('si la versión anterior ya cambió de estado mientras tanto, la revisión no se descarta a medias', async () => {
+    const context = setup();
+    const { next } = await revisedQuote(context);
+    context.quotes.failNextStateSave = true;
+
+    await expect(context.remove.execute(salesRep, next.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_INVALID_TRANSITION,
+    });
+  });
+});
+
 describe('Borrar', () => {
   it('borra un borrador (suave) y lo audita', async () => {
     const context = setup();

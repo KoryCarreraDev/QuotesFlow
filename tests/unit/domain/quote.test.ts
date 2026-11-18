@@ -19,6 +19,7 @@ const TODAY = '2026-11-17';
 const YESTERDAY = '2026-11-16';
 const TOMORROW = '2026-11-18';
 const SECOND_POSITION = 2;
+const EXPLICIT_VERSION = 5;
 const NON_INTEGER_QUANTITY = 1.5;
 const rate = (text: string) => Percentage.fromDecimalString(text);
 const money = (text: string) => Money.fromDecimalString(text);
@@ -387,5 +388,55 @@ describe('Importes guardados de una cotización emitida (F3-A06)', () => {
   it('snapshotTotals da lo guardado si existe, y lo calculado si no', () => {
     expect(quoteWithStoredAmounts(QuoteStatus.DRAFT).snapshotTotals().total.toDecimalString()).toBe('900001.00');
     expect(draftQuote().snapshotTotals().total.toDecimalString()).toBe('1071000.00');
+  });
+});
+
+describe('Descartar una revisión (F3-A03)', () => {
+  it.each([QuoteStatus.SENT, QuoteStatus.REJECTED])(
+    'revisar una %s guarda el estado que tenía y descartar la revisión lo restaura',
+    (status) => {
+      const original =
+        status === QuoteStatus.SENT ? draftQuote().markSent(NOW, TODAY) : draftQuote().markSent(NOW, TODAY).reject(NOW);
+
+      const { superseded } = original.revise('next-id', NOW);
+      const restored = superseded.restoreAfterDiscardedRevision(NOW);
+
+      expect(superseded).toMatchObject({ status: QuoteStatus.SUPERSEDED, supersededFromStatus: status });
+      expect(restored).toMatchObject({ status: status, supersededFromStatus: undefined });
+      expect(restored.sentAt).toEqual(original.sentAt);
+      expect(restored.decidedAt).toEqual(original.decidedAt);
+    },
+  );
+
+  it('solo una cotización reemplazada se restaura', () => {
+    expect(() => draftQuote().restoreAfterDiscardedRevision(NOW)).toThrow(
+      expect.objectContaining({ code: ErrorCode.QUOTE_INVALID_TRANSITION }),
+    );
+    expect(() => draftQuote().markSent(NOW, TODAY).restoreAfterDiscardedRevision(NOW)).toThrow(
+      expect.objectContaining({ code: ErrorCode.QUOTE_INVALID_TRANSITION }),
+    );
+  });
+
+  it('una reemplazada sin el estado anterior guardado (datos viejos) no se puede restaurar', () => {
+    const legacy = Quote.restore({
+      ...content(),
+      id: 'quote-id',
+      tenantId: 'tenant-id',
+      number: 1,
+      version: 1,
+      status: QuoteStatus.SUPERSEDED,
+      createdById: 'user-id',
+    });
+
+    expect(() => legacy.restoreAfterDiscardedRevision(NOW)).toThrow(
+      expect.objectContaining({ code: ErrorCode.QUOTE_INVALID_TRANSITION }),
+    );
+  });
+
+  it('la versión siguiente usa el número de versión que se le indique', () => {
+    const sent = draftQuote().markSent(NOW, TODAY);
+
+    expect(sent.revise('next-id', NOW).nextVersion.version).toBe(SECOND_POSITION);
+    expect(sent.revise('next-id', NOW, EXPLICIT_VERSION).nextVersion.version).toBe(EXPLICIT_VERSION);
   });
 });

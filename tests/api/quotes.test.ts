@@ -477,6 +477,25 @@ describe('API de cotizaciones', () => {
       expect(reviseAgain.status).toBe(HTTP_CONFLICT);
     });
 
+    it('borrar el borrador de la versión 2 devuelve la 1 a su estado, y se puede revisar de nuevo (F3-A03)', async () => {
+      const created = await createQuote(salesRepCookie, { contactId: salesRepContactId, items: [freeItem()] });
+      await request(app).post(apiPaths.quotes.send(created.body.id)).set('Cookie', salesRepCookie);
+      const revised = await request(app).post(apiPaths.quotes.revise(created.body.id)).set('Cookie', salesRepCookie);
+
+      const discarded = await request(app)
+        .delete(apiPaths.quotes.delete(revised.body.id))
+        .set('Cookie', salesRepCookie);
+      const original = await request(app).get(apiPaths.quotes.get(created.body.id)).set('Cookie', salesRepCookie);
+      const again = await request(app).post(apiPaths.quotes.revise(created.body.id)).set('Cookie', salesRepCookie);
+
+      expect(discarded.status).toBe(HTTP_OK);
+      expect(original.body.status).toBe('SENT');
+      expect(again.status).toBe(HTTP_CREATED);
+      expect(again.body).toMatchObject({ version: 3, reference: 'COT-000001 v3' });
+      const actions = (await prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } })).map((entry) => entry.action);
+      expect(actions).toContain('QUOTE_REVISION_DISCARDED');
+    });
+
     it('revisar dos veces a la vez crea una sola versión', async () => {
       const sent = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
 

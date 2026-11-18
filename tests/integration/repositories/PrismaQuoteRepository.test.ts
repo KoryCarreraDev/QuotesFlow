@@ -23,6 +23,7 @@ const NOW = new Date('2026-11-17T15:00:00.000Z');
 const rate = (text: string) => Percentage.fromDecimalString(text);
 const FIRST = 1;
 const SECOND = 2;
+const VERSION_AFTER_A_DELETED_ONE = 3;
 const THIRD = 3;
 const MONEY_DECIMAL_PLACES = 2;
 
@@ -359,6 +360,39 @@ describe('PrismaQuoteRepository', () => {
         status: QuoteStatus.DRAFT,
         previousVersionId: draft.id,
       });
+    });
+
+    it('saveState guarda y limpia el estado que tenía la cotización antes de ser reemplazada (F3-A03)', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      const sent = draft.markSent(NOW, '2026-11-17');
+      await repository.saveState(sent, QuoteStatus.DRAFT);
+      const { superseded } = sent.revise(randomUUID(), NOW);
+
+      await repository.saveState(superseded, QuoteStatus.SENT);
+      const stored = await repository.findById(draft.id);
+      await repository.saveState(superseded.restoreAfterDiscardedRevision(NOW), QuoteStatus.SUPERSEDED);
+      const restored = await repository.findById(draft.id);
+
+      expect(stored).toMatchObject({ status: QuoteStatus.SUPERSEDED, supersededFromStatus: QuoteStatus.SENT });
+      expect(restored).toMatchObject({ status: QuoteStatus.SENT, supersededFromStatus: undefined });
+    });
+
+    it('nextVersionNumber cuenta también las versiones borradas, para no chocar con la unicidad', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      const sent = draft.markSent(NOW, '2026-11-17');
+      await repository.saveState(sent, QuoteStatus.DRAFT);
+      const { nextVersion } = sent.revise(randomUUID(), NOW);
+      await repository.create(nextVersion);
+      await repository.deleteDraft(nextVersion.id);
+
+      // Borrar suelta el enlace único con la versión anterior: así esa versión puede tener otra revisión.
+      await expect(prisma.quote.findUniqueOrThrow({ where: { id: nextVersion.id } })).resolves.toMatchObject({
+        previousVersionId: null,
+      });
+      await expect(repository.nextVersionNumber(draft.number)).resolves.toBe(VERSION_AFTER_A_DELETED_ONE);
+      await expect(repositoryFor(otherCompany.tenant.id).nextVersionNumber(draft.number)).resolves.toBe(1);
     });
 
     it('una cotización solo tiene una versión siguiente', async () => {

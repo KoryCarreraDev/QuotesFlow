@@ -45,6 +45,13 @@ export class InMemoryQuoteRepository implements IQuoteRepository {
     return this.lastNumber;
   }
 
+  async nextVersionNumber(quoteNumber: number): Promise<number> {
+    const versions = this.allStored()
+      .filter((quote) => quote.tenantId === this.tenantContext.getTenantId() && quote.number === quoteNumber)
+      .map((quote) => quote.version);
+    return Math.max(0, ...versions) + 1;
+  }
+
   async create(quote: Quote): Promise<void> {
     this.quotesById.set(quote.id, quote);
   }

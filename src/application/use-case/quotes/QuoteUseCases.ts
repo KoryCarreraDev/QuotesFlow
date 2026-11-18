@@ -346,6 +346,24 @@ export class DeleteQuoteUseCase {
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
       });
+      if (quote.previousVersionId) await this.restorePreviousVersion(quote.previousVersionId, quote.version);
+    });
+  }
+
+  /**
+   * Descartar la revisión devuelve la versión anterior a su estado (D-22, F3-A03): si no, quedaría reemplazada para
+   * siempre, sin versión activa ni forma de revisarla. Va en la misma transacción y comparando el estado.
+   */
+  private async restorePreviousVersion(previousVersionId: string, discardedVersion: number): Promise<void> {
+    const previous = await this.repository.findById(previousVersionId);
+    // Sin versión anterior, o que ya no está reemplazada o no recuerda su estado (datos previos a F3-A03): no se toca.
+    if (previous?.status !== QuoteStatus.SUPERSEDED || previous.supersededFromStatus === undefined) return;
+    await saveTransition(this.repository, previous.restoreAfterDiscardedRevision(new Date()), QuoteStatus.SUPERSEDED);
+    await this.auditLogger.record({
+      action: AuditAction.QUOTE_REVISION_DISCARDED,
+      entity: AuditEntity.QUOTE,
+      entityId: previous.id,
+      metadata: { restoredStatus: previous.supersededFromStatus, discardedVersion },
     });
   }
 }
@@ -616,9 +634,12 @@ export class ReviseQuoteUseCase {
   async execute(actor: Actor, quoteId: string): Promise<QuoteDTO> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_UPDATE, quoteId);
     const { now, today } = await loadClock(this.tenantProfileRepository);
-    const { superseded, nextVersion } = quote.revise(randomUUID(), now);
 
-    await this.transactionManager.runInTransaction(async () => {
+    const nextVersion = await this.transactionManager.runInTransaction(async () => {
+      // El mayor número ya usado más uno, incluidas las versiones borradas: reutilizar una chocaría con la unicidad.
+      const nextVersionNumber = await this.repository.nextVersionNumber(quote.number);
+      const revision = quote.revise(randomUUID(), now, nextVersionNumber);
+      const { superseded, nextVersion } = revision;
       await saveTransition(this.repository, superseded, quote.status);
       await this.repository.create(nextVersion);
       await this.auditLogger.record({
@@ -627,6 +648,7 @@ export class ReviseQuoteUseCase {
         entityId: nextVersion.id,
         metadata: { previousVersionId: quoteId, version: nextVersion.version },
       });
+      return nextVersion;
     });
     return toQuoteDTO(nextVersion, today);
   }

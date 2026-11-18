@@ -79,6 +79,7 @@ function toQuote(record: QuoteListRecord, items: QuoteItem[]): Quote {
     },
     createdById: record.createdById,
     previousVersionId: record.previousVersionId ?? undefined,
+    supersededFromStatus: (record.supersededFromStatus as QuoteStatus | null) ?? undefined,
     sentAt: record.sentAt ?? undefined,
     decidedAt: record.decidedAt ?? undefined,
     createdAt: record.createdAt,
@@ -166,6 +167,15 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
     await this.prisma.quoteItem.createMany({ data: this.itemRows(quote) });
   }
 
+  async nextVersionNumber(quoteNumber: number): Promise<number> {
+    // Sin filtrar por borrado: una versión borrada sigue ocupando su número en la unicidad.
+    const highest = await this.prisma.quote.aggregate({
+      where: { tenantId: this.tenantId, number: quoteNumber },
+      _max: { version: true },
+    });
+    return (highest._max.version ?? 0) + 1;
+  }
+
   async findById(quoteId: string): Promise<Quote | null> {
     const record = await this.prisma.quote.findFirst({
       where: { id: quoteId, ...this.tenantWhere() },
@@ -194,6 +204,7 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
         status: quote.status as StoredQuoteStatus,
         sentAt: quote.sentAt ?? null,
         decidedAt: quote.decidedAt ?? null,
+        supersededFromStatus: (quote.supersededFromStatus as StoredQuoteStatus | undefined) ?? null,
         updatedAt: quote.updatedAt,
       },
     });
@@ -203,7 +214,9 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
   async deleteDraft(quoteId: string): Promise<boolean> {
     const { count } = await this.prisma.quote.updateMany({
       where: { id: quoteId, ...this.tenantWhere(), status: StoredQuoteStatus.DRAFT },
-      data: { deleted: StoredDeletedState.DELETED, updatedAt: new Date() },
+      // `previousVersionId` es único: el borrador borrado suelta su enlace para que la versión anterior pueda tener
+      // otra revisión (F3-A03).
+      data: { deleted: StoredDeletedState.DELETED, previousVersionId: null, updatedAt: new Date() },
     });
     return count === 1;
   }

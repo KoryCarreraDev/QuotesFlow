@@ -18,6 +18,12 @@ export interface IQuoteRepository extends IFilterableRepository<Quote> {
   /** Guarda una cotización nueva con sus ítems (también la versión siguiente de una revisión). */
   create(quote: Quote): Promise<void>;
 
+  /**
+   * Número de la versión siguiente de un número de cotización: el mayor ya usado más uno. Cuenta también las versiones
+   * borradas, porque siguen ocupando la unicidad `(empresa, número, versión)` (F3-A03).
+   */
+  nextVersionNumber(quoteNumber: number): Promise<number>;
+
   /** La cotización con sus ítems por orden; `null` si no existe, es de otra empresa o está borrada. */
   findById(quoteId: string): Promise<Quote | null>;
 
