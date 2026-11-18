@@ -30,6 +30,11 @@ export interface IQuoteRepository extends IFilterableRepository<Quote> {
    */
   saveState(quote: Quote, expectedStatus: QuoteStatus): Promise<boolean>;
 
-  /** Borrado suave; solo borradores. */
-  delete(quoteId: string): Promise<void>;
+  /**
+   * Borrado suave de un borrador, comparando el estado (como `saveState`): si otra petición lo envió mientras tanto,
+   * no se borra.
+   *
+   * @returns `false` si ya no es un borrador, no existe o es de otra empresa.
+   */
+  deleteDraft(quoteId: string): Promise<boolean>;
 }

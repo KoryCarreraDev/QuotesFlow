@@ -186,7 +186,7 @@ describe('PrismaQuoteRepository', () => {
       await repository.create(draft);
 
       await expect(repositoryFor(otherCompany.tenant.id).findById(draft.id)).resolves.toBeNull();
-      await repository.delete(draft.id);
+      await repository.deleteDraft(draft.id);
       await expect(repository.findById(draft.id)).resolves.toBeNull();
       await expect(prisma.quote.findUnique({ where: { id: draft.id } })).resolves.toMatchObject({
         deleted: 'DELETED',
@@ -295,6 +295,47 @@ describe('PrismaQuoteRepository', () => {
         repositoryFor(otherCompany.tenant.id).saveState(draft.markSent(NOW, '2026-11-17'), QuoteStatus.DRAFT),
       ).resolves.toBe(false);
       await expect(repository.findById(draft.id)).resolves.toMatchObject({ status: QuoteStatus.DRAFT });
+    });
+  });
+
+  describe('deleteDraft (comparar y cambiar, F3-A04)', () => {
+    it('borra (suave) un borrador', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      await expect(repository.deleteDraft(draft.id)).resolves.toBe(true);
+
+      await expect(repository.findById(draft.id)).resolves.toBeNull();
+    });
+
+    it('no borra una cotización que ya se envió', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      await repository.saveState(draft.markSent(NOW, '2026-11-17'), QuoteStatus.DRAFT);
+
+      await expect(repository.deleteDraft(draft.id)).resolves.toBe(false);
+
+      await expect(repository.findById(draft.id)).resolves.toMatchObject({ status: QuoteStatus.SENT });
+    });
+
+    it('borrar y enviar a la vez: solo una de las dos gana', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      const [deleted, sent] = await Promise.all([
+        repository.deleteDraft(draft.id),
+        repository.saveState(draft.markSent(NOW, '2026-11-17'), QuoteStatus.DRAFT),
+      ]);
+
+      expect(deleted).not.toBe(sent);
+    });
+
+    it('no toca una cotización de otra empresa', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      await expect(repositoryFor(otherCompany.tenant.id).deleteDraft(draft.id)).resolves.toBe(false);
+      await expect(repository.findById(draft.id)).resolves.not.toBeNull();
     });
   });
 

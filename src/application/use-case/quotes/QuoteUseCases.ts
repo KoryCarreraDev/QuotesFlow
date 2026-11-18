@@ -337,7 +337,9 @@ export class DeleteQuoteUseCase {
     quote.assertDeletable();
 
     await this.transactionManager.runInTransaction(async () => {
-      await this.repository.delete(quoteId);
+      if (!(await this.repository.deleteDraft(quoteId))) {
+        throw new ConflictError(ErrorCode.QUOTE_NOT_EDITABLE, 'Quote is no longer a draft');
+      }
       await this.auditLogger.record({
         action: AuditAction.QUOTE_DELETED,
         entity: AuditEntity.QUOTE,

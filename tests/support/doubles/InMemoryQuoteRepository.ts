@@ -67,8 +67,11 @@ export class InMemoryQuoteRepository implements IQuoteRepository {
     return true;
   }
 
-  async delete(quoteId: string): Promise<void> {
+  async deleteDraft(quoteId: string): Promise<boolean> {
+    const stored = this.quotesById.get(quoteId);
+    if (!stored || stored.status !== QuoteStatus.DRAFT) return false;
     this.deletedQuoteIds.add(quoteId);
+    return true;
   }
 
   async findFiltered(criteria: FilterCriteriaDTO, _config: IFilterFieldConfig): Promise<Quote[]> {

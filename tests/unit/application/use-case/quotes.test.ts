@@ -900,6 +900,26 @@ describe('Borrar', () => {
     expect(context.quotes.isDeleted(sent.id)).toBe(false);
   });
 
+  it('si la cotización se envió mientras tanto, el borrado responde conflicto y no la borra (F3-A04)', async () => {
+    const context = setup();
+    const draft = seedQuote(context, QuoteStatus.DRAFT);
+    // Otra petición la deja SENT después de que este caso de uso la leyó como borrador.
+    const read = context.quotes.findById.bind(context.quotes);
+    vi.spyOn(context.quotes, 'findById').mockImplementationOnce(async (quoteId) => {
+      const loaded = await read(quoteId);
+      await context.quotes.saveState(draft.markSent(NOW, TODAY), QuoteStatus.DRAFT);
+      return loaded;
+    });
+
+    await expect(context.remove.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_NOT_EDITABLE,
+    });
+
+    expect(context.quotes.isDeleted(draft.id)).toBe(false);
+    expect(context.quotes.findStoredById(draft.id)?.status).toBe(QuoteStatus.SENT);
+    expect(context.auditLogger.entries).toEqual([]);
+  });
+
   it('el comercial no borra la de otro', async () => {
     const context = setup();
     const others = seedQuote(context, QuoteStatus.DRAFT, { createdById: otherSalesRep.userId });

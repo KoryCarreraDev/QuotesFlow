@@ -1,4 +1,4 @@
-import { Prisma, QuoteStatus as StoredQuoteStatus } from '@prisma/client';
+import { DeletedState as StoredDeletedState, Prisma, QuoteStatus as StoredQuoteStatus } from '@prisma/client';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IQuoteRepository } from '@/application/ports/repositories/IQuoteRepository.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
@@ -178,8 +178,12 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
     return count === 1;
   }
 
-  async delete(quoteId: string): Promise<void> {
-    await this.softDeleteRegister(this.prisma.quote, quoteId);
+  async deleteDraft(quoteId: string): Promise<boolean> {
+    const { count } = await this.prisma.quote.updateMany({
+      where: { id: quoteId, ...this.tenantWhere(), status: StoredQuoteStatus.DRAFT },
+      data: { deleted: StoredDeletedState.DELETED, updatedAt: new Date() },
+    });
+    return count === 1;
   }
 
   /** Un estado que no existe haría fallar a Prisma con un 500: se rechaza como filtro inválido. */
