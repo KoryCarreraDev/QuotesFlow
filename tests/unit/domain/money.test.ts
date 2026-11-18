@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
-import { Money, Percentage } from '@/domain/value-objects/money.js';
+import { Money, Percentage, isNonNegativeMoneyText, isPercentageText } from '@/domain/value-objects/money.js';
 
 // F3-T01 (H21, R8): el dinero nunca pasa por `number`. Pesos colombianos (D-21) con dos decimales.
 
@@ -131,5 +131,29 @@ describe('Percentage', () => {
   it('compara porcentajes', () => {
     expect(Percentage.fromDecimalString('20').isGreaterThan(Percentage.fromDecimalString('10'))).toBe(true);
     expect(Percentage.fromDecimalString('10').isGreaterThan(Percentage.fromDecimalString('10.00'))).toBe(false);
+  });
+});
+
+describe('validación del texto que llega de la API', () => {
+  it.each([
+    ['2500000', true],
+    ['99.90', true],
+    ['0', true],
+    ['-1', false],
+    ['1.001', false],
+    ['1,5', false],
+  ])('importe "%s": %s', (text, expected) => {
+    expect(isNonNegativeMoneyText(text)).toBe(expected);
+  });
+
+  it.each([
+    ['19', true],
+    ['12.5', true],
+    ['100', true],
+    ['100.01', false],
+    ['-5', false],
+    ['abc', false],
+  ])('porcentaje "%s": %s', (text, expected) => {
+    expect(isPercentageText(text)).toBe(expected);
   });
 });
