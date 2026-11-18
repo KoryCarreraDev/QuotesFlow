@@ -4,9 +4,10 @@ import { QuoteController } from '../../infrastructure/web/controllers/quoteContr
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
-import { createQuoteSchema, sendQuoteSchema, updateQuoteSchema } from '../schemas/quoteSchema.js';
+import { acceptQuoteSchema, createQuoteSchema, sendQuoteSchema, updateQuoteSchema } from '../schemas/quoteSchema.js';
 
-function getQuoteController(req: Request): QuoteController {
+/** Controlador de cotizaciones de la petición; también lo usa la ruta `POST /leads/:id/quotes`. */
+export function getQuoteController(req: Request): QuoteController {
   const quotes = req.container!.quotes;
   return new QuoteController(
     quotes.getListQuotesUseCase(),
@@ -19,6 +20,7 @@ function getQuoteController(req: Request): QuoteController {
     quotes.getRejectQuoteUseCase(),
     quotes.getReviseQuoteUseCase(),
     quotes.getGenerateQuotePdfUseCase(),
+    quotes.getCreateQuoteFromLeadUseCase(),
   );
 }
 
@@ -57,7 +59,7 @@ export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Ro
     getQuoteController(req).send(req, res, next);
   });
 
-  router.post('/:id/accept', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.post('/:id/accept', authMiddleware, tenantMiddleware, validateBody(acceptQuoteSchema), (req, res, next) => {
     getQuoteController(req).accept(req, res, next);
   });
 

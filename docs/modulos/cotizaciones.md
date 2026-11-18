@@ -57,6 +57,18 @@ servidor calcula y que no cambian después de enviada.
   `403`; una de otra empresa o inexistente, `404 QUOTE_NOT_FOUND`.
 - **Auditoría** en la misma transacción: `QUOTE_CREATED`, `QUOTE_UPDATED` (nombres de campos), `QUOTE_DELETED`,
   `QUOTE_SENT`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `QUOTE_REVISED`, `QUOTE_PRICE_OVERRIDDEN`.
+- **Desde un lead (F3-T09).** `POST /leads/:id/quotes` crea el borrador con el lead de la ruta como cliente (un
+  `leadId` en el cuerpo se ignora; se pueden añadir `contactId` y `companyContactId`). Un comercial solo de los leads
+  de los que es responsable (`403` si no; también los que no tienen responsable); gestión, de cualquiera. Un lead
+  inexistente, borrado o de otra empresa responde `404 LEAD_NOT_FOUND`. Después aplican las mismas reglas que al
+  crear (precio en el servidor, IVA, topes de descuento, numeración).
+- **Lead ganado al aceptar (F3-T09).** `POST /quotes/:id/accept` con `{ "markLeadAsWon": true }` y una cotización de
+  un lead mueve ese lead al estado ganado de la empresa (el de tipo `WON` con menor orden) en la misma transacción,
+  con la nota "Cotización COT-000123 aceptada" en su historial de estados y `LEAD_STATUS_CHANGED` en la auditoría.
+  La respuesta lleva `leadMarkedAsWon`. Por defecto (sin el campo) el lead no se toca: pasar a ganado es una
+  decisión de quien acepta. Solo se mueve un lead abierto: uno ya ganado o perdido no cambia, y sin ningún estado
+  `WON` configurado se acepta igual con `leadMarkedAsWon: false`. Si quien acepta no puede modificar ese lead
+  (por ejemplo, se lo reasignaron a otro comercial), responde `403` y la cotización **no** se acepta.
 - **PDF (F3-T06).** `GET /quotes/:id/pdf` descarga la cotización en A4 (`application/pdf`, adjunto `COT-000123.pdf` o `COT-000123-v2.pdf`, `Cache-Control: private, no-store`). Lleva el logo (si la empresa tiene uno válido; si falta o no se puede leer, sale sin él), el nombre de la empresa, referencia, estado (`BORRADOR`, `ENVIADA`, `VENCIDA`…), fecha de emisión y vigencia (dd/mm/aaaa en la zona horaria de la empresa), el cliente, la tabla de ítems (con las medidas de los ítems de fórmula), descuentos, IVA y total en pesos colombianos (`$ 1.234.567,50`), notas y condiciones. Los importes se formatean desde el texto decimal exacto, nunca con `number`. La tabla continúa en páginas nuevas con su cabecera repetida y cada página lleva "Página X de Y". Las fuentes estándar solo codifican WinAnsi: un carácter fuera de él (emojis, símbolos) sale como `?`. Los datos de contacto del cliente solo salen si quien descarga puede ver a ese cliente. Se genera al pedirlo y no se guarda. Mismos permisos que leer la cotización (`quote:list`); no se audita (solo lectura). Las condiciones son un texto fijo; las plantillas por empresa (C-13) no están en el MVP.
 - **Envío (F3-T08, D-57).** `POST /quotes/:id/send` deja la cotización `SENT` y responde la cotización con `emailed`.
   - Canal de correo de la empresa **desactivado** (por defecto): solo cambia el estado (`emailed: false`) y el
@@ -78,10 +90,11 @@ servidor calcula y que no cambian después de enviada.
 | GET | `/api/v1/quotes/:id` | Ídem | Una cotización con sus ítems |
 | GET | `/api/v1/quotes/:id/pdf` | Ídem | Descarga el PDF de la cotización |
 | POST | `/api/v1/quotes` | Todos | Crea un borrador → 201 |
+| POST | `/api/v1/leads/:id/quotes` | Gestión; comercial: sus leads | Crea un borrador para un lead (F3-T09) → 201 |
 | PATCH | `/api/v1/quotes/:id` | Ídem | Modifica un borrador; `items` reemplaza todos los ítems; `null` quita cliente o notas |
 | DELETE | `/api/v1/quotes/:id` | Ídem | Borrado suave de un borrador |
 | POST | `/api/v1/quotes/:id/send` | Ídem | Borrador → `SENT`; cuerpo opcional `{ recipientEmail? }`; con el correo activo, envía el PDF al cliente |
-| POST | `/api/v1/quotes/:id/accept` | Ídem | `SENT` vigente → `ACCEPTED` |
+| POST | `/api/v1/quotes/:id/accept` | Ídem | `SENT` vigente → `ACCEPTED`; cuerpo opcional `{ markLeadAsWon? }` |
 | POST | `/api/v1/quotes/:id/reject` | Ídem | `SENT` (también vencida) → `REJECTED` |
 | POST | `/api/v1/quotes/:id/revise` | Ídem | Crea la versión siguiente → 201 |
 

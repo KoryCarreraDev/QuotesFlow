@@ -55,6 +55,7 @@ export enum Action {
   QUOTE_DELETE = 'quote:delete',
   QUOTE_SEND = 'quote:send',
   QUOTE_DECIDE = 'quote:decide',
+  QUOTE_CREATE_FROM_LEAD = 'quote:create-from-lead',
 }
 
 /**
@@ -163,6 +164,8 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.QUOTE_SEND]: managementOrOwnForSalesRep,
   // Registrar la respuesta del cliente: aceptar o rechazar.
   [Action.QUOTE_DECIDE]: managementOrOwnForSalesRep,
+  // F3-T09: crear la cotización de un lead; un comercial, solo de los suyos (el responsable del lead es el recurso).
+  [Action.QUOTE_CREATE_FROM_LEAD]: managementOrOwnForSalesRep,
 };
 
 /**

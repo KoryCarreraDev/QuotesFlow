@@ -7,6 +7,8 @@ import { createLeadSchema } from '../schemas/leadSchema.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { changeLeadStatusSchema, updateLeadSchema } from '../schemas/leadSchema.js';
 import { Request } from 'express';
+import { createQuoteFromLeadSchema } from '../schemas/quoteSchema.js';
+import { getQuoteController } from './quoteRoutes.js';
 
 function getLeadController(req: Request): LeadController {
   const getLeadsUseCase = req.container!.leads.getGetLeadsUseCase();
@@ -41,6 +43,17 @@ export function leadRouter(authenticateSession: AuthenticateSessionUseCase): Rou
   router.patch('/:id', authMiddleware, tenantMiddleware, validateBody(updateLeadSchema), (req, res, next) => {
     getLeadController(req).update(req, res, next);
   });
+
+  // F3-T09: cotización de un lead. Vive aquí por la ruta; el caso de uso es del módulo de cotizaciones.
+  router.post(
+    '/:id/quotes',
+    authMiddleware,
+    tenantMiddleware,
+    validateBody(createQuoteFromLeadSchema),
+    (req, res, next) => {
+      getQuoteController(req).createFromLead(req, res, next);
+    },
+  );
 
   router.get('/search', authMiddleware, tenantMiddleware, (req, res, next) => {
     getLeadController(req).getFiltered(req, res, next);

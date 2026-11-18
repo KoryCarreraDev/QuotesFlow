@@ -62,6 +62,7 @@ export const apiPaths = {
     update: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}`,
     delete: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}`,
     changeStatus: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}/status`,
+    createQuote: (leadId: string) => `${LEAD_BASE_PATH}/${leadId}/quotes`,
   },
   leadStatusConfigs: {
     getAll: LEAD_STATUS_CONFIG_BASE_PATH,
@@ -132,6 +133,7 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'PATCH', pattern: apiPaths.leads.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.leads.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.leads.changeStatus(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.leads.createQuote(ROUTE_ID_PARAMETER), access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.leadStatusConfigs.getAll, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.leadStatusConfigs.create, access: 'authenticated' },

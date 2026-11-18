@@ -1,7 +1,7 @@
+import { AcceptQuoteUseCase, CreateQuoteFromLeadUseCase } from '../../application/use-case/quotes/QuoteUseCases.js';
 import { GenerateQuotePdfUseCase } from '../../application/use-case/quotes/QuotePdfUseCase.js';
 import { QuoteContentResolver } from '../../application/use-case/quotes/QuoteContentResolver.js';
 import {
-  AcceptQuoteUseCase,
   CreateQuoteUseCase,
   DeleteQuoteUseCase,
   GetQuoteUseCase,
@@ -24,8 +24,10 @@ import { PrismaTenantProfileRepository } from '../../infrastructure/persistence/
 import { appLogger } from '../../infrastructure/logging/appLogger.js';
 import { MathjsFormulaEvaluator } from '../../infrastructure/services/MathjsFormulaEvaluator.js';
 import { fileStorage, pdfGenerator } from '../sharedServices.js';
+import { PrismaLeadStatusConfigRepository } from '../../infrastructure/persistence/repositories/PrismaLeadStatusConfigRepository.js';
 import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
 import { EmailModule } from './EmailModule.js';
+import { LeadModule } from './LeadModule.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
 
 const formulaEvaluator = new MathjsFormulaEvaluator();
@@ -106,7 +108,23 @@ export class QuoteModule {
   }
 
   getAcceptQuoteUseCase(): AcceptQuoteUseCase {
-    return new AcceptQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+    const { prisma, tenantContext } = this.dependencies;
+    return new AcceptQuoteUseCase(
+      this.createRepository(),
+      this.createProfileRepository(),
+      ...this.writeDependencies(),
+      new PrismaLeadRepository(prisma, tenantContext),
+      new PrismaLeadStatusConfigRepository(prisma, tenantContext),
+      new LeadModule(this.dependencies).getChangeLeadStatusUseCase(),
+      tenantContext,
+    );
+  }
+
+  getCreateQuoteFromLeadUseCase(): CreateQuoteFromLeadUseCase {
+    return new CreateQuoteFromLeadUseCase(
+      new PrismaLeadRepository(this.dependencies.prisma, this.dependencies.tenantContext),
+      this.getCreateQuoteUseCase(),
+    );
   }
 
   getRejectQuoteUseCase(): RejectQuoteUseCase {

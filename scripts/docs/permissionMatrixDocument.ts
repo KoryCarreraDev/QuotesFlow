@@ -52,6 +52,7 @@ const actionDescriptions: Record<Action, string> = {
     'Modificar un borrador o crear la versión siguiente de una cotización (`POST /quotes/:id/revise`)',
   [Action.QUOTE_DELETE]: 'Borrar (suave) un borrador',
   [Action.QUOTE_SEND]: 'Enviar una cotización (`POST /quotes/:id/send`)',
+  [Action.QUOTE_CREATE_FROM_LEAD]: 'Crear una cotización para un lead (`POST /leads/:id/quotes`)',
   [Action.QUOTE_DECIDE]: 'Registrar que el cliente aceptó o rechazó (`POST /quotes/:id/accept`, `/reject`)',
 };
 

@@ -52,6 +52,7 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `quote:delete` | Borrar (suave) un borrador | Sí | Sí | Sí | Solo los suyos |
 | `quote:send` | Enviar una cotización (`POST /quotes/:id/send`) | Sí | Sí | Sí | Solo los suyos |
 | `quote:decide` | Registrar que el cliente aceptó o rechazó (`POST /quotes/:id/accept`, `/reject`) | Sí | Sí | Sí | Solo los suyos |
+| `quote:create-from-lead` | Crear una cotización para un lead (`POST /leads/:id/quotes`) | Sí | Sí | Sí | Solo los suyos |
 
 Comportamientos que la tabla no muestra:
 

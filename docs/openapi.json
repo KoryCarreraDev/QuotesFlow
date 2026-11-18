@@ -11796,6 +11796,432 @@
         }
       }
     },
+    "/api/v1/leads/{id}/quotes": {
+      "post": {
+        "tags": [
+          "Cotizaciones"
+        ],
+        "summary": "Crea una cotización (borrador) para el lead de la ruta; un comercial solo de sus leads. Mismas reglas que crear una cotización",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Id del registro"
+            },
+            "required": true,
+            "description": "Id del registro",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contactId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "companyContactId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "validUntil": {
+                    "type": "string",
+                    "description": "Por defecto, 30 días desde hoy",
+                    "example": "2026-12-31"
+                  },
+                  "discountRate": {
+                    "type": "string",
+                    "description": "Descuento global, después del de cada ítem. Por defecto 0",
+                    "example": "19"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Producto del catálogo; su precio o fórmula fija el precio calculado"
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500,
+                          "description": "Obligatoria sin producto; con él, por defecto su nombre"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "variables": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 30
+                          },
+                          "description": "Valores de las variables de la fórmula del producto, como texto decimal"
+                        },
+                        "unitPrice": {
+                          "type": "string",
+                          "description": "Precio unitario antes de IVA. Sin producto es obligatorio; con él, cambia el calculado (D-24)",
+                          "example": "2500000.00"
+                        },
+                        "priceOverrideReason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500,
+                          "description": "Obligatorio si unitPrice difiere del precio calculado"
+                        },
+                        "discountRate": {
+                          "type": "string",
+                          "description": "Descuento del ítem, por defecto 0",
+                          "example": "19"
+                        },
+                        "taxRate": {
+                          "type": "string",
+                          "description": "IVA del ítem; por defecto el de la empresa, si lo configuró",
+                          "example": "19"
+                        }
+                      },
+                      "required": [
+                        "quantity"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "items"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cotización creada con el lead como cliente; 404 LEAD_NOT_FOUND"
+          },
+          "400": {
+            "description": "Entrada inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El rol no permite la acción (INSUFFICIENT_PERMISSIONS); Origen fuera de la lista blanca (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe o es de otra empresa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiadas peticiones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código estable en inglés (Q-003); el frontend lo traduce"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Mensaje técnico en inglés"
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/quotes/search": {
       "get": {
         "tags": [
@@ -14259,7 +14685,7 @@
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Registra que el cliente aceptó una cotización enviada y vigente (definitiva)",
+        "summary": "Registra que el cliente aceptó una cotización enviada y vigente (definitiva). Con markLeadAsWon, el lead abierto de la cotización pasa al estado ganado en la misma transacción",
         "security": [
           {
             "sessionCookie": []
@@ -14278,9 +14704,24 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "markLeadAsWon": {
+                    "type": "boolean",
+                    "description": "Si la cotización es de un lead abierto, lo pasa al estado ganado. Por defecto false"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Cotización aceptada; 409 QUOTE_INVALID_TRANSITION o QUOTE_EXPIRED"
+            "description": "Cotización aceptada, con leadMarkedAsWon; 409 QUOTE_INVALID_TRANSITION o QUOTE_EXPIRED; 403 si no puede modificar el lead"
           },
           "400": {
             "description": "Entrada inválida",

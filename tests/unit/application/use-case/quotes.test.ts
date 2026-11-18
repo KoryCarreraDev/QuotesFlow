@@ -11,6 +11,7 @@ import { AuditAction } from '@/application/ports/services/IAuditLogger.js';
 import { QuoteContentResolver } from '@/application/use-case/quotes/QuoteContentResolver.js';
 import {
   AcceptQuoteUseCase,
+  CreateQuoteFromLeadUseCase,
   CreateQuoteUseCase,
   DeleteQuoteUseCase,
   GetQuoteUseCase,
@@ -23,9 +24,12 @@ import {
 import { Formula } from '@/domain/entities/Formula.js';
 import { Product } from '@/domain/entities/Product.js';
 import { Quote, QuoteItem, QuoteStatus } from '@/domain/entities/Quote.js';
+import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 import { Role } from '@/domain/enums/Role.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { Money, Percentage } from '@/domain/value-objects/money.js';
+import { LeadMapper } from '@/application/mappers/LeadMapper.js';
+import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
 import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
 import { GenerateQuotePdfUseCase } from '@/application/use-case/quotes/QuotePdfUseCase.js';
 import { CompiledEmailTemplateRenderer } from '@/infrastructure/email/CompiledEmailTemplateRenderer.js';
@@ -37,6 +41,7 @@ import {
   buildCompanyContact,
   buildContact,
   buildLead,
+  buildLeadStatusConfig,
   buildUser,
 } from '@tests/support/builders/entityBuilders.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
@@ -46,6 +51,8 @@ import { InMemoryFileStorage } from '@tests/support/doubles/InMemoryFileStorage.
 import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
 import { StubPdfGenerator } from '@tests/support/doubles/StubPdfGenerator.js';
 import { RecordingLogger } from '@tests/support/doubles/RecordingLogger.js';
+import { InMemoryLeadStatusConfigRepository } from '@tests/support/doubles/InMemoryLeadStatusConfigRepository.js';
+import { InMemoryLeadStatusHistoryRepository } from '@tests/support/doubles/InMemoryLeadStatusHistoryRepository.js';
 import { InMemoryContactRepository } from '@tests/support/doubles/InMemoryContactRepository.js';
 import { InMemoryFormulaRepository } from '@tests/support/doubles/InMemoryFormulaRepository.js';
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
@@ -105,6 +112,8 @@ function setup() {
     contacts,
     companyContacts,
   );
+  const leadStatuses = new InMemoryLeadStatusConfigRepository(tenantContext);
+  const leadHistory = new InMemoryLeadStatusHistoryRepository(tenantContext);
   const outbox = new MemoryEmailOutbox();
   const emailService = new SwitchableEmailService(outbox);
   const emailLogs = new InMemoryEmailLogRepository();
@@ -124,6 +133,8 @@ function setup() {
     contacts,
     companyContacts,
     leads,
+    leadStatuses,
+    leadHistory,
     profiles,
     outbox,
     emailService,
@@ -157,7 +168,28 @@ function setup() {
       contacts,
       companyContacts,
     ),
-    accept: new AcceptQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
+    accept: new AcceptQuoteUseCase(
+      quotes,
+      profiles,
+      transactionManager,
+      auditLogger,
+      leads,
+      leadStatuses,
+      new ChangeLeadStatusUseCase(
+        leads,
+        leadStatuses,
+        leadHistory,
+        transactionManager,
+        new LeadMapper(),
+        tenantContext,
+        auditLogger,
+      ),
+      tenantContext,
+    ),
+    createFromLead: new CreateQuoteFromLeadUseCase(
+      leads,
+      new CreateQuoteUseCase(quotes, resolver, profiles, tenantContext, transactionManager, auditLogger),
+    ),
     reject: new RejectQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
     revise: new ReviseQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
   };
@@ -1020,5 +1052,185 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
       code: ErrorCode.INSUFFICIENT_PERMISSIONS,
     });
     expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
+  });
+});
+
+describe('Cotización de un lead (F3-T09)', () => {
+  const leadInput = { items: [{ description: 'Instalación', quantity: 1, unitPrice: '100000' }] };
+
+  it('crea la cotización con el lead como cliente y la deja a nombre de quien la crea', async () => {
+    const context = setup();
+    const lead = buildLead({ assignedToId: salesRep.userId });
+    context.leads.seed(lead);
+
+    const quote = await context.createFromLead.execute(salesRep, lead.id, leadInput);
+
+    expect(quote).toMatchObject({ leadId: lead.id, createdById: salesRep.userId, status: 'DRAFT', number: 1 });
+    expect(context.auditLogger.entries.map((entry) => entry.action)).toContain(AuditAction.QUOTE_CREATED);
+  });
+
+  it('admite además un contacto, pero el lead de la ruta manda sobre uno que venga en el cuerpo', async () => {
+    const context = setup();
+    const lead = buildLead({ assignedToId: salesRep.userId });
+    const otherLead = buildLead({ assignedToId: salesRep.userId });
+    const contact = buildContact({ ownerId: salesRep.userId });
+    context.leads.seed(lead, otherLead);
+    context.contacts.seed(contact);
+
+    const quote = await context.createFromLead.execute(salesRep, lead.id, {
+      ...leadInput,
+      contactId: contact.id,
+      ...({ leadId: otherLead.id } as object),
+    });
+
+    expect(quote).toMatchObject({ leadId: lead.id, contactId: contact.id });
+  });
+
+  it('un lead inexistente, de otra empresa o borrado responde LEAD_NOT_FOUND', async () => {
+    const context = setup();
+    const foreign = buildLead({ tenantId: 'other-tenant-id' });
+    context.leads.seed(foreign);
+
+    for (const leadId of [foreign.id, randomUUID()]) {
+      await expect(context.createFromLead.execute(owner, leadId, leadInput)).rejects.toMatchObject({
+        code: ErrorCode.LEAD_NOT_FOUND,
+      });
+    }
+  });
+
+  it('un comercial solo cotiza a sus leads; gestión, a cualquiera', async () => {
+    const context = setup();
+    const othersLead = buildLead({ assignedToId: otherSalesRep.userId });
+    const unassignedLead = buildLead();
+    context.leads.seed(othersLead, unassignedLead);
+
+    await expect(context.createFromLead.execute(salesRep, othersLead.id, leadInput)).rejects.toMatchObject({
+      code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+    });
+    await expect(context.createFromLead.execute(salesRep, unassignedLead.id, leadInput)).rejects.toMatchObject({
+      code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+    });
+    await expect(context.createFromLead.execute(salesLeader, othersLead.id, leadInput)).resolves.toMatchObject({
+      leadId: othersLead.id,
+    });
+    expect(context.quotes.allStored()).toHaveLength(1);
+  });
+
+  it('se aplican las mismas reglas que al crear: precio, IVA y tope de descuento', async () => {
+    const context = setup();
+    const lead = buildLead({ assignedToId: salesRep.userId });
+    context.leads.seed(lead);
+
+    await expect(
+      context.createFromLead.execute(salesRep, lead.id, { ...leadInput, discountRate: '50' }),
+    ).rejects.toMatchObject({ code: ErrorCode.DISCOUNT_ABOVE_ROLE_LIMIT });
+    await expect(
+      context.createFromLead.execute(salesRep, lead.id, { items: [{ quantity: 1, unitPrice: '1' }] }),
+    ).rejects.toMatchObject({ code: ErrorCode.MISSING_REQUIRED_DATA });
+  });
+});
+
+describe('Aceptar y pasar el lead a ganado (F3-T09)', () => {
+  function seedLeadScenario(context: Setup, leadOverrides: Parameters<typeof buildLead>[0] = {}) {
+    const open = buildLeadStatusConfig({ name: 'Nuevo', order: 1, isDefault: true });
+    const wonLate = buildLeadStatusConfig({ name: 'Cerrado ganado', order: 5, type: LeadStatusType.WON });
+    const wonFirst = buildLeadStatusConfig({ name: 'Ganado', order: 4, type: LeadStatusType.WON });
+    const lost = buildLeadStatusConfig({ name: 'Perdido', order: 6, type: LeadStatusType.LOST });
+    context.leadStatuses.seed(open, wonLate, wonFirst, lost);
+    const lead = buildLead({ statusId: open.id, assignedToId: salesRep.userId, ...leadOverrides });
+    context.leads.seed(lead);
+    const sent = seedQuote(context, QuoteStatus.SENT, { customer: { leadId: lead.id }, number: 3 });
+    return { open, wonFirst, lost, lead, sent };
+  }
+
+  it('por defecto acepta sin tocar el lead', async () => {
+    const context = setup();
+    const { lead, sent } = seedLeadScenario(context);
+
+    const result = await context.accept.execute(salesRep, sent.id);
+
+    expect(result).toMatchObject({ status: 'ACCEPTED', leadMarkedAsWon: false });
+    expect((await context.leads.findById(lead.id))?.statusId).toBe(lead.statusId);
+    expect(context.leadHistory.listStored()).toEqual([]);
+  });
+
+  it('con markLeadAsWon pasa el lead abierto al estado ganado de menor orden y lo deja en su historial', async () => {
+    const context = setup();
+    const { lead, open, wonFirst, sent } = seedLeadScenario(context);
+
+    const result = await context.accept.execute(salesRep, sent.id, { markLeadAsWon: true });
+
+    expect(result).toMatchObject({ status: 'ACCEPTED', leadMarkedAsWon: true });
+    expect((await context.leads.findById(lead.id))?.statusId).toBe(wonFirst.id);
+    expect(context.leadHistory.listStored()).toEqual([
+      expect.objectContaining({
+        leadId: lead.id,
+        oldStatusId: open.id,
+        newStatusId: wonFirst.id,
+        changedById: salesRep.userId,
+        note: 'Cotización COT-000003 aceptada',
+      }),
+    ]);
+    expect(context.auditLogger.entries.map((entry) => entry.action)).toEqual([
+      AuditAction.QUOTE_ACCEPTED,
+      AuditAction.LEAD_STATUS_CHANGED,
+    ]);
+    expect(context.transactionManager.completedTransactionCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('no cambia un lead que ya está ganado o perdido', async () => {
+    const context = setup();
+    const { lead, lost, sent } = seedLeadScenario(context);
+    await context.leads.updateStatus(lead.id, lost.id);
+
+    const result = await context.accept.execute(salesRep, sent.id, { markLeadAsWon: true });
+
+    expect(result.leadMarkedAsWon).toBe(false);
+    expect((await context.leads.findById(lead.id))?.statusId).toBe(lost.id);
+  });
+
+  it('sin estado ganado configurado acepta igual y el lead no cambia', async () => {
+    const context = setup();
+    const open = buildLeadStatusConfig({ name: 'Nuevo', order: 1, isDefault: true });
+    context.leadStatuses.seed(open);
+    const lead = buildLead({ statusId: open.id, assignedToId: salesRep.userId });
+    context.leads.seed(lead);
+    const sent = seedQuote(context, QuoteStatus.SENT, { customer: { leadId: lead.id } });
+
+    const result = await context.accept.execute(salesRep, sent.id, { markLeadAsWon: true });
+
+    expect(result).toMatchObject({ status: 'ACCEPTED', leadMarkedAsWon: false });
+  });
+
+  it('una cotización sin lead acepta y lo pedido no hace nada', async () => {
+    const context = setup();
+    const sent = seedQuote(context, QuoteStatus.SENT);
+
+    await expect(context.accept.execute(salesRep, sent.id, { markLeadAsWon: true })).resolves.toMatchObject({
+      status: 'ACCEPTED',
+      leadMarkedAsWon: false,
+    });
+  });
+
+  it('si quien acepta no puede modificar el lead, la cotización tampoco se acepta', async () => {
+    const context = setup();
+    const { sent, lead } = seedLeadScenario(context, { assignedToId: otherSalesRep.userId });
+    // El comercial creó la cotización de un lead que luego pasó a otro comercial.
+    await expect(context.accept.execute(salesRep, sent.id, { markLeadAsWon: true })).rejects.toMatchObject({
+      code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+    });
+    // En memoria no hay reversión; la transacción real sí (ver el test de API). El lead no se movió.
+    expect((await context.leads.findById(lead.id))?.statusId).toBe(lead.statusId);
+    expect(context.transactionManager.failedTransactionCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('gestión acepta y mueve el lead de cualquier comercial', async () => {
+    const context = setup();
+    const { sent, wonFirst, lead } = seedLeadScenario(context, { assignedToId: otherSalesRep.userId });
+
+    await expect(context.accept.execute(owner, sent.id, { markLeadAsWon: true })).resolves.toMatchObject({
+      leadMarkedAsWon: true,
+    });
+    expect((await context.leads.findById(lead.id))?.statusId).toBe(wonFirst.id);
   });
 });

@@ -360,6 +360,8 @@ export interface QuoteOverrides {
   /** Último día de vigencia, `AAAA-MM-DD`. Por defecto, dentro de 30 días. */
   validUntil?: string;
   contactId?: string;
+  /** Cliente de la cotización: un lead. Si se indica, no se crea un contacto. */
+  leadId?: string;
   version?: number;
   previousVersionId?: string;
 }
@@ -381,7 +383,9 @@ export async function persistQuote(
     create: { tenantId, lastNumber: 1 },
     update: { lastNumber: { increment: 1 } },
   });
-  const contactId = overrides.contactId ?? (await persistContact(tenantId, { ownerId: createdById })).id;
+  const contactId =
+    overrides.contactId ??
+    (overrides.leadId ? undefined : (await persistContact(tenantId, { ownerId: createdById })).id);
   const validUntil =
     overrides.validUntil ??
     new Date(Date.now() + DAYS_OF_VALIDITY * MILLISECONDS_PER_DAY).toISOString().slice(0, ISO_DATE_LENGTH);
@@ -394,6 +398,7 @@ export async function persistQuote(
       version: overrides.version ?? 1,
       status,
       contactId,
+      leadId: overrides.leadId,
       validUntil: new Date(`${validUntil}T00:00:00.000Z`),
       subtotal: TEST_QUOTE_ITEM.gross,
       taxTotal: TEST_QUOTE_ITEM.tax,

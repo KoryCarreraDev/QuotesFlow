@@ -67,6 +67,8 @@ export interface RouteSecurityScenario {
   successStatus?: number;
   /** Cuerpo propio para `update`, cuando el genérico del recurso no sirve. Recibe la empresa de quien llama. */
   updateBody?: (company: TenantWithTeam) => Record<string, unknown>;
+  /** Cuerpo JSON de una ruta `transition` (POST sobre un registro) que lo exige. */
+  postBody?: (company: TenantWithTeam) => Record<string, unknown>;
   /** Archivo que la ruta recibe como `multipart/form-data` (subida del logo, F3-T07). */
   attachment?: { field: string; filename: string; contentType: string; content: Buffer };
   /** Deja la empresa en el estado que la ruta necesita para tener efecto (por ejemplo, con logo que quitar). */
@@ -207,6 +209,16 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
     { action: Action.PRODUCT_DELETE, resource: 'product', operation: 'delete' },
   ],
 
+  [
+    `POST ${apiPaths.leads.createQuote(':id')}`,
+    {
+      action: Action.QUOTE_CREATE_FROM_LEAD,
+      resource: 'lead',
+      operation: 'transition',
+      successStatus: HTTP_CREATED_STATUS,
+      postBody: () => ({ items: [{ description: 'Instalación', quantity: 1, unitPrice: '150000', taxRate: '19' }] }),
+    },
+  ],
   [`GET ${apiPaths.quotes.filtered}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'list' }],
   [`POST ${apiPaths.quotes.create}`, { action: Action.QUOTE_CREATE, resource: 'quote', operation: 'create' }],
   [`GET ${apiPaths.quotes.get(':id')}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'read' }],
@@ -361,7 +373,10 @@ export async function requestOnRecord(
   if (route.method === 'PATCH') {
     return request(app).patch(path).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
   }
-  if (route.method === 'POST') return request(app).post(path).set('Cookie', cookie);
+  if (route.method === 'POST') {
+    const call = request(app).post(path).set('Cookie', cookie);
+    return scenario.postBody ? call.send(scenario.postBody(company)) : call;
+  }
   return request(app).delete(path).set('Cookie', cookie);
 }
 
