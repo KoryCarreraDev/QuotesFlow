@@ -7,10 +7,11 @@ import { BasePrismaRepository } from './BasePrismaRepository.js';
  * el registro y la recuperación de contraseña envían correos sin sesión.
  */
 export class PrismaEmailLogRepository extends BasePrismaRepository implements IEmailLogRepository {
-  async record(entry: EmailLogEntry): Promise<void> {
+  async record(entry: EmailLogEntry): Promise<string> {
+    const id = randomUUID();
     await this.prisma.emailLog.create({
       data: {
-        id: randomUUID(),
+        id,
         tenantId: entry.tenantId,
         userId: entry.userId,
         template: entry.template,
@@ -20,5 +21,6 @@ export class PrismaEmailLogRepository extends BasePrismaRepository implements IE
         failureReason: entry.failureReason,
       },
     });
+    return id;
   }
 }

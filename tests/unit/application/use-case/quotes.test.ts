@@ -1007,7 +1007,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('con el canal desactivado solo cambia el estado: no sale correo ni se genera el PDF', async () => {
     const context = setup();
-    const contact = buildContact({ email: 'cliente@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'cliente@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -1022,7 +1022,12 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('con el canal activo envía al contacto el PDF adjunto de la cotización ya enviada, y lo registra', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ firstName: 'Laura', lastName: 'Gómez', email: 'laura@example.com' });
+    const contact = buildContact({
+      ownerId: salesRep.userId,
+      firstName: 'Laura',
+      lastName: 'Gómez',
+      email: 'laura@example.com',
+    });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -1038,8 +1043,9 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
     expect(email.attachments?.[0]).toMatchObject({ fileName: 'COT-000001.pdf', contentType: 'application/pdf' });
     // El PDF adjunto ya dice ENVIADA, no BORRADOR.
     expect(Buffer.from(email.attachments?.[0].content ?? []).toString()).toContain('ENVIADA');
+    // F3-A12: la auditoría dice de dónde salió el destinatario y enlaza con el envío; el correo vive en EmailLog.
     expect(context.auditLogger.entries.map((entry) => [entry.action, entry.metadata])).toEqual([
-      [AuditAction.QUOTE_SENT, { emailed: true }],
+      [AuditAction.QUOTE_SENT, { emailed: true, recipientSource: 'contact', emailLogId: context.emailLogs.ids[0] }],
     ]);
     expect(JSON.stringify(context.auditLogger.entries)).not.toContain('laura@example.com');
     expect(context.emailLogs.entries).toEqual([
@@ -1047,9 +1053,53 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
     ]);
   });
 
+  it('el origen del destinatario queda en la auditoría: explícito, contacto, empresa o lead (F3-A12)', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
+    const company = buildCompanyContact({ ownerId: salesRep.userId, email: 'roble@example.com' });
+    const lead = buildLead({ assignedToId: salesRep.userId, email: 'pedro@example.com' });
+    context.contacts.seed(contact);
+    context.companyContacts.seed(company);
+    context.leads.seed(lead);
+    const explicit = seedDraftFor(context, { contactId: contact.id });
+    const viaCompany = seedQuote(context, QuoteStatus.DRAFT, {
+      customer: { contactId: contact.id, companyContactId: company.id },
+      number: 2,
+    });
+    const viaLead = seedQuote(context, QuoteStatus.DRAFT, { customer: { leadId: lead.id }, number: 3 });
+    // Los leads y clientes sin responsable no los ve un comercial: este los ve porque son suyos.
+    context.leads.seed(buildLead({ id: lead.id, email: 'pedro@example.com', assignedToId: salesRep.userId }));
+
+    await context.send.execute(owner, explicit.id, { recipientEmail: 'compras@example.com' });
+    await context.send.execute(owner, viaCompany.id);
+    await context.send.execute(owner, viaLead.id);
+
+    expect(
+      context.auditLogger.entries.map((entry) => (entry.metadata as { recipientSource: string }).recipientSource),
+    ).toEqual(['explicit', 'company', 'lead']);
+  });
+
+  it('un comercial no escribe al correo de un cliente que ya no es suyo: usa solo lo que puede ver (F3-A12)', async () => {
+    const context = await enabledSetup();
+    const reassigned = buildContact({
+      email: 'laura@example.com',
+      ownerId: otherSalesRep.userId,
+    });
+    context.contacts.seed(reassigned);
+    const draft = seedDraftFor(context, { contactId: reassigned.id });
+
+    await expect(context.send.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_RECIPIENT_REQUIRED,
+    });
+    expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
+
+    // Gestión sí ve al cliente, y el nombre del saludo también sale de lo visible.
+    await expect(context.send.execute(owner, draft.id)).resolves.toMatchObject({ emailed: true });
+  });
+
   it('el correo indicado por quien envía manda sobre el del cliente', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -1061,9 +1111,13 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('sin correo en el contacto usa el de la empresa cliente y, después, el del lead', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: undefined });
-    const company = buildCompanyContact({ name: 'Constructora El Roble', email: 'roble@example.com' });
-    const lead = buildLead({ contactName: 'Pedro', email: 'pedro@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
+    const company = buildCompanyContact({
+      ownerId: salesRep.userId,
+      name: 'Constructora El Roble',
+      email: 'roble@example.com',
+    });
+    const lead = buildLead({ assignedToId: salesRep.userId, contactName: 'Pedro', email: 'pedro@example.com' });
     context.contacts.seed(contact);
     context.companyContacts.seed(company);
     context.leads.seed(lead);
@@ -1079,7 +1133,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('sin ningún correo al que escribir responde QUOTE_RECIPIENT_REQUIRED y la cotización sigue en borrador', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: undefined });
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -1093,7 +1147,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('si el proveedor no acepta el correo, la cotización sigue en borrador y se puede reintentar', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
     context.emailService.failing = true;
@@ -1111,7 +1165,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('una cotización que no se puede enviar no manda ningún correo', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const alreadySent = seedQuote(context, QuoteStatus.SENT, { customer: { contactId: contact.id } });
     const expired = seedQuote(context, QuoteStatus.DRAFT, {
@@ -1129,7 +1183,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('el comercial solo envía las suyas, también por correo', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const others = seedDraftFor(context, { contactId: contact.id }, { createdById: otherSalesRep.userId });
 

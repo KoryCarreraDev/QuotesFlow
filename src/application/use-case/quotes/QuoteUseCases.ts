@@ -356,10 +356,14 @@ async function saveTransition(repository: IQuoteRepository, next: Quote, expecte
   }
 }
 
+/** De dónde salió el correo del destinatario: lo indicó quien envía o es el del cliente de la cotización. */
+type RecipientSource = 'explicit' | 'contact' | 'company' | 'lead';
+
 /** A quién se le escribe y cómo se le saluda. */
 interface QuoteRecipient {
   email: string;
   name: string;
+  source: RecipientSource;
 }
 
 const FALLBACK_CUSTOMER_NAME = 'cliente';
@@ -401,9 +405,10 @@ export class SendQuoteUseCase {
     this.contentResolver.assertDiscountsWithinRoleLimit(actor, profile, quote.discountRate, quote.items);
     const sent = quote.markSent(now, today);
 
-    const emailed = profile.emailDeliveryEnabled
+    const delivery = profile.emailDeliveryEnabled
       ? await this.emailToCustomer(actor, sent, profile, input.recipientEmail)
-      : false;
+      : undefined;
+    const emailed = delivery !== undefined;
 
     await this.transactionManager.runInTransaction(async () => {
       await saveTransition(this.repository, sent, quote.status);
@@ -411,20 +416,24 @@ export class SendQuoteUseCase {
         action: AuditAction.QUOTE_SENT,
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
-        metadata: { emailed },
+        // El correo del cliente vive en EmailLog (enlazado por `emailLogId`); aquí, solo de dónde salió (F3-A12).
+        metadata: { emailed, ...delivery },
       });
     });
     return { ...toQuoteDTO(sent, today), emailed };
   }
 
-  /** Manda el correo con el PDF de la cotización ya marcada como enviada. Siempre devuelve `true` o lanza. */
+  /**
+   * Manda el correo con el PDF de la cotización ya marcada como enviada. Devuelve de dónde salió el destinatario y
+   * el id del envío en `EmailLog` (el correo mismo queda ahí, no en la auditoría).
+   */
   private async emailToCustomer(
     actor: ActorWithId,
     sent: Quote,
     profile: TenantProfile,
     recipientEmail: string | undefined,
-  ): Promise<true> {
-    const recipient = await this.resolveRecipient(sent.customer, recipientEmail);
+  ): Promise<{ recipientSource: RecipientSource; emailLogId: string }> {
+    const recipient = await this.resolveRecipient(actor, sent.customer, recipientEmail);
     if (!recipient) {
       throw new ValidationError(
         ErrorCode.QUOTE_RECIPIENT_REQUIRED,
@@ -434,7 +443,7 @@ export class SendQuoteUseCase {
     const pdf = await this.pdfUseCase.renderQuote(actor, sent);
     const sender = await this.userRepository.findById(actor.userId);
     const totals = sent.totals();
-    const delivered = await this.emailSender.send(
+    const { delivered, emailLogId } = await this.emailSender.sendLogged(
       { email: recipient.email, tenantId: sent.tenantId, userId: actor.userId },
       EmailTemplate.QUOTE_SENT,
       {
@@ -450,11 +459,16 @@ export class SendQuoteUseCase {
     if (!delivered) {
       throw new ServiceUnavailableError(ErrorCode.QUOTE_EMAIL_FAILED, 'The email could not be delivered; try again');
     }
-    return true;
+    return { recipientSource: recipient.source, emailLogId };
   }
 
-  /** Destinatario: el correo indicado o, si no, el del contacto, la empresa cliente o el lead. */
+  /**
+   * Destinatario: el correo indicado o, si no, el del contacto, la empresa cliente o el lead. Solo cuentan los
+   * clientes que el actor puede ver (F3-A12): un comercial al que le reasignaron el cliente ya no le escribe, igual
+   * que el PDF le oculta sus datos.
+   */
   private async resolveRecipient(
+    actor: ActorWithId,
     customer: QuoteCustomer,
     recipientEmail: string | undefined,
   ): Promise<QuoteRecipient | undefined> {
@@ -463,15 +477,26 @@ export class SendQuoteUseCase {
       customer.companyContactId ? this.companyContactRepository.findById(customer.companyContactId) : null,
       customer.leadId ? this.leadRepository.findById(customer.leadId) : null,
     ]);
-    const candidates: Array<{ email?: string; name?: string }> = [
-      { email: contact?.email, name: contact ? `${contact.firstName} ${contact.lastName}` : undefined },
-      { email: company?.email, name: company?.name },
-      { email: lead?.email, name: lead?.contactName ?? lead?.companyName },
+    const visibleContact =
+      contact && can(actor, Action.CONTACT_LIST, { ownerUserId: contact.ownerId }) ? contact : null;
+    const visibleCompany =
+      company && can(actor, Action.COMPANY_CONTACT_LIST, { ownerUserId: company.ownerId }) ? company : null;
+    const visibleLead = lead && can(actor, Action.LEAD_LIST, { ownerUserId: lead.assignedToId }) ? lead : null;
+    const candidates: Array<{ source: RecipientSource; email?: string; name?: string }> = [
+      {
+        source: 'contact',
+        email: visibleContact?.email,
+        name: visibleContact ? `${visibleContact.firstName} ${visibleContact.lastName}` : undefined,
+      },
+      { source: 'company', email: visibleCompany?.email, name: visibleCompany?.name },
+      { source: 'lead', email: visibleLead?.email, name: visibleLead?.contactName ?? visibleLead?.companyName },
     ];
     const knownName = candidates.find((candidate) => candidate.name)?.name ?? FALLBACK_CUSTOMER_NAME;
-    if (recipientEmail) return { email: recipientEmail, name: knownName };
+    if (recipientEmail) return { email: recipientEmail, name: knownName, source: 'explicit' };
     const withEmail = candidates.find((candidate) => candidate.email);
-    return withEmail?.email ? { email: withEmail.email, name: withEmail.name ?? knownName } : undefined;
+    return withEmail?.email
+      ? { email: withEmail.email, name: withEmail.name ?? knownName, source: withEmail.source }
+      : undefined;
   }
 }
 

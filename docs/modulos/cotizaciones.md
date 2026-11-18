@@ -80,7 +80,11 @@ servidor calcula y que no cambian después de enviada.
     proveedor de correo no lo acepta: `503 QUOTE_EMAIL_FAILED` y la cotización **sigue en borrador**, así que "enviada"
     significa que el cliente la recibió; se puede reintentar. Nada se envía si la cotización no se puede enviar
     (ya enviada, vencida, sin ítems). El envío queda en `EmailLog` (destinatario y estado, sin el cuerpo) y la
-    auditoría `QUOTE_SENT` lleva `emailed` pero no el correo del cliente.
+    auditoría `QUOTE_SENT` lleva `emailed`, `recipientSource` (`explicit`, `contact`, `company` o `lead`) y
+    `emailLogId`, que enlaza con el `EmailLog` donde está el correo; la auditoría no lo copia (F3-A12). Los correos
+    del cliente solo cuentan si quien envía puede ver a ese cliente: un comercial al que le reasignaron el contacto
+    ya no le escribe (`QUOTE_RECIPIENT_REQUIRED`), igual que el PDF le oculta sus datos. `recipientEmail` sigue siendo
+    libre hasta que se responda Q-025.
   - Límite conocido: el correo sale antes de guardar el estado; si dos envíos de la misma cotización coinciden, el
     cliente puede recibir dos correos y el segundo guardado responde `409`.
 
