@@ -34,9 +34,9 @@ const actionDescriptions: Record<Action, string> = {
   [Action.USER_LIST]: 'Listar los usuarios y las invitaciones pendientes de la empresa',
   [Action.USER_INVITE]: 'Invitar usuarios y revocar invitaciones (solo de los roles que gestiona)',
   [Action.USER_MANAGE]: 'Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona)',
-  [Action.TENANT_VIEW]: 'Ver el perfil de la empresa (nombre, logo, zona horaria)',
+  [Action.TENANT_VIEW]: 'Ver el perfil de la empresa y descargar su logo (`GET /tenant`, `GET /tenant/logo`)',
   [Action.TENANT_UPDATE]:
-    'Cambiar el nombre, la zona horaria, el IVA por defecto y los topes de descuento de la empresa',
+    'Cambiar el perfil y la configuración de la empresa, y subir o quitar su logo (`PATCH /tenant`, `PUT` y `DELETE /tenant/logo`)',
   [Action.PRODUCT_LIST]: 'Buscar y consultar el catálogo de productos (`GET /products/search`)',
   [Action.PRODUCT_CREATE]: 'Crear un producto',
   [Action.PRODUCT_UPDATE]: 'Modificar un producto (nombre, precio, fórmula, activo)',

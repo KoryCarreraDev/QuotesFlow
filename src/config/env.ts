@@ -85,6 +85,9 @@ const TRAILING_SLASH = '/';
 const SECURE_URL_PREFIX = 'https://';
 // D-11 (F2-T03): `hibp` consulta Have I Been Pwned; `off` no consulta nada (tests, entornos sin internet).
 const PASSWORD_BREACH_CHECKS = ['hibp', 'off'] as const;
+// F3-T07 (Q-017): carpeta donde `LocalDiskFileStorage` guarda los logos mientras dure el desarrollo. Relativa a donde
+// se arranca el proceso. En producción la reemplazará un almacenamiento de objetos compatible con S3.
+const DEFAULT_FILE_STORAGE_DIRECTORY = 'storage';
 
 function splitOriginList(value: unknown): unknown {
   if (value === undefined) return [];
@@ -223,6 +226,7 @@ const baseEnvironmentSchema = z.object({
     treatEmptyAsMissing,
     z.enum(PASSWORD_BREACH_CHECKS, { error: 'must be one of: hibp, off' }).default('hibp'),
   ),
+  FILE_STORAGE_DIRECTORY: z.preprocess(treatEmptyAsMissing, z.string().min(1).default(DEFAULT_FILE_STORAGE_DIRECTORY)),
   APP_BASE_URL: z.preprocess(
     treatEmptyAsMissing,
     z

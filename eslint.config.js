@@ -119,6 +119,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/infrastructure/services/LocalDiskFileStorage.ts'],
+    rules: {
+      // Es el adaptador de disco: su trabajo es leer y escribir rutas. Ninguna llega del cliente; `pathFor` valida la
+      // clave (segmentos seguros) y comprueba que la ruta resuelta queda dentro de la carpeta raíz antes de tocar el disco.
+      'security/detect-non-literal-fs-filename': 'off',
+    },
+  },
+  {
     files: ['tests/support/knownDefect.ts'],
     rules: {
       // Es la envoltura de `it.fails`, no un test: el título y las aserciones los pone quien la llama.

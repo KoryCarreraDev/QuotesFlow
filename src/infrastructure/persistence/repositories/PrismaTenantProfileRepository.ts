@@ -31,7 +31,7 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
     return {
       id: record.id,
       name: record.name,
-      logoUrl: record.logoUrl ?? undefined,
+      logoKey: record.logoUrl ?? undefined,
       timezone: record.tenantSettings?.timezone ?? DEFAULT_TENANT_TIMEZONE,
       emailDeliveryEnabled: record.tenantSettings?.emailDeliveryEnabled ?? false,
       defaultTaxRate: record.tenantSettings?.defaultTaxRate
@@ -44,6 +44,13 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
         record.tenantSettings?.maximumDiscountRateSalesLeader ?? DEFAULT_MAXIMUM_DISCOUNT_RATE_SALES_LEADER,
       ),
     };
+  }
+
+  async updateLogoKey(logoKey: string | null): Promise<void> {
+    await this.prisma.tenant.updateMany({
+      where: { id: this.tenantId, deleted: StoredDeletedState.INUSE },
+      data: { logoUrl: logoKey },
+    });
   }
 
   async updateCurrent(changes: TenantProfileChanges): Promise<void> {

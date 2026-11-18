@@ -46,6 +46,7 @@ export const apiPaths = {
   },
   tenant: {
     profile: `${API_BASE_PATH}/tenant`,
+    logo: `${API_BASE_PATH}/tenant/logo`,
   },
   users: {
     getAll: USER_BASE_PATH,
@@ -151,6 +152,9 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
 
   { method: 'GET', pattern: apiPaths.tenant.profile, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.tenant.profile, access: 'authenticated' },
+  { method: 'GET', pattern: apiPaths.tenant.logo, access: 'authenticated' },
+  { method: 'PUT', pattern: apiPaths.tenant.logo, access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.tenant.logo, access: 'authenticated' },
 
   { method: 'GET', pattern: apiPaths.users.getAll, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.users.update(ROUTE_ID_PARAMETER), access: 'authenticated' },

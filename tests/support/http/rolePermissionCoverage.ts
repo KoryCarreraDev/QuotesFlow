@@ -24,6 +24,7 @@ import {
   creationBodyFor,
   persistScenarioResource,
   requestOnRecord,
+  requestSelf,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -110,6 +111,7 @@ export function describeRolePermissionCoverage(groupName: keyof typeof ROLE_COVE
       const cookie = sessionCookieFor(actingUser);
       if (id) return requestOnRecord(route, buildConcretePath(route, id), cookie, scenario, company);
       if (route.method === 'GET') return request(app).get(route.pattern).set('Cookie', cookie);
+      if (scenario.operation === 'self') return requestSelf(route, cookie, scenario, company);
       if (route.method === 'PATCH') {
         return request(app).patch(route.pattern).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
       }

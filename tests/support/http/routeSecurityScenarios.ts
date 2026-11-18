@@ -15,8 +15,10 @@ import {
   persistLead,
   persistFormula,
   persistLeadStatus,
+  TEST_LOGO_PNG,
   persistProduct,
   persistQuote,
+  persistTenantLogo,
   persistUser,
   persistUserInvitation,
   testSessionIdFor,
@@ -41,12 +43,20 @@ export type ScenarioResource =
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `read`: lee un registro por su id (F3-T05). */
+/** `readOwnFile`: lee un archivo propio (el logo de su empresa, F3-T07); sin archivo, 404. */
 /** `transition`: cambia el estado de un registro con un POST sobre su id, sin cuerpo (F3-T05). */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
 /** `self`: modifica lo propio (sus sesiones, su empresa), sin id en la ruta (F2-T02, F2-T06). */
 /** `readOwn`: lee un registro propio que no es una colección (el perfil de su empresa, F2-T06). */
 export type ScenarioOperation =
-  'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self' | 'readOwn' | 'read' | 'transition';
+  'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self' | 'readOwn' | 'readOwnFile' | 'read' | 'transition';
+
+const READ_ONLY_OPERATIONS: ReadonlySet<ScenarioOperation> = new Set(['list', 'read', 'readOwn', 'readOwnFile']);
+
+/** Las rutas de solo lectura no modifican datos: no dejan rastro de auditoría ni hay nada que revertir. */
+export function isReadOnlyScenario(scenario: RouteSecurityScenario | undefined): boolean {
+  return scenario !== undefined && READ_ONLY_OPERATIONS.has(scenario.operation);
+}
 
 export interface RouteSecurityScenario {
   /** Acción de `permissionMatrix` que autoriza la ruta. */
@@ -57,10 +67,15 @@ export interface RouteSecurityScenario {
   successStatus?: number;
   /** Cuerpo propio para `update`, cuando el genérico del recurso no sirve. Recibe la empresa de quien llama. */
   updateBody?: (company: TenantWithTeam) => Record<string, unknown>;
+  /** Archivo que la ruta recibe como `multipart/form-data` (subida del logo, F3-T07). */
+  attachment?: { field: string; filename: string; contentType: string; content: Buffer };
+  /** Deja la empresa en el estado que la ruta necesita para tener efecto (por ejemplo, con logo que quitar). */
+  prepare?: (company: TenantWithTeam) => Promise<void>;
 }
 
 const HTTP_OK_STATUS = 200;
 const HTTP_CREATED_STATUS = 201;
+const HTTP_NOT_FOUND_STATUS = 404;
 
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`POST ${apiPaths.auth.logoutAll}`, { action: Action.SESSION_REVOKE_OWN, resource: 'session', operation: 'self' }],
@@ -69,6 +84,31 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [
     `PATCH ${apiPaths.tenant.profile}`,
     { action: Action.TENANT_UPDATE, resource: 'tenant', operation: 'self', successStatus: HTTP_OK_STATUS },
+  ],
+  // Ninguna empresa de los escenarios tiene logo: leerlo responde 404, y eso ya prueba que el permiso se concedió.
+  [
+    `GET ${apiPaths.tenant.logo}`,
+    { action: Action.TENANT_VIEW, resource: 'tenant', operation: 'readOwnFile', successStatus: HTTP_NOT_FOUND_STATUS },
+  ],
+  [
+    `PUT ${apiPaths.tenant.logo}`,
+    {
+      action: Action.TENANT_UPDATE,
+      resource: 'tenant',
+      operation: 'self',
+      successStatus: HTTP_OK_STATUS,
+      attachment: { field: 'file', filename: 'logo.png', contentType: 'image/png', content: TEST_LOGO_PNG },
+      prepare: async (company) => void (await persistTenantLogo(company.tenant.id)),
+    },
+  ],
+  [
+    `DELETE ${apiPaths.tenant.logo}`,
+    {
+      action: Action.TENANT_UPDATE,
+      resource: 'tenant',
+      operation: 'self',
+      prepare: async (company) => void (await persistTenantLogo(company.tenant.id)),
+    },
   ],
 
   [`GET ${apiPaths.users.getAll}`, { action: Action.USER_LIST, resource: 'user', operation: 'list' }],
@@ -282,6 +322,30 @@ export async function creationBodyFor(
     contactId: contact.id,
     items: [{ description: 'Instalación', quantity: 1, unitPrice: '150000', taxRate: '19' }],
   };
+}
+
+/** Deja la empresa lista para un escenario `self` que lo necesite (ver `RouteSecurityScenario.prepare`). */
+export async function prepareSelfScenario(scenario: RouteSecurityScenario, company: TenantWithTeam): Promise<void> {
+  await scenario.prepare?.(company);
+}
+
+/** Pide una ruta `self` (sin id) con la cookie de quien actúa: modificar, subir un archivo, borrar o un POST sin cuerpo. */
+export async function requestSelf(
+  route: RouteInventoryEntry,
+  cookie: string,
+  scenario: RouteSecurityScenario,
+  company: TenantWithTeam,
+): Promise<request.Response> {
+  const agent = request(app);
+  if (route.method === 'DELETE') return agent.delete(route.pattern).set('Cookie', cookie);
+  if (route.method === 'PUT' && scenario.attachment) {
+    const { field, filename, contentType, content } = scenario.attachment;
+    return agent.put(route.pattern).set('Cookie', cookie).attach(field, content, { filename, contentType });
+  }
+  if (route.method === 'PATCH') {
+    return agent.patch(route.pattern).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
+  }
+  return agent.post(route.pattern).set('Cookie', cookie);
 }
 
 /** Pide la ruta del escenario sobre un registro concreto, con la cookie de quien actúa. */

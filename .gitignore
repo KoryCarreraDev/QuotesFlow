@@ -5,3 +5,6 @@ dist/
 prisma/migrations/*/migration_lock.toml
 coverage/
 .aider*
+
+# Archivos subidos en desarrollo (F3-T07)
+storage/

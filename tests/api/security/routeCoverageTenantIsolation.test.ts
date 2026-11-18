@@ -5,7 +5,11 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import app from '@/app.js';
-import { type TenantWithTeam, persistTenantWithTeam } from '@tests/support/database/persistenceFactories.js';
+import {
+  type TenantWithTeam,
+  persistTenantLogo,
+  persistTenantWithTeam,
+} from '@tests/support/database/persistenceFactories.js';
 import { sessionCookieFor } from '@tests/support/http/apiClient.js';
 import {
   type RouteInventoryEntry,
@@ -20,10 +24,11 @@ import {
   declaredScenarioRoutes,
   listedIds,
   persistScenarioResource,
+  prepareSelfScenario,
   readScenarioResource,
   requestOnRecord,
+  requestSelf,
   scenarioFor,
-  scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
 
 const HTTP_OK = 200;
@@ -124,16 +129,12 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
 
   // F2-T02: una acción sobre lo propio (cerrar sus sesiones) no toca lo de otra empresa.
   async function expectSelfActionLeavesForeignRecords(route: RouteInventoryEntry, scenario: RouteSecurityScenario) {
+    await prepareSelfScenario(scenario, victimCompany);
+    await prepareSelfScenario(scenario, intruderCompany);
     const victimResourceId = await persistScenarioResource(scenario.resource, victimCompany, victimCompany.owner.id);
     const recordBefore = await readScenarioResource(scenario.resource, victimResourceId);
 
-    const response =
-      route.method === 'PATCH'
-        ? await request(app)
-            .patch(route.pattern)
-            .set('Cookie', intruderCookie)
-            .send(scenarioUpdateBody(scenario, intruderCompany))
-        : await request(app).post(route.pattern).set('Cookie', intruderCookie);
+    const response = await requestSelf(route, intruderCookie, scenario, intruderCompany);
 
     expect(response.status).toBe(scenario.successStatus ?? HTTP_NO_CONTENT);
     await expect(readScenarioResource(scenario.resource, victimResourceId)).resolves.toEqual(recordBefore);
@@ -148,10 +149,21 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
     expect(JSON.stringify(response.body)).not.toContain(victimCompany.tenant.id);
   }
 
+  // F3-T07: el archivo propio (logo) nunca es el de otra empresa: la intrusa no tiene logo, así que no ve ninguno.
+  async function expectReadOwnFileIgnoresForeignFiles(route: RouteInventoryEntry) {
+    await persistTenantLogo(victimCompany.tenant.id);
+
+    const response = await request(app).get(route.pattern).set('Cookie', intruderCookie);
+
+    expect(response.status).toBe(HTTP_NOT_FOUND);
+    expect(response.body.error.code).toBe('LOGO_NOT_FOUND');
+  }
+
   it.each(routesWithScenario)('$title no alcanza datos de otra empresa', async ({ route, scenario }) => {
     if (scenario.operation === 'list') await expectListExcludesForeignRecords(route, scenario);
     else if (scenario.operation === 'self') await expectSelfActionLeavesForeignRecords(route, scenario);
     else if (scenario.operation === 'readOwn') await expectReadOwnReturnsOwnTenant(route);
+    else if (scenario.operation === 'readOwnFile') await expectReadOwnFileIgnoresForeignFiles(route);
     else if (scenario.operation === 'bulkUpdate') await expectBulkUpdateIgnoresForeignRecords(route);
     else if (scenario.operation === 'create') await expectCreationStaysInOwnTenant(route, scenario);
     else await expectForeignRecordUntouched(route, scenario);

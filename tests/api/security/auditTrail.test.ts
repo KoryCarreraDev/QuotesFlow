@@ -17,7 +17,10 @@ import {
   creationBody,
   creationBodyFor,
   persistScenarioResource,
+  prepareSelfScenario,
   requestOnRecord,
+  requestSelf,
+  isReadOnlyScenario,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -27,8 +30,7 @@ const FIRST_NON_SUCCESS_STATUS = 300;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn' || scenario?.operation === 'read';
-  return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
+  return scenario && !isReadOnlyScenario(scenario) ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
 describe('Rastro de auditoría', () => {
@@ -50,13 +52,8 @@ describe('Rastro de auditoría', () => {
           .set('Cookie', ownerCookie)
           .send(scenarioUpdateBody(scenario, company));
       } else if (scenario.operation === 'self') {
-        response =
-          route.method === 'PATCH'
-            ? await request(app)
-                .patch(route.pattern)
-                .set('Cookie', ownerCookie)
-                .send(scenarioUpdateBody(scenario, company))
-            : await request(app).post(route.pattern).set('Cookie', ownerCookie);
+        await prepareSelfScenario(scenario, company);
+        response = await requestSelf(route, ownerCookie, scenario, company);
       } else if (scenario.operation === 'create') {
         response = await request(app)
           .post(route.pattern)

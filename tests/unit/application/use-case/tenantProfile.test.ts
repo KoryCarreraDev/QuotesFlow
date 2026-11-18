@@ -1,9 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ITenantProfileRepository,
-  TenantProfile,
-  TenantProfileChanges,
-} from '@/application/ports/repositories/ITenantProfileRepository.js';
 import { AuditAction } from '@/application/ports/services/IAuditLogger.js';
 import {
   GetTenantProfileUseCase,
@@ -12,32 +7,11 @@ import {
 import { Role } from '@/domain/enums/Role.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { DEFAULT_TENANT_TIMEZONE, isSupportedTimezone } from '@/domain/value-objects/timezone.js';
-import { DEFAULT_TEST_TENANT_ID } from '@tests/support/builders/entityBuilders.js';
+import { InMemoryTenantProfileRepository } from '@tests/support/doubles/InMemoryTenantProfileRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 
 // F2-T06: perfil y configuración de la empresa.
-
-class InMemoryTenantProfileRepository implements ITenantProfileRepository {
-  profile: TenantProfile | null = {
-    id: DEFAULT_TEST_TENANT_ID,
-    name: 'Aluminios Andinos SAS',
-    timezone: DEFAULT_TENANT_TIMEZONE,
-    emailDeliveryEnabled: false,
-    maximumDiscountRateSalesRep: '10.00',
-    maximumDiscountRateSalesLeader: '20.00',
-  };
-
-  async findCurrent(): Promise<TenantProfile | null> {
-    return this.profile;
-  }
-
-  async updateCurrent(changes: TenantProfileChanges): Promise<void> {
-    if (!this.profile) return;
-    const { defaultTaxRate, ...otherChanges } = changes;
-    this.profile = { ...this.profile, ...otherChanges, defaultTaxRate: defaultTaxRate ?? undefined };
-  }
-}
 
 function setup() {
   const repository = new InMemoryTenantProfileRepository();

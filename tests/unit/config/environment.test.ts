@@ -63,6 +63,13 @@ describe('parseEnvironment', () => {
       RESEND_API_KEY: validVariables.RESEND_API_KEY,
       EMAIL_FROM: validVariables.EMAIL_FROM,
       APP_BASE_URL: validVariables.APP_BASE_URL,
+      FILE_STORAGE_DIRECTORY: 'storage',
+    });
+  });
+
+  it('FILE_STORAGE_DIRECTORY (F3-T07) puede apuntar a otra carpeta', () => {
+    expect(parseEnvironment({ ...validVariables, FILE_STORAGE_DIRECTORY: '/var/data/uploads' })).toMatchObject({
+      FILE_STORAGE_DIRECTORY: '/var/data/uploads',
     });
   });
 

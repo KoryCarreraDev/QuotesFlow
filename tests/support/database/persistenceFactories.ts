@@ -19,10 +19,13 @@ import type {
   UserInvitation as UserInvitationRecord,
   DocumentType as DocumentTypeRecord,
 } from '@prisma/client';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { defaultLeadStatuses } from '@/application/constants/defaultLeadStatuses.js';
 import { hashOpaqueSecret } from '@/application/services/opaqueTokens.js';
 import prisma from '@/config/database.js';
+import { env } from '@/config/env.js';
 import { Role } from '@/domain/enums/Role.js';
 
 /** Contraseña en texto plano de todo usuario creado por `persistUser`. */
@@ -415,4 +418,20 @@ export async function persistQuote(
     },
   });
   return quote;
+}
+
+/** PNG válido de 1 x 1 píxel, para probar la subida y el PDF con un logo real. */
+export const TEST_LOGO_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+/** Da un logo a la empresa (F3-T07): escribe el archivo en el almacenamiento de los tests y guarda su clave. */
+export async function persistTenantLogo(tenantId: string): Promise<string> {
+  const key = `logos/${tenantId}/${randomUUID()}.png`;
+  const filePath = path.resolve(env.FILE_STORAGE_DIRECTORY, key);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, TEST_LOGO_PNG);
+  await prisma.tenant.update({ where: { id: tenantId }, data: { logoUrl: key } });
+  return key;
 }

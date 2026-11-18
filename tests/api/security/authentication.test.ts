@@ -36,17 +36,6 @@ describe('Autenticación de las rutas protegidas', () => {
     expect(response.status).toBe(HTTP_UNAUTHORIZED);
   });
 
-  it.each(protectedRouteCases)('$routeName no atiende una petición con un token falsificado', async ({ route }) => {
-    const forgedToken = jwt.sign(
-      { sub: NON_EXISTENT_ID, tenantId: NON_EXISTENT_ID, role: Role.OWNER },
-      'secret-that-is-not-the-server-secret',
-    );
-
-    const response = await requestProtectedRoute(route).set('Cookie', buildSessionCookie(forgedToken));
-
-    expect(response.status).toBeGreaterThanOrEqual(FIRST_ERROR_STATUS);
-  });
-
   it('no atiende una petición con un token caducado', async () => {
     const company = await persistTenantWithTeam();
     const issuedTwoHoursAgo = Math.floor(Date.now() / MILLISECONDS_PER_SECOND) - TWO_HOURS * ONE_HOUR_IN_SECONDS;

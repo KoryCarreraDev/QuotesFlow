@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateQuoteInput, QuoteItemInput } from '@/application/dtos/QuoteDTOs.js';
-import { ITenantProfileRepository, TenantProfile } from '@/application/ports/repositories/ITenantProfileRepository.js';
 import { AuditAction } from '@/application/ports/services/IAuditLogger.js';
 import { QuoteContentResolver } from '@/application/use-case/quotes/QuoteContentResolver.js';
 import {
@@ -31,6 +30,7 @@ import { InMemoryFormulaRepository } from '@tests/support/doubles/InMemoryFormul
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
 import { InMemoryProductRepository } from '@tests/support/doubles/InMemoryProductRepository.js';
 import { InMemoryQuoteRepository } from '@tests/support/doubles/InMemoryQuoteRepository.js';
+import { InMemoryTenantProfileRepository } from '@tests/support/doubles/InMemoryTenantProfileRepository.js';
 import { RecordingAuditLogger } from '@tests/support/doubles/RecordingAuditLogger.js';
 import { RecordingTransactionManager } from '@tests/support/doubles/RecordingTransactionManager.js';
 
@@ -49,31 +49,14 @@ const salesLeader = { role: Role.SALES_LEADER, userId: 'leader-id' };
 const salesRep = { role: Role.SALES_REP, userId: 'rep-id' };
 const otherSalesRep = { role: Role.SALES_REP, userId: 'other-rep-id' };
 
-class StubTenantProfileRepository implements ITenantProfileRepository {
-  profile: TenantProfile = {
-    id: DEFAULT_TEST_TENANT_ID,
-    name: 'Aluminios Andinos SAS',
-    timezone: 'America/Bogota',
-    emailDeliveryEnabled: false,
-    defaultTaxRate: '19.00',
-    maximumDiscountRateSalesRep: '10.00',
-    maximumDiscountRateSalesLeader: '20.00',
-  };
-
-  async findCurrent(): Promise<TenantProfile | null> {
-    return this.profile;
-  }
-
-  async updateCurrent(): Promise<void> {}
-}
-
 function setup() {
   const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
   const quotes = new InMemoryQuoteRepository(tenantContext);
   const products = new InMemoryProductRepository(tenantContext);
   const formulas = new InMemoryFormulaRepository(tenantContext);
   const contacts = new InMemoryContactRepository(tenantContext);
-  const profiles = new StubTenantProfileRepository();
+  const profiles = new InMemoryTenantProfileRepository();
+  profiles.profile = { ...profiles.profile!, defaultTaxRate: '19.00' };
   const auditLogger = new RecordingAuditLogger();
   const transactionManager = new RecordingTransactionManager();
   const resolver = new QuoteContentResolver(
@@ -430,7 +413,7 @@ describe('IVA (Q-020)', () => {
 
   it('sin IVA por defecto, el IVA se pide al cotizar', async () => {
     const context = setup();
-    context.profiles.profile = { ...context.profiles.profile, defaultTaxRate: undefined };
+    await context.profiles.updateCurrent({ defaultTaxRate: null });
     const contactId = seedContact(context, salesRep.userId);
 
     await expect(context.create.execute(salesRep, quoteInput(contactId))).rejects.toMatchObject({
@@ -479,7 +462,7 @@ describe('Descuentos y topes por rol (D-25, Q-019)', () => {
 
   it('los topes salen de la configuración de la empresa', async () => {
     const context = setup();
-    context.profiles.profile = { ...context.profiles.profile, maximumDiscountRateSalesRep: '0.00' };
+    await context.profiles.updateCurrent({ maximumDiscountRateSalesRep: '0.00' });
     const contactId = seedContact(context, salesRep.userId);
 
     await expect(context.create.execute(salesRep, quoteInput(contactId, { discountRate: '1' }))).rejects.toMatchObject({

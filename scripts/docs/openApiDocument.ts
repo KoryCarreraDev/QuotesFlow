@@ -56,6 +56,8 @@ interface OperationEntry {
   summary: string;
   isPublic?: boolean;
   body?: z.ZodType;
+  /** Tipo del cuerpo; por defecto JSON. Los archivos van como `multipart/form-data`. */
+  bodyContentType?: 'application/json' | 'multipart/form-data';
   query?: z.ZodObject;
   successStatus: number;
   successDescription: string;
@@ -389,7 +391,7 @@ export const openApiOperations: OperationEntry[] = [
     method: 'get',
     path: `${API_BASE_PATH}/tenant`,
     tag: 'Empresa',
-    summary: 'Perfil de la empresa de la sesión: nombre, logo y zona horaria',
+    summary: 'Perfil de la empresa de la sesión: nombre, logoUrl si tiene logo, zona horaria, correo, IVA y topes',
     successStatus: 200,
     successDescription: '{ id, name, logoUrl?, timezone }',
   },
@@ -402,6 +404,33 @@ export const openApiOperations: OperationEntry[] = [
     body: updateTenantProfileSchema,
     successStatus: 200,
     successDescription: 'Perfil actualizado',
+  },
+  {
+    method: 'get',
+    path: `${API_BASE_PATH}/tenant/logo`,
+    tag: 'Empresa',
+    summary: 'Imagen del logo de la empresa (PNG o JPEG); todo el equipo. 404 LOGO_NOT_FOUND si no tiene',
+    successStatus: 200,
+    successDescription: 'La imagen, con su Content-Type',
+  },
+  {
+    method: 'put',
+    path: `${API_BASE_PATH}/tenant/logo`,
+    tag: 'Empresa',
+    summary:
+      'Sube o reemplaza el logo (solo dueño y socio): PNG o JPEG de hasta 2 MB y 2000 x 2000 px, en el campo file. El tipo se decide por el contenido',
+    body: z.object({ file: z.string().meta({ format: 'binary', description: 'Imagen PNG o JPEG' }) }),
+    bodyContentType: 'multipart/form-data',
+    successStatus: 200,
+    successDescription: 'Perfil actualizado, con logoUrl; 400 INVALID_LOGO_IMAGE si no es una imagen válida',
+  },
+  {
+    method: 'delete',
+    path: `${API_BASE_PATH}/tenant/logo`,
+    tag: 'Empresa',
+    summary: 'Quita el logo (solo dueño y socio); sin logo no hace nada',
+    successStatus: 204,
+    successDescription: 'Sin contenido',
   },
   {
     method: 'get',
@@ -472,7 +501,9 @@ function routeConfigFor(operation: OperationEntry): RouteConfig {
     request: {
       params: operation.path.includes('{id}') ? idParameters : undefined,
       query: operation.query,
-      body: operation.body ? { content: { 'application/json': { schema: operation.body } } } : undefined,
+      body: operation.body
+        ? { content: { [operation.bodyContentType ?? 'application/json']: { schema: operation.body } } }
+        : undefined,
     },
     responses: {
       [operation.successStatus]: { description: operation.successDescription },
