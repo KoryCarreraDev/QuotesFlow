@@ -78,11 +78,34 @@ ngrok http --url=crepe-waviness-ploy.ngrok-free.dev 4000
 - Cuando el dominio esté verificado en Resend (SPF, DKIM, DMARC): `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` y
   `EMAIL_FROM` con una dirección del dominio. No hace falta cambiar código.
 
+## Cerrar el acceso directo a ngrok (F3-A23)
+
+La URL de ngrok es pública y está en el repositorio. Mientras cualquiera pueda llamarla sin pasar por Vercel, puede
+falsear `X-Forwarded-For` (salta el límite por IP) y hablar con una API en modo desarrollo. Para cerrarlo, que ngrok
+solo deje pasar lo que trae un secreto compartido con Vercel:
+
+1. **Secreto**: genera uno largo y aleatorio (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+   Vive solo en las variables de entorno de Vercel y en la configuración de ngrok del equipo local; **nunca en el
+   repositorio**, ni en `vercel.json`, ni en este archivo. Cámbialo si alguna vez se pega en un chat o un log.
+2. **ngrok**: una política de tráfico (`--traffic-policy-file`) que rechace con 403 toda petición que no traiga la
+   cabecera `x-proxy-secret` con ese valor. La sintaxis de las políticas de tráfico cambia entre versiones: toma la
+   forma exacta de la documentación vigente de ngrok y pruébala con `curl` sin la cabecera (debe dar 403) y con ella.
+3. **Vercel**: el reenvío (`rewrites`) debe añadir la cabecera. `vercel.json` no pone cabeceras a una petición
+   reenviada a un destino externo; se hace con una función o middleware de Vercel que reenvía la petición con la
+   cabecera. Comprueba en la documentación vigente de Vercel cuál de las dos opciones aplica a tu proyecto.
+4. Comprueba de punta a punta: la app en Vercel funciona y `curl https://<ngrok>/health` sin la cabecera da 403.
+
+Además, indica en el entorno de pruebas:
+
+- **Datos de prueba solamente**, cuentas de prueba y un `JWT_SECRET` distinto del de producción.
+- No cambies `NODE_ENV` a `production` para "endurecerlo": en producción `EMAIL_PROVIDER=log` no está permitido y
+  `FILE_STORAGE_DIRECTORY` es obligatoria. Es una decisión de quien opera el entorno.
+
 ## Limitaciones conocidas
 
 - La API solo responde mientras el equipo local y ngrok estén encendidos.
 - El plan gratuito de ngrok limita peticiones y ancho de banda.
 - Con `TRUST_PROXY=2`, quien llame a ngrok directamente (sin pasar por Vercel) puede falsear su IP en
-  `X-Forwarded-For` y saltarse el límite por IP. El bloqueo por cuenta (F2-T03) sigue funcionando. Aceptable
+  `X-Forwarded-For` y saltarse el límite por IP, salvo que se aplique la sección anterior. El bloqueo por cuenta (F2-T03) sigue funcionando. Aceptable
   solo en este entorno de pruebas, con datos de prueba.
 - Solo datos de prueba: el entorno no tiene copias de seguridad ni la auditoría de F2 firmada.

@@ -165,9 +165,40 @@ describe('Catálogo de productos', () => {
     expect(auditLogger.entries).toEqual([
       expect.objectContaining({
         action: AuditAction.PRODUCT_UPDATED,
-        metadata: { changedFields: ['basePrice', 'isActive'] },
+        metadata: {
+          changedFields: ['basePrice', 'isActive'],
+          // F3-A21: el precio sí deja su valor anterior y el nuevo; `isActive` no es un campo sensible.
+          changedValues: { basePrice: { from: '450000.00', to: '99.90' } },
+        },
       }),
     ]);
+  });
+
+  it('cambiar o quitar la fórmula también deja el valor anterior y el nuevo (F3-A21)', async () => {
+    const { updateProduct, repository, auditLogger } = setup();
+    const oldFormulaId = randomUUID();
+    const newFormulaId = randomUUID();
+    repository.existingFormulaIds.add(newFormulaId);
+    const product = buildProduct({ formulaId: oldFormulaId });
+    repository.seed(product);
+
+    await updateProduct.execute(owner, product.id, { formulaId: newFormulaId });
+    await updateProduct.execute(owner, product.id, { formulaId: null });
+
+    expect(auditLogger.entries.map((entry) => entry.metadata)).toEqual([
+      { changedFields: ['formulaId'], changedValues: { formulaId: { from: oldFormulaId, to: newFormulaId } } },
+      { changedFields: ['formulaId'], changedValues: { formulaId: { from: newFormulaId, to: null } } },
+    ]);
+  });
+
+  it('un cambio que no toca el precio ni la fórmula no lleva valores', async () => {
+    const { updateProduct, repository, auditLogger } = setup();
+    const product = buildProduct();
+    repository.seed(product);
+
+    await updateProduct.execute(owner, product.id, { name: 'Otro nombre' });
+
+    expect(auditLogger.entries[0].metadata).toEqual({ changedFields: ['name'] });
   });
 
   it('cambiar a una fórmula de otra empresa responde INVALID_PRODUCT_FORMULA', async () => {

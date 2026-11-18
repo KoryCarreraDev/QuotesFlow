@@ -7,6 +7,7 @@ import {
   AuditEntity,
   IAuditLogger,
   changedFieldNames,
+  changedValues,
 } from '@/application/ports/services/IAuditLogger.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 import { IFormulaEvaluator } from '@/application/ports/services/IFormulaEvaluator.js';
@@ -102,6 +103,12 @@ export class CreateFormulaUseCase {
   }
 }
 
+/** `{ changedValues }` si cambió la expresión; si no, nada. */
+function expressionChange(before: string, after: string): { changedValues?: object } {
+  const values = changedValues({ expression: before }, { expression: after }, ['expression']);
+  return Object.keys(values).length === 0 ? {} : { changedValues: values };
+}
+
 /**
  * Modifica una fórmula. Las cotizaciones ya hechas no cambian: guardan el precio calculado (F3-T05).
  *
@@ -131,7 +138,11 @@ export class UpdateFormulaUseCase {
         action: AuditAction.FORMULA_UPDATED,
         entity: AuditEntity.FORMULA,
         entityId: formulaId,
-        metadata: { changedFields: changedFieldNames(changes) },
+        metadata: {
+          changedFields: changedFieldNames(changes),
+          // F3-A21: la expresión decide el precio de los productos que la usan.
+          ...expressionChange(storedFormula.expression, updatedFormula.expression),
+        },
       });
     });
     return formulaMapper.toDTO(updatedFormula);
@@ -154,12 +165,14 @@ export class DeleteFormulaUseCase {
 
   async execute(actor: Actor, formulaId: string): Promise<void> {
     assertAllowed(actor, Action.FORMULA_DELETE);
-    if (!(await this.repository.findById(formulaId))) throw formulaNotFound();
-    if (await this.repository.isUsedByProducts(formulaId)) {
-      throw new ConflictError(ErrorCode.FORMULA_IN_USE, 'Formula is used by products');
-    }
 
     await this.transactionManager.runInTransaction(async () => {
+      // Con la fila bloqueada, un producto que se esté guardando con esta fórmula termina antes de que se compruebe
+      // el uso, y uno que llegue después no la encuentra (F3-A20).
+      if (!(await this.repository.lockForDeletion(formulaId))) throw formulaNotFound();
+      if (await this.repository.isUsedByProducts(formulaId)) {
+        throw new ConflictError(ErrorCode.FORMULA_IN_USE, 'Formula is used by products');
+      }
       await this.repository.delete(formulaId);
       await this.auditLogger.record({
         action: AuditAction.FORMULA_DELETED,

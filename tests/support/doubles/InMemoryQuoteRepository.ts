@@ -45,6 +45,13 @@ export class InMemoryQuoteRepository implements IQuoteRepository {
     return this.lastNumber;
   }
 
+  async nextVersionNumber(quoteNumber: number): Promise<number> {
+    const versions = this.allStored()
+      .filter((quote) => quote.tenantId === this.tenantContext.getTenantId() && quote.number === quoteNumber)
+      .map((quote) => quote.version);
+    return Math.max(0, ...versions) + 1;
+  }
+
   async create(quote: Quote): Promise<void> {
     this.quotesById.set(quote.id, quote);
   }
@@ -67,8 +74,11 @@ export class InMemoryQuoteRepository implements IQuoteRepository {
     return true;
   }
 
-  async delete(quoteId: string): Promise<void> {
+  async deleteDraft(quoteId: string): Promise<boolean> {
+    const stored = this.quotesById.get(quoteId);
+    if (!stored || stored.status !== QuoteStatus.DRAFT) return false;
     this.deletedQuoteIds.add(quoteId);
+    return true;
   }
 
   async findFiltered(criteria: FilterCriteriaDTO, _config: IFilterFieldConfig): Promise<Quote[]> {

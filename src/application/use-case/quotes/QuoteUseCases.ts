@@ -6,12 +6,13 @@ import {
   AcceptQuoteResult,
   CreateQuoteInput,
   QuoteDTO,
+  QuoteSummaryDTO,
   SendQuoteInput,
   SendQuoteResult,
   UpdateQuoteInput,
 } from '@/application/dtos/QuoteDTOs.js';
 import { formatCalendarDate, formatPesos } from '@/application/formatting/colombianFormat.js';
-import { quoteReference, toQuoteDTO } from '@/application/mappers/QuoteMapper.js';
+import { quoteReference, toQuoteDTO, toQuoteSummaryDTO } from '@/application/mappers/QuoteMapper.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { IMapper } from '@/application/ports/mappers/IMapper.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
@@ -132,9 +133,9 @@ export class ListQuotesUseCase {
     private readonly filterConfig: IFilterFieldConfig,
   ) {}
 
-  async execute(actor: Actor, criteria: FilterCriteriaDTO): Promise<PaginatedResult<QuoteDTO>> {
+  async execute(actor: Actor, criteria: FilterCriteriaDTO): Promise<PaginatedResult<QuoteSummaryDTO>> {
     const { today } = await loadClock(this.tenantProfileRepository);
-    const mapper: IMapper<Quote, QuoteDTO> = { toDTO: (quote) => toQuoteDTO(quote, today) };
+    const mapper: IMapper<Quote, QuoteSummaryDTO> = { toDTO: (quote) => toQuoteSummaryDTO(quote, today) };
     const listFiltered = new GenericListFilteredUseCase(this.repository, mapper, this.filterConfig, {
       action: Action.QUOTE_LIST,
       ownerField: 'createdById',
@@ -337,12 +338,32 @@ export class DeleteQuoteUseCase {
     quote.assertDeletable();
 
     await this.transactionManager.runInTransaction(async () => {
-      await this.repository.delete(quoteId);
+      if (!(await this.repository.deleteDraft(quoteId))) {
+        throw new ConflictError(ErrorCode.QUOTE_NOT_EDITABLE, 'Quote is no longer a draft');
+      }
       await this.auditLogger.record({
         action: AuditAction.QUOTE_DELETED,
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
       });
+      if (quote.previousVersionId) await this.restorePreviousVersion(quote.previousVersionId, quote.version);
+    });
+  }
+
+  /**
+   * Descartar la revisión devuelve la versión anterior a su estado (D-22, F3-A03): si no, quedaría reemplazada para
+   * siempre, sin versión activa ni forma de revisarla. Va en la misma transacción y comparando el estado.
+   */
+  private async restorePreviousVersion(previousVersionId: string, discardedVersion: number): Promise<void> {
+    const previous = await this.repository.findById(previousVersionId);
+    // Sin versión anterior, o que ya no está reemplazada o no recuerda su estado (datos previos a F3-A03): no se toca.
+    if (previous?.status !== QuoteStatus.SUPERSEDED || previous.supersededFromStatus === undefined) return;
+    await saveTransition(this.repository, previous.restoreAfterDiscardedRevision(new Date()), QuoteStatus.SUPERSEDED);
+    await this.auditLogger.record({
+      action: AuditAction.QUOTE_REVISION_DISCARDED,
+      entity: AuditEntity.QUOTE,
+      entityId: previous.id,
+      metadata: { restoredStatus: previous.supersededFromStatus, discardedVersion },
     });
   }
 }
@@ -354,10 +375,14 @@ async function saveTransition(repository: IQuoteRepository, next: Quote, expecte
   }
 }
 
+/** De dónde salió el correo del destinatario: lo indicó quien envía o es el del cliente de la cotización. */
+type RecipientSource = 'explicit' | 'contact' | 'company' | 'lead';
+
 /** A quién se le escribe y cómo se le saluda. */
 interface QuoteRecipient {
   email: string;
   name: string;
+  source: RecipientSource;
 }
 
 const FALLBACK_CUSTOMER_NAME = 'cliente';
@@ -373,6 +398,7 @@ const FALLBACK_CUSTOMER_NAME = 'cliente';
  * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
  * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
  * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`, `QUOTE_EXPIRED` (vigencia pasada).
+ * @throws {ForbiddenError} `DISCOUNT_ABOVE_ROLE_LIMIT`: el descuento supera el tope actual del rol de quien envía.
  * @throws {ValidationError} `QUOTE_ITEMS_REQUIRED`, `QUOTE_RECIPIENT_REQUIRED` (correo activo y sin a quién escribir).
  * @throws {ServiceUnavailableError} `QUOTE_EMAIL_FAILED`.
  */
@@ -388,16 +414,20 @@ export class SendQuoteUseCase {
     private readonly leadRepository: ILeadRepository,
     private readonly contactRepository: IContactRepository,
     private readonly companyContactRepository: ICompanyContactRepository,
+    private readonly contentResolver: QuoteContentResolver,
   ) {}
 
   async execute(actor: ActorWithId, quoteId: string, input: SendQuoteInput = {}): Promise<SendQuoteResult> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_SEND, quoteId);
     const { profile, now, today } = await loadClock(this.tenantProfileRepository);
+    // El tope del rol puede haber bajado, o un líder puede haber editado el borrador, desde que se creó (F3-A05).
+    this.contentResolver.assertDiscountsWithinRoleLimit(actor, profile, quote.discountRate, quote.items);
     const sent = quote.markSent(now, today);
 
-    const emailed = profile.emailDeliveryEnabled
+    const delivery = profile.emailDeliveryEnabled
       ? await this.emailToCustomer(actor, sent, profile, input.recipientEmail)
-      : false;
+      : undefined;
+    const emailed = delivery !== undefined;
 
     await this.transactionManager.runInTransaction(async () => {
       await saveTransition(this.repository, sent, quote.status);
@@ -405,20 +435,24 @@ export class SendQuoteUseCase {
         action: AuditAction.QUOTE_SENT,
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
-        metadata: { emailed },
+        // El correo del cliente vive en EmailLog (enlazado por `emailLogId`); aquí, solo de dónde salió (F3-A12).
+        metadata: { emailed, ...delivery },
       });
     });
     return { ...toQuoteDTO(sent, today), emailed };
   }
 
-  /** Manda el correo con el PDF de la cotización ya marcada como enviada. Siempre devuelve `true` o lanza. */
+  /**
+   * Manda el correo con el PDF de la cotización ya marcada como enviada. Devuelve de dónde salió el destinatario y
+   * el id del envío en `EmailLog` (el correo mismo queda ahí, no en la auditoría).
+   */
   private async emailToCustomer(
     actor: ActorWithId,
     sent: Quote,
     profile: TenantProfile,
     recipientEmail: string | undefined,
-  ): Promise<true> {
-    const recipient = await this.resolveRecipient(sent.customer, recipientEmail);
+  ): Promise<{ recipientSource: RecipientSource; emailLogId: string }> {
+    const recipient = await this.resolveRecipient(actor, sent.customer, recipientEmail);
     if (!recipient) {
       throw new ValidationError(
         ErrorCode.QUOTE_RECIPIENT_REQUIRED,
@@ -428,7 +462,7 @@ export class SendQuoteUseCase {
     const pdf = await this.pdfUseCase.renderQuote(actor, sent);
     const sender = await this.userRepository.findById(actor.userId);
     const totals = sent.totals();
-    const delivered = await this.emailSender.send(
+    const { delivered, emailLogId } = await this.emailSender.sendLogged(
       { email: recipient.email, tenantId: sent.tenantId, userId: actor.userId },
       EmailTemplate.QUOTE_SENT,
       {
@@ -444,11 +478,16 @@ export class SendQuoteUseCase {
     if (!delivered) {
       throw new ServiceUnavailableError(ErrorCode.QUOTE_EMAIL_FAILED, 'The email could not be delivered; try again');
     }
-    return true;
+    return { recipientSource: recipient.source, emailLogId };
   }
 
-  /** Destinatario: el correo indicado o, si no, el del contacto, la empresa cliente o el lead. */
+  /**
+   * Destinatario: el correo indicado o, si no, el del contacto, la empresa cliente o el lead. Solo cuentan los
+   * clientes que el actor puede ver (F3-A12): un comercial al que le reasignaron el cliente ya no le escribe, igual
+   * que el PDF le oculta sus datos.
+   */
   private async resolveRecipient(
+    actor: ActorWithId,
     customer: QuoteCustomer,
     recipientEmail: string | undefined,
   ): Promise<QuoteRecipient | undefined> {
@@ -457,20 +496,37 @@ export class SendQuoteUseCase {
       customer.companyContactId ? this.companyContactRepository.findById(customer.companyContactId) : null,
       customer.leadId ? this.leadRepository.findById(customer.leadId) : null,
     ]);
-    const candidates: Array<{ email?: string; name?: string }> = [
-      { email: contact?.email, name: contact ? `${contact.firstName} ${contact.lastName}` : undefined },
-      { email: company?.email, name: company?.name },
-      { email: lead?.email, name: lead?.contactName ?? lead?.companyName },
+    const visibleContact =
+      contact && can(actor, Action.CONTACT_LIST, { ownerUserId: contact.ownerId }) ? contact : null;
+    const visibleCompany =
+      company && can(actor, Action.COMPANY_CONTACT_LIST, { ownerUserId: company.ownerId }) ? company : null;
+    const visibleLead = lead && can(actor, Action.LEAD_LIST, { ownerUserId: lead.assignedToId }) ? lead : null;
+    const candidates: Array<{ source: RecipientSource; email?: string; name?: string }> = [
+      {
+        source: 'contact',
+        email: visibleContact?.email,
+        name: visibleContact ? `${visibleContact.firstName} ${visibleContact.lastName}` : undefined,
+      },
+      { source: 'company', email: visibleCompany?.email, name: visibleCompany?.name },
+      { source: 'lead', email: visibleLead?.email, name: visibleLead?.contactName ?? visibleLead?.companyName },
     ];
     const knownName = candidates.find((candidate) => candidate.name)?.name ?? FALLBACK_CUSTOMER_NAME;
-    if (recipientEmail) return { email: recipientEmail, name: knownName };
+    if (recipientEmail) return { email: recipientEmail, name: knownName, source: 'explicit' };
     const withEmail = candidates.find((candidate) => candidate.email);
-    return withEmail?.email ? { email: withEmail.email, name: withEmail.name ?? knownName } : undefined;
+    return withEmail?.email
+      ? { email: withEmail.email, name: withEmail.name ?? knownName, source: withEmail.source }
+      : undefined;
   }
 }
 
-/** Registra el rechazo del cliente a una cotización enviada. */
-export class DecideQuoteUseCase {
+/**
+ * El cliente rechazó. Vale también para una enviada ya vencida.
+ *
+ * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
+ * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
+ * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`.
+ */
+export class RejectQuoteUseCase {
   constructor(
     private readonly repository: IQuoteRepository,
     private readonly tenantProfileRepository: ITenantProfileRepository,
@@ -560,24 +616,6 @@ export class AcceptQuoteUseCase {
 }
 
 /**
- * El cliente rechazó. Vale también para una enviada ya vencida.
- *
- * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
- * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
- * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`.
- */
-export class RejectQuoteUseCase extends DecideQuoteUseCase {
-  constructor(
-    repository: IQuoteRepository,
-    tenantProfileRepository: ITenantProfileRepository,
-    transactionManager: ITransactionManager,
-    auditLogger: IAuditLogger,
-  ) {
-    super(repository, tenantProfileRepository, transactionManager, auditLogger);
-  }
-}
-
-/**
  * Crea la versión siguiente (borrador, mismo número) de una cotización enviada o rechazada, y deja la anterior
  * como reemplazada (D-22, Q-018). Una vencida se revisa igual, porque sigue guardada como enviada.
  *
@@ -596,9 +634,12 @@ export class ReviseQuoteUseCase {
   async execute(actor: Actor, quoteId: string): Promise<QuoteDTO> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_UPDATE, quoteId);
     const { now, today } = await loadClock(this.tenantProfileRepository);
-    const { superseded, nextVersion } = quote.revise(randomUUID(), now);
 
-    await this.transactionManager.runInTransaction(async () => {
+    const nextVersion = await this.transactionManager.runInTransaction(async () => {
+      // El mayor número ya usado más uno, incluidas las versiones borradas: reutilizar una chocaría con la unicidad.
+      const nextVersionNumber = await this.repository.nextVersionNumber(quote.number);
+      const revision = quote.revise(randomUUID(), now, nextVersionNumber);
+      const { superseded, nextVersion } = revision;
       await saveTransition(this.repository, superseded, quote.status);
       await this.repository.create(nextVersion);
       await this.auditLogger.record({
@@ -607,6 +648,7 @@ export class ReviseQuoteUseCase {
         entityId: nextVersion.id,
         metadata: { previousVersionId: quoteId, version: nextVersion.version },
       });
+      return nextVersion;
     });
     return toQuoteDTO(nextVersion, today);
   }

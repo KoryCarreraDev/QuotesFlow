@@ -104,6 +104,7 @@ export class QuoteModule {
       new PrismaLeadRepository(prisma, tenantContext),
       new PrismaContactRepository(prisma, tenantContext),
       new PrismaCompanyContactRepository(prisma, tenantContext),
+      this.createContentResolver(),
     );
   }
 
@@ -146,6 +147,7 @@ export class QuoteModule {
       fileStorage,
       pdfGenerator,
       appLogger,
+      new PrismaAuditLogger(prisma, tenantContext),
     );
   }
 }

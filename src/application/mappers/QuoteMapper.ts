@@ -1,5 +1,5 @@
 import { Quote } from '../../domain/entities/Quote.js';
-import { QuoteDTO, QuoteItemDTO } from '../dtos/QuoteDTOs.js';
+import { QuoteDTO, QuoteItemDTO, QuoteSummaryDTO } from '../dtos/QuoteDTOs.js';
 
 const REFERENCE_PREFIX = 'COT-';
 const REFERENCE_DIGITS = 6;
@@ -15,7 +15,7 @@ export function quoteReference(number: number, version: number): string {
 export function toQuoteDTO(quote: Quote, today: string): QuoteDTO {
   const totals = quote.totals();
   const items: QuoteItemDTO[] = quote.items.map((item) => {
-    const amounts = item.amounts(quote.discountRate);
+    const amounts = quote.itemAmounts(item);
     return {
       position: item.position,
       productId: item.productId,
@@ -47,6 +47,38 @@ export function toQuoteDTO(quote: Quote, today: string): QuoteDTO {
     discountRate: quote.discountRate.toDecimalString(),
     notes: quote.notes,
     items,
+    subtotal: totals.subtotal.toDecimalString(),
+    discountTotal: totals.discountTotal.toDecimalString(),
+    taxTotal: totals.taxTotal.toDecimalString(),
+    total: totals.total.toDecimalString(),
+    createdById: quote.createdById,
+    previousVersionId: quote.previousVersionId,
+    sentAt: quote.sentAt,
+    decidedAt: quote.decidedAt,
+    createdAt: quote.createdAt,
+    updatedAt: quote.updatedAt,
+  };
+}
+
+/**
+ * Cotización de un listado: sin ítems y con los totales guardados (`snapshotTotals`), porque el repositorio no
+ * carga los ítems al listar (F3-A07).
+ */
+export function toQuoteSummaryDTO(quote: Quote, today: string): QuoteSummaryDTO {
+  const totals = quote.snapshotTotals();
+  return {
+    id: quote.id,
+    number: quote.number,
+    reference: quoteReference(quote.number, quote.version),
+    version: quote.version,
+    status: quote.status,
+    displayStatus: quote.displayStatusOn(today),
+    leadId: quote.customer.leadId,
+    contactId: quote.customer.contactId,
+    companyContactId: quote.customer.companyContactId,
+    validUntil: quote.validUntil,
+    discountRate: quote.discountRate.toDecimalString(),
+    notes: quote.notes,
     subtotal: totals.subtotal.toDecimalString(),
     discountTotal: totals.discountTotal.toDecimalString(),
     taxTotal: totals.taxTotal.toDecimalString(),

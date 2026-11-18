@@ -6,7 +6,7 @@ export const productFilterConfig: IFilterFieldConfig = {
   name: { type: 'text', sortable: true, allowedOperators: ['contains', 'equals'], searchable: true },
   description: { type: 'text', allowedOperators: ['contains'], searchable: true },
   basePrice: {
-    type: 'number',
+    type: 'money',
     sortable: true,
     allowedOperators: ['equals', 'gt', 'gte', 'lt', 'lte'],
     searchable: false,

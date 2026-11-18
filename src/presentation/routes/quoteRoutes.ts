@@ -1,4 +1,4 @@
-import { Request, Router } from 'express';
+import { Request, RequestHandler, Router } from 'express';
 import { AuthenticateSessionUseCase } from '../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { QuoteController } from '../../infrastructure/web/controllers/quoteControllers.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
@@ -25,7 +25,10 @@ export function getQuoteController(req: Request): QuoteController {
 }
 
 /** Cotizaciones de la empresa de la sesión (F3-T05). */
-export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Router {
+export function quoteRouter(
+  authenticateSession: AuthenticateSessionUseCase,
+  documentRateLimiter: RequestHandler,
+): Router {
   const router = Router();
   const authMiddleware = createAuthValidateCookie(authenticateSession);
   const tenantMiddleware = createTenantMiddleware();
@@ -42,7 +45,8 @@ export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Ro
     getQuoteController(req).get(req, res, next);
   });
 
-  router.get('/:id/pdf', authMiddleware, tenantMiddleware, (req, res, next) => {
+  // PDF y envío: cupo propio por IP, antes de autenticar, porque generar el documento es lo caro (F3-A15).
+  router.get('/:id/pdf', documentRateLimiter, authMiddleware, tenantMiddleware, (req, res, next) => {
     getQuoteController(req).pdf(req, res, next);
   });
 
@@ -55,9 +59,16 @@ export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Ro
   });
 
   // Cambios de estado: POST sobre la cotización, sin cuerpo.
-  router.post('/:id/send', authMiddleware, tenantMiddleware, validateBody(sendQuoteSchema), (req, res, next) => {
-    getQuoteController(req).send(req, res, next);
-  });
+  router.post(
+    '/:id/send',
+    documentRateLimiter,
+    authMiddleware,
+    tenantMiddleware,
+    validateBody(sendQuoteSchema),
+    (req, res, next) => {
+      getQuoteController(req).send(req, res, next);
+    },
+  );
 
   router.post('/:id/accept', authMiddleware, tenantMiddleware, validateBody(acceptQuoteSchema), (req, res, next) => {
     getQuoteController(req).accept(req, res, next);

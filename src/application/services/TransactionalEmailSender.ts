@@ -40,23 +40,37 @@ export class TransactionalEmailSender {
     variables: EmailTemplateVariables[T],
     attachments?: EmailAttachment[],
   ): Promise<boolean> {
+    return (await this.sendLogged(recipient, template, variables, attachments)).delivered;
+  }
+
+  /** Igual que `send`, y además devuelve el id del `EmailLog` del envío para poder enlazarlo (F3-A12). */
+  async sendLogged<T extends EmailTemplate>(
+    recipient: EmailRecipient,
+    template: T,
+    variables: EmailTemplateVariables[T],
+    attachments?: EmailAttachment[],
+  ): Promise<{ delivered: boolean; emailLogId: string }> {
     const renderedEmail = this.templateRenderer.render(template, variables);
     const logEntry = { tenantId: recipient.tenantId, userId: recipient.userId, template, recipient: recipient.email };
 
     try {
       const receipt = await this.emailService.send({ to: recipient.email, ...renderedEmail, attachments });
-      await this.emailLogRepository.record({
+      const emailLogId = await this.emailLogRepository.record({
         ...logEntry,
         status: EmailDeliveryStatus.SENT,
         providerMessageId: receipt.providerMessageId,
       });
-      return true;
+      return { delivered: true, emailLogId };
     } catch (error) {
       const failureReason = error instanceof EmailDeliveryError ? error.reason : EmailFailureReason.UNEXPECTED_ERROR;
       // El log técnico no lleva el destinatario: es un dato personal y ya queda en EmailLog.
       this.logger.warn('Transactional email was not delivered', { template, failureReason, error });
-      await this.emailLogRepository.record({ ...logEntry, status: EmailDeliveryStatus.FAILED, failureReason });
-      return false;
+      const emailLogId = await this.emailLogRepository.record({
+        ...logEntry,
+        status: EmailDeliveryStatus.FAILED,
+        failureReason,
+      });
+      return { delivered: false, emailLogId };
     }
   }
 }

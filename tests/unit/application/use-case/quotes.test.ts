@@ -162,11 +162,13 @@ function setup() {
         new InMemoryFileStorage(),
         pdfGenerator,
         new RecordingLogger(),
+        auditLogger,
       ),
       users,
       leads,
       contacts,
       companyContacts,
+      resolver,
     ),
     accept: new AcceptQuoteUseCase(
       quotes,
@@ -432,6 +434,25 @@ describe('Precio de los ítems', () => {
         quoteInput(seedContact(context, salesRep.userId), { items: [{ productId, quantity: 1 }] }),
       ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_FORMULA_VARIABLE });
+  });
+
+  it('una fórmula ausente (borrada) responde 400 PRODUCT_NOT_AVAILABLE, no 500 (F3-A20)', async () => {
+    const context = setup();
+    const product = Product.restore({
+      id: randomUUID(),
+      tenantId: DEFAULT_TEST_TENANT_ID,
+      name: 'Vidrio a medida',
+      formulaId: randomUUID(),
+      isActive: true,
+    });
+    context.products.seed(product);
+
+    await expect(
+      context.create.execute(
+        salesRep,
+        quoteInput(seedContact(context, salesRep.userId), { items: [{ productId: product.id, quantity: 1 }] }),
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.PRODUCT_NOT_AVAILABLE });
   });
 
   it('un producto inactivo, inexistente o de otra empresa no se cotiza', async () => {
@@ -831,6 +852,50 @@ describe('Enviar, aceptar, rechazar', () => {
   });
 });
 
+describe('Enviar vuelve a comprobar el tope de descuento (F3-A05)', () => {
+  async function draftWithDiscount(context: Setup, createdBy: typeof salesRep) {
+    const created = await context.create.execute(
+      createdBy,
+      quoteInput(seedContact(context, createdBy.userId), { discountRate: '10' }),
+    );
+    return created.id;
+  }
+
+  it('si el tope del rol bajó después de crear el borrador, el comercial ya no lo envía', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.profiles.updateCurrent({ maximumDiscountRateSalesRep: '5.00' });
+
+    await expect(context.send.execute(salesRep, quoteId)).rejects.toMatchObject({
+      code: ErrorCode.DISCOUNT_ABOVE_ROLE_LIMIT,
+    });
+
+    expect(context.quotes.findStoredById(quoteId)?.status).toBe(QuoteStatus.DRAFT);
+    expect(context.auditLogger.entries.map((entry) => entry.action)).not.toContain(AuditAction.QUOTE_SENT);
+  });
+
+  it('gestión sin tope sí lo envía, y el comercial con el tope vigente también', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.profiles.updateCurrent({ maximumDiscountRateSalesRep: '5.00' });
+
+    await expect(context.send.execute(owner, quoteId)).resolves.toMatchObject({ status: 'SENT' });
+
+    const secondId = await draftWithDiscount(context, salesLeader);
+    await expect(context.send.execute(salesLeader, secondId)).resolves.toMatchObject({ status: 'SENT' });
+  });
+
+  it('un líder edita el borrador de un comercial con un 20 % y el comercial no puede enviarlo', async () => {
+    const context = setup();
+    const quoteId = await draftWithDiscount(context, salesRep);
+    await context.update.execute(salesLeader, quoteId, { discountRate: '20' });
+
+    await expect(context.send.execute(salesRep, quoteId)).rejects.toMatchObject({
+      code: ErrorCode.DISCOUNT_ABOVE_ROLE_LIMIT,
+    });
+  });
+});
+
 describe('Revisar (D-22, Q-018)', () => {
   it('crea la versión 2 en borrador con el mismo número y deja la anterior reemplazada', async () => {
     const context = setup();
@@ -878,6 +943,63 @@ describe('Revisar (D-22, Q-018)', () => {
   });
 });
 
+describe('Borrar la revisión de una cotización (F3-A03)', () => {
+  async function revisedQuote(context: Setup, status: QuoteStatus = QuoteStatus.SENT) {
+    const original = seedQuote(context, status, { number: 7 });
+    const next = await context.revise.execute(salesRep, original.id);
+    return { original, next };
+  }
+
+  it.each([QuoteStatus.SENT, QuoteStatus.REJECTED])(
+    'borrar el borrador de la versión 2 devuelve la versión 1 a %s y lo audita',
+    async (status) => {
+      const context = setup();
+      const { original, next } = await revisedQuote(context, status);
+      context.auditLogger.entries.length = 0;
+
+      await context.remove.execute(salesRep, next.id);
+
+      expect(context.quotes.isDeleted(next.id)).toBe(true);
+      expect(context.quotes.findStoredById(original.id)?.status).toBe(status);
+      expect(context.auditLogger.entries.map((entry) => [entry.action, entry.entityId])).toEqual([
+        [AuditAction.QUOTE_DELETED, next.id],
+        [AuditAction.QUOTE_REVISION_DISCARDED, original.id],
+      ]);
+    },
+  );
+
+  it('después de descartar, la versión 1 se puede revisar otra vez y la nueva es la 3, no la 2 que ya existió', async () => {
+    const context = setup();
+    const { original, next } = await revisedQuote(context);
+    await context.remove.execute(salesRep, next.id);
+
+    const again = await context.revise.execute(salesRep, original.id);
+
+    expect(again).toMatchObject({ number: 7, version: 3, reference: 'COT-000007 v3', previousVersionId: original.id });
+  });
+
+  it('borrar un borrador que no es una revisión no toca ninguna otra cotización', async () => {
+    const context = setup();
+    const other = seedQuote(context, QuoteStatus.SUPERSEDED, { number: 9 });
+    const draft = seedQuote(context, QuoteStatus.DRAFT, { number: 8 });
+
+    await context.remove.execute(salesRep, draft.id);
+
+    expect(context.quotes.findStoredById(other.id)?.status).toBe(QuoteStatus.SUPERSEDED);
+    expect(context.auditLogger.entries.map((entry) => entry.action)).toEqual([AuditAction.QUOTE_DELETED]);
+  });
+
+  it('si la versión anterior ya cambió de estado mientras tanto, la revisión no se descarta a medias', async () => {
+    const context = setup();
+    const { next } = await revisedQuote(context);
+    context.quotes.failNextStateSave = true;
+
+    await expect(context.remove.execute(salesRep, next.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_INVALID_TRANSITION,
+    });
+  });
+});
+
 describe('Borrar', () => {
   it('borra un borrador (suave) y lo audita', async () => {
     const context = setup();
@@ -897,6 +1019,26 @@ describe('Borrar', () => {
       code: ErrorCode.QUOTE_NOT_EDITABLE,
     });
     expect(context.quotes.isDeleted(sent.id)).toBe(false);
+  });
+
+  it('si la cotización se envió mientras tanto, el borrado responde conflicto y no la borra (F3-A04)', async () => {
+    const context = setup();
+    const draft = seedQuote(context, QuoteStatus.DRAFT);
+    // Otra petición la deja SENT después de que este caso de uso la leyó como borrador.
+    const read = context.quotes.findById.bind(context.quotes);
+    vi.spyOn(context.quotes, 'findById').mockImplementationOnce(async (quoteId) => {
+      const loaded = await read(quoteId);
+      await context.quotes.saveState(draft.markSent(NOW, TODAY), QuoteStatus.DRAFT);
+      return loaded;
+    });
+
+    await expect(context.remove.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_NOT_EDITABLE,
+    });
+
+    expect(context.quotes.isDeleted(draft.id)).toBe(false);
+    expect(context.quotes.findStoredById(draft.id)?.status).toBe(QuoteStatus.SENT);
+    expect(context.auditLogger.entries).toEqual([]);
   });
 
   it('el comercial no borra la de otro', async () => {
@@ -922,7 +1064,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('con el canal desactivado solo cambia el estado: no sale correo ni se genera el PDF', async () => {
     const context = setup();
-    const contact = buildContact({ email: 'cliente@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'cliente@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -937,7 +1079,12 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('con el canal activo envía al contacto el PDF adjunto de la cotización ya enviada, y lo registra', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ firstName: 'Laura', lastName: 'Gómez', email: 'laura@example.com' });
+    const contact = buildContact({
+      ownerId: salesRep.userId,
+      firstName: 'Laura',
+      lastName: 'Gómez',
+      email: 'laura@example.com',
+    });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -953,8 +1100,9 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
     expect(email.attachments?.[0]).toMatchObject({ fileName: 'COT-000001.pdf', contentType: 'application/pdf' });
     // El PDF adjunto ya dice ENVIADA, no BORRADOR.
     expect(Buffer.from(email.attachments?.[0].content ?? []).toString()).toContain('ENVIADA');
+    // F3-A12: la auditoría dice de dónde salió el destinatario y enlaza con el envío; el correo vive en EmailLog.
     expect(context.auditLogger.entries.map((entry) => [entry.action, entry.metadata])).toEqual([
-      [AuditAction.QUOTE_SENT, { emailed: true }],
+      [AuditAction.QUOTE_SENT, { emailed: true, recipientSource: 'contact', emailLogId: context.emailLogs.ids[0] }],
     ]);
     expect(JSON.stringify(context.auditLogger.entries)).not.toContain('laura@example.com');
     expect(context.emailLogs.entries).toEqual([
@@ -962,9 +1110,53 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
     ]);
   });
 
+  it('el origen del destinatario queda en la auditoría: explícito, contacto, empresa o lead (F3-A12)', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
+    const company = buildCompanyContact({ ownerId: salesRep.userId, email: 'roble@example.com' });
+    const lead = buildLead({ assignedToId: salesRep.userId, email: 'pedro@example.com' });
+    context.contacts.seed(contact);
+    context.companyContacts.seed(company);
+    context.leads.seed(lead);
+    const explicit = seedDraftFor(context, { contactId: contact.id });
+    const viaCompany = seedQuote(context, QuoteStatus.DRAFT, {
+      customer: { contactId: contact.id, companyContactId: company.id },
+      number: 2,
+    });
+    const viaLead = seedQuote(context, QuoteStatus.DRAFT, { customer: { leadId: lead.id }, number: 3 });
+    // Los leads y clientes sin responsable no los ve un comercial: este los ve porque son suyos.
+    context.leads.seed(buildLead({ id: lead.id, email: 'pedro@example.com', assignedToId: salesRep.userId }));
+
+    await context.send.execute(owner, explicit.id, { recipientEmail: 'compras@example.com' });
+    await context.send.execute(owner, viaCompany.id);
+    await context.send.execute(owner, viaLead.id);
+
+    expect(
+      context.auditLogger.entries.map((entry) => (entry.metadata as { recipientSource: string }).recipientSource),
+    ).toEqual(['explicit', 'company', 'lead']);
+  });
+
+  it('un comercial no escribe al correo de un cliente que ya no es suyo: usa solo lo que puede ver (F3-A12)', async () => {
+    const context = await enabledSetup();
+    const reassigned = buildContact({
+      email: 'laura@example.com',
+      ownerId: otherSalesRep.userId,
+    });
+    context.contacts.seed(reassigned);
+    const draft = seedDraftFor(context, { contactId: reassigned.id });
+
+    await expect(context.send.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_RECIPIENT_REQUIRED,
+    });
+    expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
+
+    // Gestión sí ve al cliente, y el nombre del saludo también sale de lo visible.
+    await expect(context.send.execute(owner, draft.id)).resolves.toMatchObject({ emailed: true });
+  });
+
   it('el correo indicado por quien envía manda sobre el del cliente', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -976,9 +1168,13 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('sin correo en el contacto usa el de la empresa cliente y, después, el del lead', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: undefined });
-    const company = buildCompanyContact({ name: 'Constructora El Roble', email: 'roble@example.com' });
-    const lead = buildLead({ contactName: 'Pedro', email: 'pedro@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
+    const company = buildCompanyContact({
+      ownerId: salesRep.userId,
+      name: 'Constructora El Roble',
+      email: 'roble@example.com',
+    });
+    const lead = buildLead({ assignedToId: salesRep.userId, contactName: 'Pedro', email: 'pedro@example.com' });
     context.contacts.seed(contact);
     context.companyContacts.seed(company);
     context.leads.seed(lead);
@@ -994,7 +1190,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('sin ningún correo al que escribir responde QUOTE_RECIPIENT_REQUIRED y la cotización sigue en borrador', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: undefined });
+    const contact = buildContact({ ownerId: salesRep.userId, email: undefined });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
 
@@ -1008,7 +1204,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('si el proveedor no acepta el correo, la cotización sigue en borrador y se puede reintentar', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const draft = seedDraftFor(context, { contactId: contact.id });
     context.emailService.failing = true;
@@ -1026,7 +1222,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('una cotización que no se puede enviar no manda ningún correo', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const alreadySent = seedQuote(context, QuoteStatus.SENT, { customer: { contactId: contact.id } });
     const expired = seedQuote(context, QuoteStatus.DRAFT, {
@@ -1044,7 +1240,7 @@ describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
 
   it('el comercial solo envía las suyas, también por correo', async () => {
     const context = await enabledSetup();
-    const contact = buildContact({ email: 'laura@example.com' });
+    const contact = buildContact({ ownerId: salesRep.userId, email: 'laura@example.com' });
     context.contacts.seed(contact);
     const others = seedDraftFor(context, { contactId: contact.id }, { createdById: otherSalesRep.userId });
 

@@ -56,6 +56,10 @@ export enum AuditAction {
   QUOTE_REVISED = 'QUOTE_REVISED',
   /** Un comercial cambió el precio calculado de un ítem (D-24, Q-015): F4-T06 avisará a los líderes. */
   QUOTE_PRICE_OVERRIDDEN = 'QUOTE_PRICE_OVERRIDDEN',
+  /** Se borró el borrador de una versión nueva y la anterior volvió a su estado (D-22, F3-A03). */
+  QUOTE_REVISION_DISCARDED = 'QUOTE_REVISION_DISCARDED',
+  /** Se descargó el PDF de una cotización (H13: las descargas también se auditan, F3-A14). */
+  QUOTE_PDF_DOWNLOADED = 'QUOTE_PDF_DOWNLOADED',
 }
 
 /** Sobre qué tipo de registro. Se guarda en `AuditLog.entity`. */
@@ -82,7 +86,8 @@ export interface AuditEntry {
   entityId: string;
   /**
    * Datos que explican el cambio. Nunca valores personales ni secretos: en una modificación,
-   * los nombres de los campos cambiados (`changedFields`), no sus valores.
+   * los nombres de los campos cambiados (`changedFields`), no sus valores. Única excepción (F3-A21): los precios,
+   * tasas y expresiones de fórmula de una lista cerrada, que llevan `changedValues` con su valor anterior y el nuevo.
    */
   metadata?: Record<string, unknown>;
   /**
@@ -99,6 +104,36 @@ export interface AuditEntry {
  */
 export interface IAuditLogger {
   record(entry: AuditEntry): Promise<void>;
+}
+
+/** De qué a qué cambió un campo sensible. `null` es "sin valor". */
+export interface ChangedValue {
+  from: string | null;
+  to: string | null;
+}
+
+/** Valores de campos, como texto, para compararlos antes y después de un cambio. */
+export type AuditedValues = Readonly<Record<string, string | null | undefined>>;
+
+/**
+ * Valor anterior y nuevo de los campos **de la lista** que de verdad cambiaron, para `metadata.changedValues`
+ * (F3-A21). La lista es explícita y solo debe llevar campos sin datos personales (precios, tasas, expresiones de
+ * fórmula): nunca se copia el objeto entero. Los campos iguales o fuera de la lista no aparecen.
+ */
+export function changedValues(
+  before: AuditedValues,
+  after: AuditedValues,
+  fields: readonly string[],
+): Record<string, ChangedValue> {
+  const beforeValues = new Map(Object.entries(before));
+  const afterValues = new Map(Object.entries(after));
+  const changes: Array<[string, ChangedValue]> = [];
+  for (const field of fields) {
+    const from = beforeValues.get(field) ?? null;
+    const to = afterValues.get(field) ?? null;
+    if (from !== to) changes.push([field, { from, to }]);
+  }
+  return Object.fromEntries(changes);
 }
 
 /** Nombres de los campos que una modificación envió con valor; sirve para `metadata.changedFields`. */

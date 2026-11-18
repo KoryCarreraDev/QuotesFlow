@@ -1,8 +1,10 @@
 import { Request, Router } from 'express';
+import { Action } from '../../application/policies/authorizationPolicy.js';
 import { AuthenticateSessionUseCase } from '../../application/use-case/auth/AuthenticateSessionUseCase.js';
 import { TenantController } from '../../infrastructure/web/controllers/tenantControllers.js';
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
+import { requirePermission } from '../../infrastructure/web/middleware/requirePermission.js';
 import { receiveLogoUpload } from '../../infrastructure/web/middleware/receiveLogoUpload.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
 import { updateTenantProfileSchema } from '../schemas/tenantSchema.js';
@@ -36,9 +38,17 @@ export function tenantRouter(authenticateSession: AuthenticateSessionUseCase): R
     getTenantController(req).getLogo(req, res, next);
   });
 
-  router.put('/logo', authMiddleware, tenantMiddleware, receiveLogoUpload, (req, res, next) => {
-    getTenantController(req).uploadLogo(req, res, next);
-  });
+  // El permiso se comprueba antes de leer el archivo: quien no puede subir un logo no hace leer 2 MB al servidor.
+  router.put(
+    '/logo',
+    authMiddleware,
+    tenantMiddleware,
+    requirePermission(Action.TENANT_UPDATE),
+    receiveLogoUpload,
+    (req, res, next) => {
+      getTenantController(req).uploadLogo(req, res, next);
+    },
+  );
 
   router.delete('/logo', authMiddleware, tenantMiddleware, (req, res, next) => {
     getTenantController(req).removeLogo(req, res, next);

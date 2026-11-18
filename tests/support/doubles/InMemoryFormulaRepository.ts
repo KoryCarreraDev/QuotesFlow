@@ -51,6 +51,10 @@ export class InMemoryFormulaRepository implements IFormulaRepository {
     this.deletedFormulaIds.add(formulaId);
   }
 
+  async lockForDeletion(formulaId: string): Promise<boolean> {
+    return (await this.findById(formulaId)) !== null;
+  }
+
   async isUsedByProducts(formulaId: string): Promise<boolean> {
     return this.formulaIdsUsedByProducts.has(formulaId);
   }

@@ -61,6 +61,12 @@ export interface QuoteItemDTO {
   total: string;
 }
 
+/**
+ * Cotización en un listado (F3-A07): lo mismo que el detalle, sin los ítems. Evita construir hasta 200 ítems por
+ * cotización en cada página; los importes son los guardados.
+ */
+export type QuoteSummaryDTO = Omit<QuoteDTO, 'items'>;
+
 export interface QuoteDTO {
   id: string;
   /** Consecutivo por empresa; las versiones lo comparten. */

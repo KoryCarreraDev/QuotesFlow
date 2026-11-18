@@ -23,6 +23,7 @@ const NOW = new Date('2026-11-17T15:00:00.000Z');
 const rate = (text: string) => Percentage.fromDecimalString(text);
 const FIRST = 1;
 const SECOND = 2;
+const VERSION_AFTER_A_DELETED_ONE = 3;
 const THIRD = 3;
 const MONEY_DECIMAL_PLACES = 2;
 
@@ -186,7 +187,7 @@ describe('PrismaQuoteRepository', () => {
       await repository.create(draft);
 
       await expect(repositoryFor(otherCompany.tenant.id).findById(draft.id)).resolves.toBeNull();
-      await repository.delete(draft.id);
+      await repository.deleteDraft(draft.id);
       await expect(repository.findById(draft.id)).resolves.toBeNull();
       await expect(prisma.quote.findUnique({ where: { id: draft.id } })).resolves.toMatchObject({
         deleted: 'DELETED',
@@ -298,6 +299,47 @@ describe('PrismaQuoteRepository', () => {
     });
   });
 
+  describe('deleteDraft (comparar y cambiar, F3-A04)', () => {
+    it('borra (suave) un borrador', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      await expect(repository.deleteDraft(draft.id)).resolves.toBe(true);
+
+      await expect(repository.findById(draft.id)).resolves.toBeNull();
+    });
+
+    it('no borra una cotización que ya se envió', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      await repository.saveState(draft.markSent(NOW, '2026-11-17'), QuoteStatus.DRAFT);
+
+      await expect(repository.deleteDraft(draft.id)).resolves.toBe(false);
+
+      await expect(repository.findById(draft.id)).resolves.toMatchObject({ status: QuoteStatus.SENT });
+    });
+
+    it('borrar y enviar a la vez: solo una de las dos gana', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      const [deleted, sent] = await Promise.all([
+        repository.deleteDraft(draft.id),
+        repository.saveState(draft.markSent(NOW, '2026-11-17'), QuoteStatus.DRAFT),
+      ]);
+
+      expect(deleted).not.toBe(sent);
+    });
+
+    it('no toca una cotización de otra empresa', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+
+      await expect(repositoryFor(otherCompany.tenant.id).deleteDraft(draft.id)).resolves.toBe(false);
+      await expect(repository.findById(draft.id)).resolves.not.toBeNull();
+    });
+  });
+
   describe('versiones (D-22)', () => {
     it('la versión siguiente conserva el número y enlaza con la anterior', async () => {
       const draft = await buildDraft();
@@ -318,6 +360,39 @@ describe('PrismaQuoteRepository', () => {
         status: QuoteStatus.DRAFT,
         previousVersionId: draft.id,
       });
+    });
+
+    it('saveState guarda y limpia el estado que tenía la cotización antes de ser reemplazada (F3-A03)', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      const sent = draft.markSent(NOW, '2026-11-17');
+      await repository.saveState(sent, QuoteStatus.DRAFT);
+      const { superseded } = sent.revise(randomUUID(), NOW);
+
+      await repository.saveState(superseded, QuoteStatus.SENT);
+      const stored = await repository.findById(draft.id);
+      await repository.saveState(superseded.restoreAfterDiscardedRevision(NOW), QuoteStatus.SUPERSEDED);
+      const restored = await repository.findById(draft.id);
+
+      expect(stored).toMatchObject({ status: QuoteStatus.SUPERSEDED, supersededFromStatus: QuoteStatus.SENT });
+      expect(restored).toMatchObject({ status: QuoteStatus.SENT, supersededFromStatus: undefined });
+    });
+
+    it('nextVersionNumber cuenta también las versiones borradas, para no chocar con la unicidad', async () => {
+      const draft = await buildDraft();
+      await repository.create(draft);
+      const sent = draft.markSent(NOW, '2026-11-17');
+      await repository.saveState(sent, QuoteStatus.DRAFT);
+      const { nextVersion } = sent.revise(randomUUID(), NOW);
+      await repository.create(nextVersion);
+      await repository.deleteDraft(nextVersion.id);
+
+      // Borrar suelta el enlace único con la versión anterior: así esa versión puede tener otra revisión.
+      await expect(prisma.quote.findUniqueOrThrow({ where: { id: nextVersion.id } })).resolves.toMatchObject({
+        previousVersionId: null,
+      });
+      await expect(repository.nextVersionNumber(draft.number)).resolves.toBe(VERSION_AFTER_A_DELETED_ONE);
+      await expect(repositoryFor(otherCompany.tenant.id).nextVersionNumber(draft.number)).resolves.toBe(1);
     });
 
     it('una cotización solo tiene una versión siguiente', async () => {
@@ -352,6 +427,17 @@ describe('PrismaQuoteRepository', () => {
       expect(total).toBe(SECOND);
     });
 
+    it('el listado no carga los ítems y trae los totales guardados (F3-A07)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+
+      const [listed] = await repository.findFiltered({}, quoteFilterConfig);
+      const detail = await repository.findById(listed.id);
+
+      expect(listed.items).toEqual([]);
+      expect(listed.snapshotTotals().total.toDecimalString()).toBe('238000.00');
+      expect(detail?.items).toHaveLength(1);
+    });
+
     it('un estado que no existe es un filtro inválido, no un error interno', async () => {
       const criteria = { filters: [{ field: 'status', operator: 'equals', value: 'INVENTADO' }] };
 
@@ -380,6 +466,20 @@ describe('PrismaQuoteRepository', () => {
       );
 
       expect(page.map((quote) => quote.number)).toEqual([THIRD]);
+    });
+
+    it('filtra el total con importes en texto, con la exactitud de los centavos (R8)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id);
+
+      const find = async (operator: string, value: string) =>
+        (await repository.findFiltered({ filters: [{ field: 'total', operator, value }] }, quoteFilterConfig)).length;
+
+      // El total guardado es 238000.00.
+      expect(await find('gte', '238000.00')).toBe(1);
+      expect(await find('gt', '238000.00')).toBe(0);
+      expect(await find('gt', '237999.99')).toBe(1);
+      expect(await find('lt', '238000.01')).toBe(1);
+      expect(await find('lte', '237999.99')).toBe(0);
     });
 
     it('filtra por vigencia', async () => {

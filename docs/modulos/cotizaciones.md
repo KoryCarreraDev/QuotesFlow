@@ -27,14 +27,16 @@ servidor calcula y que no cambian después de enviada.
   descuento del ítem, después el descuento global sobre lo que queda, y el IVA sobre esa base. Cada porcentaje se
   redondea a centavos por ítem, así que los totales son la suma exacta de los ítems. Los importes guardados en la
   base (`subtotal`, `discountTotal`, `taxTotal`, `total`, `netAmount`…) son una instantánea: no dependen de que el
-  producto o la fórmula cambien después.
+  producto o la fórmula cambien después. **Una cotización emitida (cualquier estado menos borrador) se lee y se
+  imprime con esos importes guardados**, no recalculados: si mañana cambia el redondeo o el orden de los
+  descuentos, lo que el cliente ya recibió no cambia (F3-A06). El borrador sí se calcula siempre.
 - **IVA (D-20, Q-020).** Por ítem. Si no envía `taxRate`, se usa el IVA por defecto de la empresa
   (`TenantSettings.defaultTaxRate`, que configuran dueño y socio en `PATCH /tenant`); si la empresa no lo
   configuró, se pide en cada ítem (`400 TAX_RATE_REQUIRED`).
 - **Descuentos (D-25, Q-019).** Porcentaje por ítem y global. Tope por rol sobre el descuento total de cada ítem
   (el suyo y el global seguidos): comercial 10 %, líder comercial 20 % por defecto, dueño y socio sin tope; los
   topes los configuran dueño y socio (`maximumDiscountRateSalesRep`, `maximumDiscountRateSalesLeader`). Superarlo
-  responde `403 DISCOUNT_ABOVE_ROLE_LIMIT`. Se comprueba al crear y al modificar, también si solo cambia el global.
+  responde `403 DISCOUNT_ABOVE_ROLE_LIMIT`. Se comprueba al crear, al modificar (también si solo cambia el global) y **al enviar**, con el tope vigente de quien envía: si el dueño baja el tope o un líder edita el borrador, el comercial no puede enviar un descuento que ya no le corresponde (F3-A05).
 - **Vigencia (D-23).** `validUntil` es el último día válido (`AAAA-MM-DD`) en la zona horaria de la empresa; por
   defecto 30 días desde hoy. No puede estar en el pasado al crear o modificar (`400 INVALID_VALIDITY_DATE`) ni al
   enviar (`409 QUOTE_EXPIRED`).
@@ -49,9 +51,14 @@ servidor calcula y que no cambian después de enviada.
     diaria.
 - **Revisar (D-22).** `POST /quotes/:id/revise` sobre una enviada, rechazada o vencida crea la versión siguiente
   en borrador (mismo número, mismos datos) y deja la anterior en `SUPERSEDED`. Dos revisiones simultáneas: una gana
-  y la otra recibe `409`.
+  y la otra recibe `409`. La anterior guarda el estado que tenía (`supersededFromStatus`). **Borrar el borrador de la
+  versión nueva descarta la revisión**: la anterior vuelve a `SENT` o `REJECTED` en la misma transacción (auditoría
+  `QUOTE_REVISION_DISCARDED`) y se puede revisar otra vez. El número de la versión siguiente es el mayor ya usado en
+  ese número más uno, contando las borradas: tras descartar la v2, la nueva revisión es la v3 (F3-A03). Una
+  reemplazada anterior a este cambio no recuerda su estado y no se restaura.
 - **Cambios de estado atómicos.** Se guardan comparando y cambiando el estado esperado: aceptar y rechazar a la vez
   no pueden ganar las dos (`409 QUOTE_INVALID_TRANSITION` para quien llega tarde).
+- **Límite de documentos (F3-A15).** Generar un PDF (y enviar la cotización, que lo genera) es caro, así que `GET /quotes/:id/pdf` y `POST /quotes/:id/send` comparten un cupo propio por IP, `RATE_LIMIT_DOCUMENT_MAX_REQUESTS` (20 cada 15 minutos por defecto, supuesto en `QUESTION.md`); al superarlo, 429 `TOO_MANY_REQUESTS`. El resto de la API solo cuenta contra el cupo global.
 - **Permisos** (`docs/security/matriz-permisos.md`): todos crean; un comercial lista, lee, modifica, borra, envía,
   decide y revisa solo las que creó; dueño, socio y líder, todas las de la empresa. Una cotización ajena responde
   `403`; una de otra empresa o inexistente, `404 QUOTE_NOT_FOUND`.
@@ -69,7 +76,7 @@ servidor calcula y que no cambian después de enviada.
   decisión de quien acepta. Solo se mueve un lead abierto: uno ya ganado o perdido no cambia, y sin ningún estado
   `WON` configurado se acepta igual con `leadMarkedAsWon: false`. Si quien acepta no puede modificar ese lead
   (por ejemplo, se lo reasignaron a otro comercial), responde `403` y la cotización **no** se acepta.
-- **PDF (F3-T06).** `GET /quotes/:id/pdf` descarga la cotización en A4 (`application/pdf`, adjunto `COT-000123.pdf` o `COT-000123-v2.pdf`, `Cache-Control: private, no-store`). Lleva el logo (si la empresa tiene uno válido; si falta o no se puede leer, sale sin él), el nombre de la empresa, referencia, estado (`BORRADOR`, `ENVIADA`, `VENCIDA`…), fecha de emisión y vigencia (dd/mm/aaaa en la zona horaria de la empresa), el cliente, la tabla de ítems (con las medidas de los ítems de fórmula), descuentos, IVA y total en pesos colombianos (`$ 1.234.567,50`), notas y condiciones. Los importes se formatean desde el texto decimal exacto, nunca con `number`. La tabla continúa en páginas nuevas con su cabecera repetida y cada página lleva "Página X de Y". Las fuentes estándar solo codifican WinAnsi: un carácter fuera de él (emojis, símbolos) sale como `?`. Los datos de contacto del cliente solo salen si quien descarga puede ver a ese cliente. Se genera al pedirlo y no se guarda. Mismos permisos que leer la cotización (`quote:list`); no se audita (solo lectura). Las condiciones son un texto fijo; las plantillas por empresa (C-13) no están en el MVP.
+- **PDF (F3-T06).** `GET /quotes/:id/pdf` descarga la cotización en A4 (`application/pdf`, adjunto `COT-000123.pdf` o `COT-000123-v2.pdf`, `Cache-Control: private, no-store`). Lleva el logo (si la empresa tiene uno válido; si falta o no se puede leer, sale sin él), el nombre de la empresa, referencia, estado (`BORRADOR`, `ENVIADA`, `VENCIDA`…), fecha de emisión y vigencia (dd/mm/aaaa en la zona horaria de la empresa), el cliente, la tabla de ítems (con las medidas de los ítems de fórmula), descuentos, IVA y total en pesos colombianos (`$ 1.234.567,50`), notas y condiciones. Los importes se formatean desde el texto decimal exacto, nunca con `number`. La tabla continúa en páginas nuevas con su cabecera repetida y cada página lleva "Página X de Y". Las fuentes estándar solo codifican WinAnsi: un carácter fuera de él (emojis, símbolos) sale como `?`. Los datos de contacto del cliente solo salen si quien descarga puede ver a ese cliente. Se genera al pedirlo y no se guarda. Mismos permisos que leer la cotización (`quote:list`). Cada descarga que sale bien queda auditada como `QUOTE_PDF_DOWNLOADED` (con la versión), porque H13 audita también las descargas; el PDF que va adjunto en el envío por correo no cuenta como descarga y queda cubierto por `QUOTE_SENT`. Las condiciones son un texto fijo; las plantillas por empresa (C-13) no están en el MVP.
 - **Envío (F3-T08, D-57).** `POST /quotes/:id/send` deja la cotización `SENT` y responde la cotización con `emailed`.
   - Canal de correo de la empresa **desactivado** (por defecto): solo cambia el estado (`emailed: false`) y el
     comercial comparte el PDF por su cuenta; no se genera el PDF ni sale correo, aunque se envíe `recipientEmail`.
@@ -79,14 +86,18 @@ servidor calcula y que no cambian después de enviada.
     proveedor de correo no lo acepta: `503 QUOTE_EMAIL_FAILED` y la cotización **sigue en borrador**, así que "enviada"
     significa que el cliente la recibió; se puede reintentar. Nada se envía si la cotización no se puede enviar
     (ya enviada, vencida, sin ítems). El envío queda en `EmailLog` (destinatario y estado, sin el cuerpo) y la
-    auditoría `QUOTE_SENT` lleva `emailed` pero no el correo del cliente.
+    auditoría `QUOTE_SENT` lleva `emailed`, `recipientSource` (`explicit`, `contact`, `company` o `lead`) y
+    `emailLogId`, que enlaza con el `EmailLog` donde está el correo; la auditoría no lo copia (F3-A12). Los correos
+    del cliente solo cuentan si quien envía puede ver a ese cliente: un comercial al que le reasignaron el contacto
+    ya no le escribe (`QUOTE_RECIPIENT_REQUIRED`), igual que el PDF le oculta sus datos. `recipientEmail` sigue siendo
+    libre hasta que se responda Q-025.
   - Límite conocido: el correo sale antes de guardar el estado; si dos envíos de la misma cotización coinciden, el
     cliente puede recibir dos correos y el segundo guardado responde `409`.
 
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/v1/quotes/search` | Todos (comercial: las suyas) | Busca, filtra, ordena y pagina (`docs/modulos/filtrado.md`) |
+| GET | `/api/v1/quotes/search` | Todos (comercial: las suyas) | Busca, filtra, ordena y pagina (`docs/modulos/filtrado.md`). Devuelve un **resumen sin ítems** con los totales guardados (F3-A07); los ítems, en `GET /quotes/:id` |
 | GET | `/api/v1/quotes/:id` | Ídem | Una cotización con sus ítems |
 | GET | `/api/v1/quotes/:id/pdf` | Ídem | Descarga el PDF de la cotización |
 | POST | `/api/v1/quotes` | Todos | Crea un borrador → 201 |
@@ -100,7 +111,7 @@ servidor calcula y que no cambian después de enviada.
 
 Filtros: `id`, `leadId`, `contactId`, `companyContactId`, `createdById` (`id`, equals/in) · `number` (`number`) ·
 `status` (estado guardado, equals/in; un valor desconocido responde `400 INVALID_FILTER_VALUE`) · `total`
-(`number`) · `validUntil`, `createdAt` (`date`). Ordenables: `number`, `status`, `total`, `validUntil`,
+(`money`: importe en texto decimal, F3-A11) · `validUntil`, `createdAt` (`date`). Ordenables: `number`, `status`, `total`, `validUntil`,
 `createdAt`. Un comercial no puede ver las de otro filtrando por `createdById`: el servidor lo sustituye por el suyo.
 
 ## Ejemplos

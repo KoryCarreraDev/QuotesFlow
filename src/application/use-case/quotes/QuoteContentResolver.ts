@@ -155,7 +155,8 @@ export class QuoteContentResolver {
     }
 
     const formula = await this.formulaRepository.findById(product.formulaId);
-    if (!formula) throw new Error('Formula of the product not found');
+    // Puede pasar por datos (fórmula borrada tras asignarla): no es una invariante interna, es 400 y no 500 (F3-A20).
+    if (!formula) throw new ValidationError(ErrorCode.PRODUCT_NOT_AVAILABLE, 'Formula of the product is not available');
     const providedVariables = new Map(Object.entries(input.variables ?? {}));
     // Solo las variables que declara la fórmula; lo demás que envíe el cliente no se guarda.
     const variables = Object.fromEntries(

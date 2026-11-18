@@ -68,6 +68,8 @@ const DEFAULT_GLOBAL_RATE_LIMIT = 100;
 // Cupo de login y registro por IP y ventana: frena la prueba masiva de contraseñas (H6). El bloqueo por
 // cuenta llega en F2-T03.
 const DEFAULT_AUTH_RATE_LIMIT = 10;
+// F3-A15: cupo propio de PDF y envío de cotizaciones por IP y ventana. Es un supuesto (ver QUESTION.md).
+const DEFAULT_DOCUMENT_RATE_LIMIT = 20;
 
 // F2-T01: `resend` envía de verdad; `log` (desarrollo) escribe el correo en el log; `memory` (tests) lo guarda
 // en memoria. En producción solo vale `resend`: con otro, los correos de verificación no saldrían.
@@ -86,7 +88,9 @@ const SECURE_URL_PREFIX = 'https://';
 // D-11 (F2-T03): `hibp` consulta Have I Been Pwned; `off` no consulta nada (tests, entornos sin internet).
 const PASSWORD_BREACH_CHECKS = ['hibp', 'off'] as const;
 // F3-T07 (Q-017): carpeta donde `LocalDiskFileStorage` guarda los logos mientras dure el desarrollo. Relativa a donde
-// se arranca el proceso. En producción la reemplazará un almacenamiento de objetos compatible con S3.
+// se arranca el proceso. En producción es obligatoria (F3-A18): la imagen no puede escribir en su carpeta de trabajo,
+// así que sin una carpeta explícita (un volumen montado) la subida de logo fallaría en tiempo de ejecución. La
+// reemplazará un almacenamiento de objetos compatible con S3.
 const DEFAULT_FILE_STORAGE_DIRECTORY = 'storage';
 
 function splitOriginList(value: unknown): unknown {
@@ -197,6 +201,7 @@ const baseEnvironmentSchema = z.object({
   TRUST_PROXY: nonNegativeInteger(DEFAULT_TRUSTED_PROXY_HOPS),
   RATE_LIMIT_GLOBAL_MAX_REQUESTS: positiveInteger(DEFAULT_GLOBAL_RATE_LIMIT),
   RATE_LIMIT_AUTH_MAX_REQUESTS: positiveInteger(DEFAULT_AUTH_RATE_LIMIT),
+  RATE_LIMIT_DOCUMENT_MAX_REQUESTS: positiveInteger(DEFAULT_DOCUMENT_RATE_LIMIT),
   // `silent` solo tiene sentido en los tests: en producción un error sin registrar no se puede investigar.
   LOG_LEVEL: z.preprocess(
     treatEmptyAsMissing,
@@ -226,7 +231,7 @@ const baseEnvironmentSchema = z.object({
     treatEmptyAsMissing,
     z.enum(PASSWORD_BREACH_CHECKS, { error: 'must be one of: hibp, off' }).default('hibp'),
   ),
-  FILE_STORAGE_DIRECTORY: z.preprocess(treatEmptyAsMissing, z.string().min(1).default(DEFAULT_FILE_STORAGE_DIRECTORY)),
+  FILE_STORAGE_DIRECTORY: z.preprocess(treatEmptyAsMissing, z.string().min(1).optional()),
   APP_BASE_URL: z.preprocess(
     treatEmptyAsMissing,
     z
@@ -250,15 +255,20 @@ function checkCrossVariableRules(variables: ParsedVariables, context: z.Refineme
   if (variables.EMAIL_PROVIDER === 'resend' && variables.EMAIL_FROM === undefined) {
     context.addIssue({ code: 'custom', path: ['EMAIL_FROM'], message: 'is required with EMAIL_PROVIDER=resend' });
   }
+  if (isProduction && variables.FILE_STORAGE_DIRECTORY === undefined) {
+    context.addIssue({ code: 'custom', path: ['FILE_STORAGE_DIRECTORY'], message: 'is required in production' });
+  }
   // Los enlaces de los correos llevan tokens: en producción nunca viajan sin cifrar.
   if (isProduction && !variables.APP_BASE_URL.startsWith(SECURE_URL_PREFIX)) {
     context.addIssue({ code: 'custom', path: ['APP_BASE_URL'], message: 'must use https in production' });
   }
 }
 
-const environmentSchema = baseEnvironmentSchema
-  .superRefine(checkCrossVariableRules)
-  .transform((variables) => ({ ...variables, EMAIL_FROM: variables.EMAIL_FROM ?? DEFAULT_EMAIL_FROM }));
+const environmentSchema = baseEnvironmentSchema.superRefine(checkCrossVariableRules).transform((variables) => ({
+  ...variables,
+  EMAIL_FROM: variables.EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
+  FILE_STORAGE_DIRECTORY: variables.FILE_STORAGE_DIRECTORY ?? DEFAULT_FILE_STORAGE_DIRECTORY,
+}));
 
 /** Configuración del proceso ya validada. */
 export type Environment = z.output<typeof environmentSchema>;

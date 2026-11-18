@@ -23,6 +23,7 @@ const HTTP_BAD_REQUEST = 400;
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
+const QUOTE_TOTAL_AS_NUMBER = 238_000;
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const ISO_DATE_LENGTH = 10;
@@ -270,6 +271,27 @@ describe('API de cotizaciones', () => {
       expect(reject.body.status).toBe('REJECTED');
     });
 
+    it('una cotización enviada devuelve los importes guardados, no los recalculados (F3-A06)', async () => {
+      const sent = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+      const draft = await persistQuote(company.tenant.id, company.salesRep.id);
+      // Simula que la fórmula de cálculo cambió después: la base guarda otro total y otro IVA.
+      for (const quote of [sent, draft]) {
+        await prisma.quote.update({
+          where: { id: quote.id },
+          data: { subtotal: '700000', taxTotal: '1', total: '700001' },
+        });
+        await prisma.quoteItem.updateMany({ where: { quoteId: quote.id }, data: { taxAmount: '1', total: '700001' } });
+      }
+
+      const sentResponse = await request(app).get(apiPaths.quotes.get(sent.id)).set('Cookie', salesRepCookie);
+      const draftResponse = await request(app).get(apiPaths.quotes.get(draft.id)).set('Cookie', salesRepCookie);
+
+      expect(sentResponse.body).toMatchObject({ subtotal: '700000.00', taxTotal: '1.00', total: '700001.00' });
+      expect(sentResponse.body.items[0]).toMatchObject({ taxAmount: '1.00', total: '700001.00' });
+      // El borrador se calcula siempre: 2 × 100.000 con IVA del 19 %.
+      expect(draftResponse.body).toMatchObject({ subtotal: '200000.00', total: '238000.00' });
+    });
+
     it('el listado de un comercial solo trae las suyas; el del líder, todas; filtra por estado', async () => {
       const mineDraft = await persistQuote(company.tenant.id, company.salesRep.id);
       const mineSent = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
@@ -290,12 +312,42 @@ describe('API de cotizaciones', () => {
         { field: 'createdById', operator: 'equals', value: company.otherSalesRep.id },
       ]);
 
+      // F3-A07: el listado es un resumen sin ítems (con los totales guardados); el detalle sí lleva los ítems.
+      const summary = asLeader.body.data.find((quote: { id: string }) => quote.id === mineSent.id);
+      expect(summary).not.toHaveProperty('items');
+      expect(summary).toMatchObject({
+        reference: 'COT-000002',
+        status: 'SENT',
+        total: '238000.00',
+        subtotal: '200000.00',
+      });
+      const detail = await request(app).get(apiPaths.quotes.get(mineSent.id)).set('Cookie', ownerCookie);
+      expect(detail.body.items).toHaveLength(1);
+
       const ids = (response: request.Response) => response.body.data.map((quote: { id: string }) => quote.id).sort();
       expect(ids(asRep)).toEqual([mineDraft.id, mineSent.id].sort());
       expect(ids(asLeader)).toEqual([mineDraft.id, mineSent.id, others.id].sort());
       expect(ids(sentOnly)).toEqual([mineSent.id]);
       expect(ids(forcedOtherAuthor)).not.toContain(others.id);
       expect(asLeader.body).toMatchObject({ total: 3, page: 1 });
+    });
+
+    it('el total se filtra con un importe en texto; un number responde 400 (R8, F3-A11)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id);
+      const search = (value: unknown) =>
+        request(app)
+          .get(apiPaths.quotes.filtered)
+          .query({ filters: serializeFilters([{ field: 'total', operator: 'gte', value }]) })
+          .set('Cookie', ownerCookie);
+
+      const exact = await search('238000.00');
+      const above = await search('238000.01');
+      const asNumber = await search(QUOTE_TOTAL_AS_NUMBER);
+
+      expect(exact.body.data).toHaveLength(1);
+      expect(above.body.data).toHaveLength(0);
+      expect(asNumber.status).toBe(HTTP_BAD_REQUEST);
+      expect(asNumber.body.error.code).toBe(ErrorCode.INVALID_FILTER_VALUE);
     });
 
     it('un estado inexistente en el filtro es 400, no 500', async () => {
@@ -423,6 +475,25 @@ describe('API de cotizaciones', () => {
       expect(original.body.status).toBe('SUPERSEDED');
       expect(editNext.status).toBe(HTTP_OK);
       expect(reviseAgain.status).toBe(HTTP_CONFLICT);
+    });
+
+    it('borrar el borrador de la versión 2 devuelve la 1 a su estado, y se puede revisar de nuevo (F3-A03)', async () => {
+      const created = await createQuote(salesRepCookie, { contactId: salesRepContactId, items: [freeItem()] });
+      await request(app).post(apiPaths.quotes.send(created.body.id)).set('Cookie', salesRepCookie);
+      const revised = await request(app).post(apiPaths.quotes.revise(created.body.id)).set('Cookie', salesRepCookie);
+
+      const discarded = await request(app)
+        .delete(apiPaths.quotes.delete(revised.body.id))
+        .set('Cookie', salesRepCookie);
+      const original = await request(app).get(apiPaths.quotes.get(created.body.id)).set('Cookie', salesRepCookie);
+      const again = await request(app).post(apiPaths.quotes.revise(created.body.id)).set('Cookie', salesRepCookie);
+
+      expect(discarded.status).toBe(HTTP_OK);
+      expect(original.body.status).toBe('SENT');
+      expect(again.status).toBe(HTTP_CREATED);
+      expect(again.body).toMatchObject({ version: 3, reference: 'COT-000001 v3' });
+      const actions = (await prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } })).map((entry) => entry.action);
+      expect(actions).toContain('QUOTE_REVISION_DISCARDED');
     });
 
     it('revisar dos veces a la vez crea una sola versión', async () => {

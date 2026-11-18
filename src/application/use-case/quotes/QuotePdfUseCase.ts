@@ -4,6 +4,7 @@ import { IContactRepository } from '@/application/ports/repositories/IContactRep
 import { ILeadRepository } from '@/application/ports/repositories/ILeadRepository.js';
 import { IQuoteRepository } from '@/application/ports/repositories/IQuoteRepository.js';
 import { ITenantProfileRepository } from '@/application/ports/repositories/ITenantProfileRepository.js';
+import { AuditAction, AuditEntity, IAuditLogger } from '@/application/ports/services/IAuditLogger.js';
 import { IFileStorage } from '@/application/ports/services/IFileStorage.js';
 import { ILogger } from '@/application/ports/services/ILogger.js';
 import { IPdfGenerator, PdfLogo, QuotePdfData } from '@/application/ports/services/IPdfGenerator.js';
@@ -67,6 +68,7 @@ export class GenerateQuotePdfUseCase {
     private readonly storage: IFileStorage,
     private readonly pdfGenerator: IPdfGenerator,
     private readonly logger: ILogger,
+    private readonly auditLogger: IAuditLogger,
   ) {}
 
   async execute(actor: Actor, quoteId: string): Promise<QuotePdfFile> {
@@ -76,7 +78,16 @@ export class GenerateQuotePdfUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
-    return this.renderQuote(actor, quote);
+    const file = await this.renderQuote(actor, quote);
+    // Solo se audita una descarga que salió bien. Es una lectura: no hay escritura de negocio que meter en una
+    // transacción. El envío por correo usa `renderQuote` y deja su propio rastro (`QUOTE_SENT`).
+    await this.auditLogger.record({
+      action: AuditAction.QUOTE_PDF_DOWNLOADED,
+      entity: AuditEntity.QUOTE,
+      entityId: quote.id,
+      metadata: { version: quote.version },
+    });
+    return file;
   }
 
   /**
@@ -119,7 +130,7 @@ export class GenerateQuotePdfUseCase {
       validUntil: quote.validUntil,
       customerLines: context.customerLines,
       items: quote.items.map((item) => {
-        const amounts = item.amounts(quote.discountRate);
+        const amounts = quote.itemAmounts(item);
         return {
           position: item.position,
           description: `${item.description}${variablesSuffix(item.variables)}`,

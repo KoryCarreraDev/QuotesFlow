@@ -37,6 +37,11 @@ export interface QuoteItemData {
   priceOverrideReason?: string;
   discountRate: Percentage;
   taxRate: Percentage;
+  /**
+   * Importes que se calcularon y guardaron cuando la cotización se emitió (F3-A06). Solo los pone el repositorio
+   * al leer de la base; una cotización nueva o editada no los lleva.
+   */
+  storedAmounts?: QuoteItemAmounts;
 }
 
 /** Importes de un ítem, todos en centavos exactos. */
@@ -62,6 +67,7 @@ export class QuoteItem {
   readonly priceOverrideReason?: string;
   readonly discountRate: Percentage;
   readonly taxRate: Percentage;
+  readonly storedAmounts?: QuoteItemAmounts;
 
   /**
    * @throws {ValidationError} `INVALID_QUANTITY`, `INVALID_MONEY_AMOUNT` (precio negativo) o
@@ -90,6 +96,7 @@ export class QuoteItem {
     this.priceOverrideReason = isOverridden ? data.priceOverrideReason?.trim() : undefined;
     this.discountRate = data.discountRate;
     this.taxRate = data.taxRate;
+    this.storedAmounts = data.storedAmounts;
   }
 
   /** D-24: el comercial cambió el precio que dio el producto. */
@@ -144,6 +151,10 @@ export interface QuoteContent {
 }
 
 export interface QuoteRecord extends QuoteContent {
+  /** Estado que tenía antes de ser reemplazada por una versión nueva (F3-A03); solo en `SUPERSEDED`. */
+  supersededFromStatus?: QuoteStatus;
+  /** Totales guardados al emitir o al guardar el borrador (F3-A06); solo los pone el repositorio al leer. */
+  storedTotals?: QuoteTotals;
   id: string;
   tenantId: string;
   number: number;
@@ -180,6 +191,8 @@ export class Quote {
   readonly discountRate: Percentage;
   readonly notes?: string;
   readonly items: readonly QuoteItem[];
+  readonly storedTotals?: QuoteTotals;
+  readonly supersededFromStatus?: QuoteStatus;
   readonly createdById: string;
   readonly previousVersionId?: string;
   readonly sentAt?: Date;
@@ -212,6 +225,8 @@ export class Quote {
     this.discountRate = record.discountRate;
     this.notes = record.notes;
     this.items = record.items;
+    this.storedTotals = record.storedTotals;
+    this.supersededFromStatus = record.supersededFromStatus;
     this.createdById = record.createdById;
     this.previousVersionId = record.previousVersionId;
     this.sentAt = record.sentAt;
@@ -263,10 +278,34 @@ export class Quote {
     return this.isExpiredOn(today) ? 'EXPIRED' : this.status;
   }
 
+  /**
+   * Importes de un ítem de esta cotización. Una cotización ya emitida (cualquier estado menos borrador) devuelve los
+   * guardados cuando se emitió: así un cambio posterior en el redondeo o en el orden de los descuentos no altera
+   * lo que el cliente ya recibió (F3-A06). El borrador se calcula siempre.
+   */
+  itemAmounts(item: QuoteItem): QuoteItemAmounts {
+    const stored = this.status === QuoteStatus.DRAFT ? undefined : item.storedAmounts;
+    return stored ?? item.amounts(this.discountRate);
+  }
+
+  /** Lo guardado si la cotización es emitida y lo tiene; si no, la suma calculada de sus ítems. */
   totals(): QuoteTotals {
+    if (this.status !== QuoteStatus.DRAFT && this.storedTotals) return this.storedTotals;
+    return this.calculatedTotals();
+  }
+
+  /**
+   * Totales guardados si los hay, sea cual sea el estado (el listado los usa sin cargar los ítems, F3-A07); si no,
+   * los calcula.
+   */
+  snapshotTotals(): QuoteTotals {
+    return this.storedTotals ?? this.calculatedTotals();
+  }
+
+  private calculatedTotals(): QuoteTotals {
     return this.items.reduce<QuoteTotals>(
       (totals, item) => {
-        const amounts = item.amounts(this.discountRate);
+        const amounts = this.itemAmounts(item);
         return {
           subtotal: totals.subtotal.add(amounts.grossAmount),
           discountTotal: totals.discountTotal.add(amounts.discountAmount),
@@ -285,7 +324,11 @@ export class Quote {
    */
   withContent(content: QuoteContent, now: Date): Quote {
     this.assertEditable();
-    return this.with(content, now);
+    // Los importes guardados eran del contenido anterior: se descartan y se recalculan al guardar.
+    const itemsWithoutStoredAmounts = content.items.map(
+      (item) => new QuoteItem(item.position, { ...item, storedAmounts: undefined }),
+    );
+    return this.with({ ...content, items: itemsWithoutStoredAmounts, storedTotals: undefined }, now);
   }
 
   /** @throws {ConflictError} `QUOTE_NOT_EDITABLE` si no es un borrador (D-22: lo enviado se revisa con una versión nueva). */
@@ -334,18 +377,25 @@ export class Quote {
   }
 
   /**
-   * Revisión (D-22): la versión siguiente en borrador, con el mismo número y el mismo contenido, y esta reemplazada.
+   * Revisión (D-22): la versión siguiente en borrador, con el mismo número y el mismo contenido, y esta reemplazada
+   * (guarda el estado que tenía, para poder restaurarla si se descarta la revisión, F3-A03).
    *
+   * @param nextVersionNumber Número de la versión nueva. Por defecto `version + 1`; quien persiste pasa el siguiente
+   * al mayor ya usado en el número (incluidas las versiones borradas, que siguen ocupando la unicidad).
    * @throws {ConflictError} `QUOTE_INVALID_TRANSITION` si es un borrador, ya está reemplazada o fue aceptada.
    */
-  revise(nextVersionId: string, now: Date): { superseded: Quote; nextVersion: Quote } {
+  revise(
+    nextVersionId: string,
+    now: Date,
+    nextVersionNumber = this.version + 1,
+  ): { superseded: Quote; nextVersion: Quote } {
     if (this.status !== QuoteStatus.SENT && this.status !== QuoteStatus.REJECTED) {
       throw invalidTransition('Only sent or rejected quotes can be revised');
     }
     const nextVersion = new Quote({
       ...this.toRecord(),
       id: nextVersionId,
-      version: this.version + 1,
+      version: nextVersionNumber,
       status: QuoteStatus.DRAFT,
       previousVersionId: this.id,
       sentAt: undefined,
@@ -353,7 +403,22 @@ export class Quote {
       createdAt: now,
       updatedAt: now,
     });
-    return { superseded: this.with({ status: QuoteStatus.SUPERSEDED }, now), nextVersion };
+    return {
+      superseded: this.with({ status: QuoteStatus.SUPERSEDED, supersededFromStatus: this.status }, now),
+      nextVersion,
+    };
+  }
+
+  /**
+   * Devuelve la cotización al estado que tenía antes de que se creara la revisión que se acaba de descartar.
+   *
+   * @throws {ConflictError} `QUOTE_INVALID_TRANSITION` si no está reemplazada o no se sabe qué estado tenía.
+   */
+  restoreAfterDiscardedRevision(now: Date): Quote {
+    if (this.status !== QuoteStatus.SUPERSEDED || this.supersededFromStatus === undefined) {
+      throw invalidTransition('Only a superseded quote with a known previous status can be restored');
+    }
+    return this.with({ status: this.supersededFromStatus, supersededFromStatus: undefined }, now);
   }
 
   /** @throws {ConflictError} `QUOTE_NOT_EDITABLE` si no es un borrador: lo enviado queda como historial. */

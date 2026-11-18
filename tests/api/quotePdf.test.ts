@@ -2,6 +2,7 @@ import request from 'supertest';
 import { PDFDocument } from 'pdf-lib';
 import { beforeEach, describe, expect, it } from 'vitest';
 import app from '@/app.js';
+import prisma from '@/config/database.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
 import {
@@ -81,6 +82,19 @@ describe('GET /api/v1/quotes/:id/pdf', () => {
     expect((withLogo.body as Buffer).length).toBeGreaterThan((withoutLogo.body as Buffer).length);
   });
 
+  it('el PDF de una cotización enviada usa los importes guardados (F3-A06)', async () => {
+    const cheap = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+    const sameButEdited = await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+    await prisma.quote.update({ where: { id: sameButEdited.id }, data: { total: '9999999' } });
+    await prisma.quoteItem.updateMany({ where: { quoteId: sameButEdited.id }, data: { total: '9999999' } });
+
+    const original = await downloadPdf(cheap.id, salesRepCookie);
+    const edited = await downloadPdf(sameButEdited.id, salesRepCookie);
+
+    // Mismo contenido calculado, distinto importe guardado: el PDF sigue lo guardado, así que no son iguales.
+    expect((edited.body as Buffer).equals(original.body as Buffer)).toBe(false);
+  });
+
   it('un comercial no descarga la cotización de otro; gestión sí', async () => {
     const others = await persistQuote(company.tenant.id, company.otherSalesRep.id);
 
@@ -98,11 +112,21 @@ describe('GET /api/v1/quotes/:id/pdf', () => {
     expect(response.body.error.code).toBe(ErrorCode.QUOTE_NOT_FOUND);
   });
 
-  it('descargar el PDF no deja rastro de auditoría ni cambia la cotización', async () => {
+  it('descargar el PDF queda en auditoría y no cambia la cotización', async () => {
     const quote = await persistQuote(company.tenant.id, company.salesRep.id);
 
     await downloadPdf(quote.id, salesRepCookie);
 
+    const entries = await prisma.auditLog.findMany();
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: 'QUOTE_PDF_DOWNLOADED',
+        entityId: quote.id,
+        userId: company.salesRep.id,
+        tenantId: company.tenant.id,
+        metadata: expect.objectContaining({ version: 1 }),
+      }),
+    ]);
     const read = await request(app).get(apiPaths.quotes.get(quote.id)).set('Cookie', salesRepCookie);
     expect(read.body).toMatchObject({ status: 'DRAFT', total: '238000.00' });
   });

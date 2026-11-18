@@ -24,6 +24,50 @@ function setup() {
   };
 }
 
+describe('auditoría de valores sensibles (F3-A21)', () => {
+  const partner = { role: Role.PARTNER, userId: 'partner' };
+
+  it('el IVA por defecto y los topes de descuento dejan el valor anterior y el nuevo', async () => {
+    const { updateProfile, auditLogger } = setup();
+
+    await updateProfile.execute(partner, { defaultTaxRate: '19.00', maximumDiscountRateSalesRep: '100.00' });
+    await updateProfile.execute(partner, { maximumDiscountRateSalesRep: '10.00', defaultTaxRate: null });
+
+    expect(auditLogger.entries.map((entry) => entry.metadata)).toEqual([
+      {
+        changedFields: ['defaultTaxRate', 'maximumDiscountRateSalesRep'],
+        changedValues: {
+          defaultTaxRate: { from: null, to: '19.00' },
+          maximumDiscountRateSalesRep: { from: '10.00', to: '100.00' },
+        },
+      },
+      {
+        changedFields: ['defaultTaxRate', 'maximumDiscountRateSalesRep'],
+        changedValues: {
+          defaultTaxRate: { from: '19.00', to: null },
+          maximumDiscountRateSalesRep: { from: '100.00', to: '10.00' },
+        },
+      },
+    ]);
+  });
+
+  it('un campo que se envía con el mismo valor que ya tenía no se registra como cambio de valor', async () => {
+    const { updateProfile, auditLogger } = setup();
+
+    await updateProfile.execute(partner, { maximumDiscountRateSalesLeader: '20.00' });
+
+    expect(auditLogger.entries[0].metadata).toEqual({ changedFields: ['maximumDiscountRateSalesLeader'] });
+  });
+
+  it('el nombre y la zona horaria no llevan valores: solo se sensibilizan los campos de la lista', async () => {
+    const { updateProfile, auditLogger } = setup();
+
+    await updateProfile.execute(partner, { name: 'Otro Nombre SAS', timezone: 'America/Lima' });
+
+    expect(JSON.stringify(auditLogger.entries[0].metadata)).not.toContain('Otro Nombre');
+  });
+});
+
 describe('zona horaria', () => {
   it('por defecto es America/Bogota', () => {
     expect(DEFAULT_TENANT_TIMEZONE).toBe('America/Bogota');

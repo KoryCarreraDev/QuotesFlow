@@ -6,6 +6,8 @@ import { IFilterableRepository } from './IFilterableRepository.js';
  * Las escrituras van dentro de una transacción (`ITransactionManager`).
  */
 export interface IQuoteRepository extends IFilterableRepository<Quote> {
+  // `findFiltered` (el listado) devuelve cotizaciones **sin ítems**, con los totales guardados: usar
+  // `Quote.snapshotTotals()`. Para los ítems, `findById` (F3-A07).
   /**
    * Siguiente número consecutivo de la empresa. Tiene que llamarse dentro de la transacción que crea la cotización:
    * la fila de la secuencia queda bloqueada hasta confirmar, así que dos altas simultáneas no repiten número y un
@@ -15,6 +17,12 @@ export interface IQuoteRepository extends IFilterableRepository<Quote> {
 
   /** Guarda una cotización nueva con sus ítems (también la versión siguiente de una revisión). */
   create(quote: Quote): Promise<void>;
+
+  /**
+   * Número de la versión siguiente de un número de cotización: el mayor ya usado más uno. Cuenta también las versiones
+   * borradas, porque siguen ocupando la unicidad `(empresa, número, versión)` (F3-A03).
+   */
+  nextVersionNumber(quoteNumber: number): Promise<number>;
 
   /** La cotización con sus ítems por orden; `null` si no existe, es de otra empresa o está borrada. */
   findById(quoteId: string): Promise<Quote | null>;
@@ -30,6 +38,11 @@ export interface IQuoteRepository extends IFilterableRepository<Quote> {
    */
   saveState(quote: Quote, expectedStatus: QuoteStatus): Promise<boolean>;
 
-  /** Borrado suave; solo borradores. */
-  delete(quoteId: string): Promise<void>;
+  /**
+   * Borrado suave de un borrador, comparando el estado (como `saveState`): si otra petición lo envió mientras tanto,
+   * no se borra.
+   *
+   * @returns `false` si ya no es un borrador, no existe o es de otra empresa.
+   */
+  deleteDraft(quoteId: string): Promise<boolean>;
 }

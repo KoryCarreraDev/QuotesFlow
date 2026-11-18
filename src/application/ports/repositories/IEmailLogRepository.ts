@@ -24,5 +24,6 @@ export interface EmailLogEntry {
 
 /** Registro de envíos de correo (`EmailLog`, F2-T01). Solo se añaden filas: es un historial. */
 export interface IEmailLogRepository {
-  record(entry: EmailLogEntry): Promise<void>;
+  /** Guarda el envío y devuelve su id, para que quien lo pidió (por ejemplo, la auditoría de una cotización) lo enlace. */
+  record(entry: EmailLogEntry): Promise<string>;
 }

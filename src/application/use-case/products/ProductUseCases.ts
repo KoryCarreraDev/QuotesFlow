@@ -8,6 +8,7 @@ import {
   AuditEntity,
   IAuditLogger,
   changedFieldNames,
+  changedValues,
 } from '@/application/ports/services/IAuditLogger.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
@@ -39,6 +40,19 @@ async function assertFormulaBelongsToTenant(repository: IProductRepository, form
   if (!(await repository.formulaExists(formulaId))) {
     throw new ValidationError(ErrorCode.INVALID_PRODUCT_FORMULA, 'Formula does not exist in this company');
   }
+}
+
+// F3-A21: el precio y la fórmula cambian lo que se cobra: se audita de qué a qué. Es una lista cerrada.
+const AUDITED_PRODUCT_FIELDS = ['basePrice', 'formulaId'] as const;
+
+function auditedValuesOf(product: Product) {
+  return { basePrice: product.basePrice?.toDecimalString(), formulaId: product.formulaId };
+}
+
+/** `{ changedValues }` si cambió el precio o la fórmula; si no, nada. */
+function valuesChanged(before: Product, after: Product): { changedValues?: object } {
+  const values = changedValues(auditedValuesOf(before), auditedValuesOf(after), AUDITED_PRODUCT_FIELDS);
+  return Object.keys(values).length === 0 ? {} : { changedValues: values };
 }
 
 function moneyOrNullFrom(text: string | null | undefined): Money | null | undefined {
@@ -82,9 +96,10 @@ export class CreateProductUseCase {
       formulaId: input.formulaId,
       isActive: input.isActive ?? true,
     });
-    await assertFormulaBelongsToTenant(this.repository, product.formulaId);
 
     await this.transactionManager.runInTransaction(async () => {
+      // Dentro de la transacción y con la fórmula bloqueada: un borrado simultáneo no la deja huérfana (F3-A20).
+      await assertFormulaBelongsToTenant(this.repository, product.formulaId);
       await this.repository.create(product);
       await this.auditLogger.record({
         action: AuditAction.PRODUCT_CREATED,
@@ -117,15 +132,18 @@ export class UpdateProductUseCase {
 
     const changes: ProductChanges = { ...input, basePrice: moneyOrNullFrom(input.basePrice) };
     const updatedProduct = storedProduct.withChanges(changes);
-    await assertFormulaBelongsToTenant(this.repository, input.formulaId);
 
     await this.transactionManager.runInTransaction(async () => {
+      await assertFormulaBelongsToTenant(this.repository, input.formulaId);
       await this.repository.update(updatedProduct);
       await this.auditLogger.record({
         action: AuditAction.PRODUCT_UPDATED,
         entity: AuditEntity.PRODUCT,
         entityId: productId,
-        metadata: { changedFields: changedFieldNames(input) },
+        metadata: {
+          changedFields: changedFieldNames(input),
+          ...valuesChanged(storedProduct, updatedProduct),
+        },
       });
     });
     return productMapper.toDTO(updatedProduct);

@@ -65,14 +65,16 @@ export class UploadTenantLogoUseCase {
       );
     }
 
-    const previousKey = (await loadProfile(this.profiles)).logoKey;
     const key = `logos/${this.tenantContext.getTenantId()}/${randomUUID()}.${image.extension}`;
     await this.storage.save(key, content, image.contentType);
 
     let profile: TenantProfile;
+    let previousKey: string | undefined;
     try {
-      profile = await this.transactionManager.runInTransaction(async () => {
-        await this.profiles.updateLogoKey(key);
+      ({ profile, previousKey } = await this.transactionManager.runInTransaction(async () => {
+        // La clave anterior sale del mismo cambio (con la fila bloqueada), no de una lectura previa: así dos
+        // subidas simultáneas no borran dos veces el mismo archivo ni dejan uno huérfano (F3-A19).
+        const replacedKey = await this.profiles.updateLogoKey(key);
         const updated = await loadProfile(this.profiles);
         await this.auditLogger.record({
           action: AuditAction.TENANT_LOGO_UPDATED,
@@ -80,8 +82,8 @@ export class UploadTenantLogoUseCase {
           entityId: updated.id,
           metadata: { format: image.format },
         });
-        return updated;
-      });
+        return { profile: updated, previousKey: replacedKey };
+      }));
     } catch (error) {
       await deleteQuietly(this.storage, this.logger, key);
       throw error;
@@ -110,15 +112,16 @@ export class RemoveTenantLogoUseCase {
     const profile = await loadProfile(this.profiles);
     if (!profile.logoKey) return;
 
-    await this.transactionManager.runInTransaction(async () => {
-      await this.profiles.updateLogoKey(null);
+    const removedKey = await this.transactionManager.runInTransaction(async () => {
+      const replacedKey = await this.profiles.updateLogoKey(null);
       await this.auditLogger.record({
         action: AuditAction.TENANT_LOGO_REMOVED,
         entity: AuditEntity.TENANT,
         entityId: profile.id,
       });
+      return replacedKey;
     });
-    await deleteQuietly(this.storage, this.logger, profile.logoKey);
+    await deleteQuietly(this.storage, this.logger, removedKey);
   }
 }
 

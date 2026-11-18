@@ -82,7 +82,7 @@ describe('POST /api/v1/quotes/:id/send con el canal de correo', () => {
       }),
     ]);
     const audit = await prisma.auditLog.findMany({ where: { action: 'QUOTE_SENT' } });
-    expect(audit[0].metadata).toMatchObject({ emailed: true });
+    expect(audit[0].metadata).toMatchObject({ emailed: true, recipientSource: 'contact', emailLogId: logs[0].id });
     expect(JSON.stringify(audit)).not.toContain(CUSTOMER_EMAIL);
   });
 

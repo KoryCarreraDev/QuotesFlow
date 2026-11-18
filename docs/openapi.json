@@ -12302,7 +12302,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ data, total, page, limit }"
+            "description": "{ data, total, page, limit }; cada cotización es un resumen sin items y con los totales guardados (los ítems, en GET /quotes/{id})"
           },
           "400": {
             "description": "Entrada inválida",

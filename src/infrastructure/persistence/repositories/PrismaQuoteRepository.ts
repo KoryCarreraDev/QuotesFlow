@@ -1,8 +1,8 @@
-import { Prisma, QuoteStatus as StoredQuoteStatus } from '@prisma/client';
+import { DeletedState as StoredDeletedState, Prisma, QuoteStatus as StoredQuoteStatus } from '@prisma/client';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { IQuoteRepository } from '@/application/ports/repositories/IQuoteRepository.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
-import { Quote, QuoteItem, QuoteStatus } from '@/domain/entities/Quote.js';
+import { Quote, QuoteItem, QuoteItemAmounts, QuoteStatus } from '@/domain/entities/Quote.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
@@ -15,6 +15,8 @@ const quoteInclude = {
 } satisfies Prisma.QuoteInclude;
 
 type QuoteRecord = Prisma.QuoteGetPayload<{ include: typeof quoteInclude }>;
+/** Fila del listado: la cotización sin sus ítems (F3-A07). */
+type QuoteListRecord = Prisma.QuoteGetPayload<object>;
 type QuoteItemRecord = QuoteRecord['items'][number];
 
 const STATUS_FIELD = 'status';
@@ -25,8 +27,22 @@ function moneyOf(value: Prisma.Decimal): Money {
   return Money.fromDecimalStringRounded(value.toFixed());
 }
 
+/** Importes del ítem que se guardaron al emitir la cotización (F3-A06). El bruto y el descuento salen de ellos. */
+function storedAmountsOf(record: QuoteItemRecord, unitPrice: Money): QuoteItemAmounts {
+  const grossAmount = unitPrice.multiply(record.quantity);
+  const netAmount = moneyOf(record.netAmount);
+  return {
+    grossAmount,
+    discountAmount: grossAmount.subtract(netAmount),
+    netAmount,
+    taxAmount: moneyOf(record.taxAmount),
+    total: moneyOf(record.total),
+  };
+}
+
 function toQuoteItem(record: QuoteItemRecord): QuoteItem {
   return new QuoteItem(record.position, {
+    storedAmounts: storedAmountsOf(record, moneyOf(record.unitPrice)),
     productId: record.productId ?? undefined,
     description: record.description,
     quantity: record.quantity,
@@ -39,7 +55,7 @@ function toQuoteItem(record: QuoteItemRecord): QuoteItem {
   });
 }
 
-function toQuote(record: QuoteRecord): Quote {
+function toQuote(record: QuoteListRecord, items: QuoteItem[]): Quote {
   return Quote.restore({
     id: record.id,
     tenantId: record.tenantId,
@@ -54,9 +70,16 @@ function toQuote(record: QuoteRecord): Quote {
     validUntil: calendarDateOfStoredDate(record.validUntil),
     discountRate: Percentage.fromDecimalString(record.discountRate.toFixed()),
     notes: record.notes ?? undefined,
-    items: record.items.map(toQuoteItem),
+    items,
+    storedTotals: {
+      subtotal: moneyOf(record.subtotal),
+      discountTotal: moneyOf(record.discountTotal),
+      taxTotal: moneyOf(record.taxTotal),
+      total: moneyOf(record.total),
+    },
     createdById: record.createdById,
     previousVersionId: record.previousVersionId ?? undefined,
+    supersededFromStatus: (record.supersededFromStatus as QuoteStatus | null) ?? undefined,
     sentAt: record.sentAt ?? undefined,
     decidedAt: record.decidedAt ?? undefined,
     createdAt: record.createdAt,
@@ -144,12 +167,21 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
     await this.prisma.quoteItem.createMany({ data: this.itemRows(quote) });
   }
 
+  async nextVersionNumber(quoteNumber: number): Promise<number> {
+    // Sin filtrar por borrado: una versión borrada sigue ocupando su número en la unicidad.
+    const highest = await this.prisma.quote.aggregate({
+      where: { tenantId: this.tenantId, number: quoteNumber },
+      _max: { version: true },
+    });
+    return (highest._max.version ?? 0) + 1;
+  }
+
   async findById(quoteId: string): Promise<Quote | null> {
     const record = await this.prisma.quote.findFirst({
       where: { id: quoteId, ...this.tenantWhere() },
       include: quoteInclude,
     });
-    return record ? toQuote(record) : null;
+    return record ? toQuote(record, record.items.map(toQuoteItem)) : null;
   }
 
   async saveContent(quote: Quote): Promise<void> {
@@ -172,14 +204,21 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
         status: quote.status as StoredQuoteStatus,
         sentAt: quote.sentAt ?? null,
         decidedAt: quote.decidedAt ?? null,
+        supersededFromStatus: (quote.supersededFromStatus as StoredQuoteStatus | undefined) ?? null,
         updatedAt: quote.updatedAt,
       },
     });
     return count === 1;
   }
 
-  async delete(quoteId: string): Promise<void> {
-    await this.softDeleteRegister(this.prisma.quote, quoteId);
+  async deleteDraft(quoteId: string): Promise<boolean> {
+    const { count } = await this.prisma.quote.updateMany({
+      where: { id: quoteId, ...this.tenantWhere(), status: StoredQuoteStatus.DRAFT },
+      // `previousVersionId` es único: el borrador borrado suelta su enlace para que la versión anterior pueda tener
+      // otra revisión (F3-A03).
+      data: { deleted: StoredDeletedState.DELETED, previousVersionId: null, updatedAt: new Date() },
+    });
+    return count === 1;
   }
 
   /** Un estado que no existe haría fallar a Prisma con un 500: se rechaza como filtro inválido. */
@@ -199,11 +238,11 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
     const records = await this.prisma.quote.findMany({
       where: this.buildFilterWhere(criteria, config),
       orderBy: this.buildOrderBy(criteria, config),
-      include: quoteInclude,
       skip,
       take,
     });
-    return records.map(toQuote);
+    // Sin ítems (F3-A07): el listado usa los totales guardados de la cotización.
+    return records.map((record) => toQuote(record, []));
   }
 
   async countFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<number> {

@@ -306,6 +306,8 @@ model Quote {
   previousVersionId String?         @unique
   previousVersion   Quote?          @relation("QuoteVersions", fields: [previousVersionId], references: [id])
   nextVersion       Quote?          @relation("QuoteVersions")
+  // Estado que tenía antes de ser reemplazada por una versión nueva (F3-A03): al descartar esa versión se restaura.
+  supersededFromStatus QuoteStatus?
   sentAt            DateTime?
   decidedAt         DateTime?
   createdById       String
