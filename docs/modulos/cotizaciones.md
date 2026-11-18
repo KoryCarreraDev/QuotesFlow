@@ -57,6 +57,7 @@ servidor calcula y que no cambian después de enviada.
   `403`; una de otra empresa o inexistente, `404 QUOTE_NOT_FOUND`.
 - **Auditoría** en la misma transacción: `QUOTE_CREATED`, `QUOTE_UPDATED` (nombres de campos), `QUOTE_DELETED`,
   `QUOTE_SENT`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `QUOTE_REVISED`, `QUOTE_PRICE_OVERRIDDEN`.
+- **PDF (F3-T06).** `GET /quotes/:id/pdf` descarga la cotización en A4 (`application/pdf`, adjunto `COT-000123.pdf` o `COT-000123-v2.pdf`, `Cache-Control: private, no-store`). Lleva el logo (si la empresa tiene uno válido; si falta o no se puede leer, sale sin él), el nombre de la empresa, referencia, estado (`BORRADOR`, `ENVIADA`, `VENCIDA`…), fecha de emisión y vigencia (dd/mm/aaaa en la zona horaria de la empresa), el cliente, la tabla de ítems (con las medidas de los ítems de fórmula), descuentos, IVA y total en pesos colombianos (`$ 1.234.567,50`), notas y condiciones. Los importes se formatean desde el texto decimal exacto, nunca con `number`. La tabla continúa en páginas nuevas con su cabecera repetida y cada página lleva "Página X de Y". Las fuentes estándar solo codifican WinAnsi: un carácter fuera de él (emojis, símbolos) sale como `?`. Los datos de contacto del cliente solo salen si quien descarga puede ver a ese cliente. Se genera al pedirlo y no se guarda. Mismos permisos que leer la cotización (`quote:list`); no se audita (solo lectura). Las condiciones son un texto fijo; las plantillas por empresa (C-13) no están en el MVP.
 - **Envío.** `POST /quotes/:id/send` marca la cotización `SENT`. El envío del PDF por correo lo añade F3-T08; con
   el canal de correo desactivado (D-57), enviar solo cambia el estado y el comercial comparte el PDF.
 
@@ -65,6 +66,7 @@ servidor calcula y que no cambian después de enviada.
 |---|---|---|---|
 | GET | `/api/v1/quotes/search` | Todos (comercial: las suyas) | Busca, filtra, ordena y pagina (`docs/modulos/filtrado.md`) |
 | GET | `/api/v1/quotes/:id` | Ídem | Una cotización con sus ítems |
+| GET | `/api/v1/quotes/:id/pdf` | Ídem | Descarga el PDF de la cotización |
 | POST | `/api/v1/quotes` | Todos | Crea un borrador → 201 |
 | PATCH | `/api/v1/quotes/:id` | Ídem | Modifica un borrador; `items` reemplaza todos los ítems; `null` quita cliente o notas |
 | DELETE | `/api/v1/quotes/:id` | Ídem | Borrado suave de un borrador |

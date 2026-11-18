@@ -345,6 +345,15 @@ export const openApiOperations: OperationEntry[] = [
     successDescription: 'Cotización con importes como texto decimal; displayStatus es EXPIRED si venció (Q-016)',
   },
   {
+    method: 'get',
+    path: `${API_BASE_PATH}/quotes/{id}/pdf`,
+    tag: 'Cotizaciones',
+    summary:
+      'Descarga el PDF de la cotización (logo, cliente, ítems, totales y condiciones); un comercial solo las suyas',
+    successStatus: 200,
+    successDescription: 'application/pdf, como adjunto COT-000123.pdf (o COT-000123-v2.pdf)',
+  },
+  {
     ...quotes.create,
     body: createQuoteSchema,
     summary: 'Crea una cotización (borrador) con el siguiente número de la empresa; el servidor calcula los precios',

@@ -1,3 +1,4 @@
+import { GenerateQuotePdfUseCase } from '../../application/use-case/quotes/QuotePdfUseCase.js';
 import { QuoteContentResolver } from '../../application/use-case/quotes/QuoteContentResolver.js';
 import {
   AcceptQuoteUseCase,
@@ -20,7 +21,9 @@ import { PrismaLeadRepository } from '../../infrastructure/persistence/repositor
 import { PrismaProductRepository } from '../../infrastructure/persistence/repositories/PrismaProductRepository.js';
 import { PrismaQuoteRepository } from '../../infrastructure/persistence/repositories/PrismaQuoteRepository.js';
 import { PrismaTenantProfileRepository } from '../../infrastructure/persistence/repositories/PrismaTenantProfileRepository.js';
+import { appLogger } from '../../infrastructure/logging/appLogger.js';
 import { MathjsFormulaEvaluator } from '../../infrastructure/services/MathjsFormulaEvaluator.js';
+import { fileStorage, pdfGenerator } from '../sharedServices.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
 
 const formulaEvaluator = new MathjsFormulaEvaluator();
@@ -99,5 +102,19 @@ export class QuoteModule {
 
   getReviseQuoteUseCase(): ReviseQuoteUseCase {
     return new ReviseQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+  }
+
+  getGenerateQuotePdfUseCase(): GenerateQuotePdfUseCase {
+    const { prisma, tenantContext } = this.dependencies;
+    return new GenerateQuotePdfUseCase(
+      this.createRepository(),
+      this.createProfileRepository(),
+      new PrismaLeadRepository(prisma, tenantContext),
+      new PrismaContactRepository(prisma, tenantContext),
+      new PrismaCompanyContactRepository(prisma, tenantContext),
+      fileStorage,
+      pdfGenerator,
+      appLogger,
+    );
   }
 }

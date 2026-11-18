@@ -99,6 +99,7 @@ export const apiPaths = {
     accept: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/accept`,
     reject: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/reject`,
     revise: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/revise`,
+    pdf: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/pdf`,
   },
   companyContacts: {
     getAll: COMPANY_CONTACT_BASE_PATH,
@@ -175,6 +176,7 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'GET', pattern: apiPaths.quotes.filtered, access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.quotes.create, access: 'authenticated' },
   { method: 'GET', pattern: apiPaths.quotes.get(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'GET', pattern: apiPaths.quotes.pdf(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.quotes.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.quotes.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'POST', pattern: apiPaths.quotes.send(ROUTE_ID_PARAMETER), access: 'authenticated' },
