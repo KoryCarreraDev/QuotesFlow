@@ -312,6 +312,18 @@ describe('API de cotizaciones', () => {
         { field: 'createdById', operator: 'equals', value: company.otherSalesRep.id },
       ]);
 
+      // F3-A07: el listado es un resumen sin ítems (con los totales guardados); el detalle sí lleva los ítems.
+      const summary = asLeader.body.data.find((quote: { id: string }) => quote.id === mineSent.id);
+      expect(summary).not.toHaveProperty('items');
+      expect(summary).toMatchObject({
+        reference: 'COT-000002',
+        status: 'SENT',
+        total: '238000.00',
+        subtotal: '200000.00',
+      });
+      const detail = await request(app).get(apiPaths.quotes.get(mineSent.id)).set('Cookie', ownerCookie);
+      expect(detail.body.items).toHaveLength(1);
+
       const ids = (response: request.Response) => response.body.data.map((quote: { id: string }) => quote.id).sort();
       expect(ids(asRep)).toEqual([mineDraft.id, mineSent.id].sort());
       expect(ids(asLeader)).toEqual([mineDraft.id, mineSent.id, others.id].sort());

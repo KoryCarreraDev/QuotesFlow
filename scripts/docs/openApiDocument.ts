@@ -351,7 +351,11 @@ export const openApiOperations: OperationEntry[] = [
     successStatus: 201,
     successDescription: 'Cotización creada con el lead como cliente; 404 LEAD_NOT_FOUND',
   },
-  quotes.search,
+  {
+    ...quotes.search,
+    successDescription:
+      '{ data, total, page, limit }; cada cotización es un resumen sin items y con los totales guardados (los ítems, en GET /quotes/{id})',
+  },
   {
     method: 'get',
     path: `${API_BASE_PATH}/quotes/{id}`,

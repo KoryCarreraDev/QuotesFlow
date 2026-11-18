@@ -393,6 +393,17 @@ describe('PrismaQuoteRepository', () => {
       expect(total).toBe(SECOND);
     });
 
+    it('el listado no carga los ítems y trae los totales guardados (F3-A07)', async () => {
+      await persistQuote(company.tenant.id, company.salesRep.id, { status: 'SENT' });
+
+      const [listed] = await repository.findFiltered({}, quoteFilterConfig);
+      const detail = await repository.findById(listed.id);
+
+      expect(listed.items).toEqual([]);
+      expect(listed.snapshotTotals().total.toDecimalString()).toBe('238000.00');
+      expect(detail?.items).toHaveLength(1);
+    });
+
     it('un estado que no existe es un filtro inválido, no un error interno', async () => {
       const criteria = { filters: [{ field: 'status', operator: 'equals', value: 'INVENTADO' }] };
 

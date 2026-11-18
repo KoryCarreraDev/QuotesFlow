@@ -6,12 +6,13 @@ import {
   AcceptQuoteResult,
   CreateQuoteInput,
   QuoteDTO,
+  QuoteSummaryDTO,
   SendQuoteInput,
   SendQuoteResult,
   UpdateQuoteInput,
 } from '@/application/dtos/QuoteDTOs.js';
 import { formatCalendarDate, formatPesos } from '@/application/formatting/colombianFormat.js';
-import { quoteReference, toQuoteDTO } from '@/application/mappers/QuoteMapper.js';
+import { quoteReference, toQuoteDTO, toQuoteSummaryDTO } from '@/application/mappers/QuoteMapper.js';
 import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { IMapper } from '@/application/ports/mappers/IMapper.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
@@ -132,9 +133,9 @@ export class ListQuotesUseCase {
     private readonly filterConfig: IFilterFieldConfig,
   ) {}
 
-  async execute(actor: Actor, criteria: FilterCriteriaDTO): Promise<PaginatedResult<QuoteDTO>> {
+  async execute(actor: Actor, criteria: FilterCriteriaDTO): Promise<PaginatedResult<QuoteSummaryDTO>> {
     const { today } = await loadClock(this.tenantProfileRepository);
-    const mapper: IMapper<Quote, QuoteDTO> = { toDTO: (quote) => toQuoteDTO(quote, today) };
+    const mapper: IMapper<Quote, QuoteSummaryDTO> = { toDTO: (quote) => toQuoteSummaryDTO(quote, today) };
     const listFiltered = new GenericListFilteredUseCase(this.repository, mapper, this.filterConfig, {
       action: Action.QUOTE_LIST,
       ownerField: 'createdById',

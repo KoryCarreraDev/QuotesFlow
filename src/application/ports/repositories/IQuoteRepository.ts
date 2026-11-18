@@ -6,6 +6,8 @@ import { IFilterableRepository } from './IFilterableRepository.js';
  * Las escrituras van dentro de una transacción (`ITransactionManager`).
  */
 export interface IQuoteRepository extends IFilterableRepository<Quote> {
+  // `findFiltered` (el listado) devuelve cotizaciones **sin ítems**, con los totales guardados: usar
+  // `Quote.snapshotTotals()`. Para los ítems, `findById` (F3-A07).
   /**
    * Siguiente número consecutivo de la empresa. Tiene que llamarse dentro de la transacción que crea la cotización:
    * la fila de la secuencia queda bloqueada hasta confirmar, así que dos altas simultáneas no repiten número y un

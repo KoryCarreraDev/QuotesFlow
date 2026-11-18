@@ -15,6 +15,8 @@ const quoteInclude = {
 } satisfies Prisma.QuoteInclude;
 
 type QuoteRecord = Prisma.QuoteGetPayload<{ include: typeof quoteInclude }>;
+/** Fila del listado: la cotización sin sus ítems (F3-A07). */
+type QuoteListRecord = Prisma.QuoteGetPayload<object>;
 type QuoteItemRecord = QuoteRecord['items'][number];
 
 const STATUS_FIELD = 'status';
@@ -53,7 +55,7 @@ function toQuoteItem(record: QuoteItemRecord): QuoteItem {
   });
 }
 
-function toQuote(record: QuoteRecord): Quote {
+function toQuote(record: QuoteListRecord, items: QuoteItem[]): Quote {
   return Quote.restore({
     id: record.id,
     tenantId: record.tenantId,
@@ -68,7 +70,7 @@ function toQuote(record: QuoteRecord): Quote {
     validUntil: calendarDateOfStoredDate(record.validUntil),
     discountRate: Percentage.fromDecimalString(record.discountRate.toFixed()),
     notes: record.notes ?? undefined,
-    items: record.items.map(toQuoteItem),
+    items,
     storedTotals: {
       subtotal: moneyOf(record.subtotal),
       discountTotal: moneyOf(record.discountTotal),
@@ -169,7 +171,7 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
       where: { id: quoteId, ...this.tenantWhere() },
       include: quoteInclude,
     });
-    return record ? toQuote(record) : null;
+    return record ? toQuote(record, record.items.map(toQuoteItem)) : null;
   }
 
   async saveContent(quote: Quote): Promise<void> {
@@ -223,11 +225,11 @@ export class PrismaQuoteRepository extends BasePrismaRepository implements IQuot
     const records = await this.prisma.quote.findMany({
       where: this.buildFilterWhere(criteria, config),
       orderBy: this.buildOrderBy(criteria, config),
-      include: quoteInclude,
       skip,
       take,
     });
-    return records.map(toQuote);
+    // Sin ítems (F3-A07): el listado usa los totales guardados de la cotización.
+    return records.map((record) => toQuote(record, []));
   }
 
   async countFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<number> {

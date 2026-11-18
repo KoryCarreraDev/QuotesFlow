@@ -314,7 +314,7 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health`, `/ready` y las rutas p�
 | POST | `/api/v1/formulas` | `{ name, expression, variables: [{ name, label }] }` → 201 |
 | PATCH | `/api/v1/formulas/:id` | Igual que crear, todo opcional; la expresión se vuelve a validar |
 | DELETE | `/api/v1/formulas/:id` | — (borrado suave; solo gestión; 409 `FORMULA_IN_USE` si un producto la usa) |
-| GET | `/api/v1/quotes/search` | Query de filtrado → `{ data, total, page, limit }`; un comercial solo ve las suyas |
+| GET | `/api/v1/quotes/search` | Query de filtrado → `{ data, total, page, limit }` con un resumen **sin `items`** (totales guardados); un comercial solo ve las suyas |
 | GET | `/api/v1/quotes/:id` | — → cotización con ítems; `displayStatus` es `EXPIRED` si venció |
 | GET | `/api/v1/quotes/:id/pdf` | — → `application/pdf` (adjunto `COT-000123.pdf`); mismos permisos que leer |
 | POST | `/api/v1/quotes` | `{ leadId?, contactId?, companyContactId? (al menos uno), validUntil?, discountRate?, notes?, items: [{ productId?, description?, quantity, variables?, unitPrice?, priceOverrideReason?, discountRate?, taxRate? }] }` → 201 |

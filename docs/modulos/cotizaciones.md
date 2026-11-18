@@ -93,7 +93,7 @@ servidor calcula y que no cambian después de enviada.
 ## Endpoints
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| GET | `/api/v1/quotes/search` | Todos (comercial: las suyas) | Busca, filtra, ordena y pagina (`docs/modulos/filtrado.md`) |
+| GET | `/api/v1/quotes/search` | Todos (comercial: las suyas) | Busca, filtra, ordena y pagina (`docs/modulos/filtrado.md`). Devuelve un **resumen sin ítems** con los totales guardados (F3-A07); los ítems, en `GET /quotes/:id` |
 | GET | `/api/v1/quotes/:id` | Ídem | Una cotización con sus ítems |
 | GET | `/api/v1/quotes/:id/pdf` | Ídem | Descarga el PDF de la cotización |
 | POST | `/api/v1/quotes` | Todos | Crea un borrador → 201 |
