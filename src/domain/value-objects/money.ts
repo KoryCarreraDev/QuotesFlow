@@ -119,6 +119,16 @@ export class Percentage {
     return this.basisPoints > other.basisPoints;
   }
 
+  /**
+   * Descuento total de dos descuentos seguidos: el segundo se aplica sobre lo que deja el primero
+   * (10 % y luego 10 % son 19 %, no 20 %). Redondea a puntos básicos, mitad hacia arriba.
+   */
+  combinedWith(other: Percentage): Percentage {
+    const overlap =
+      (BigInt(this.basisPoints) * BigInt(other.basisPoints) + HALF_BASIS_POINTS_PER_UNIT) / BASIS_POINTS_PER_UNIT;
+    return new Percentage(this.basisPoints + other.basisPoints - Number(overlap));
+  }
+
   /** Texto con dos decimales, como lo devuelve la API: `"19.00"`. */
   toDecimalString(): string {
     const digits = String(this.basisPoints).padStart(MONEY_DECIMAL_PLACES + 1, '0');

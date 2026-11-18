@@ -1,6 +1,6 @@
 //Cliente (Siempre el recomendado)
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   // F2-T09: índice único parcial del documento de clientes (D-19). Sin la función preview, Prisma no
   // conocería el índice y una migración futura generada con `migrate dev` lo borraría.
   previewFeatures = ["partialIndexes"]
@@ -34,6 +34,8 @@ enum QuoteStatus {
   SENT
   ACCEPTED
   REJECTED
+  // D-22 (F3-T05): una cotización enviada no se edita; al crear su versión siguiente queda reemplazada.
+  SUPERSEDED
 }
 
 //Estados posibles de un registro
@@ -44,60 +46,60 @@ enum DeletedState {
 
 //Modelo Tenant (Modelo principal e impresindible para el aislamiento de datos por empresa)
 model Tenant {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   name      String
   logoUrl   String?
-  settings  Json?    // Configuración general en JSON
+  settings  Json? // Configuración general en JSON
   deleted   DeletedState @default(INUSE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  users              User[]
-  leads              Lead[]
-  contacts           Contact[]
-  companyContacts    CompanyContact[]
-  formulas           Formula[]
-  quotes             Quote[]
-  leadStatusConfigs  LeadStatusConfig[]
-  tenantSettings     TenantSettings?
-  auditLogs          AuditLog[]
-  products           Product[]
-  leadStatusHistory  LeadStatusHistory[]
-  quoteItems         QuoteItem[]
-  emailLogs          EmailLog[]
-  userSessions       UserSession[]
-  accountTokens      AccountToken[]
-  userInvitations    UserInvitation[]
-
+  users               User[]
+  leads               Lead[]
+  contacts            Contact[]
+  companyContacts     CompanyContact[]
+  formulas            Formula[]
+  quotes              Quote[]
+  leadStatusConfigs   LeadStatusConfig[]
+  tenantSettings      TenantSettings?
+  quoteNumberSequence QuoteNumberSequence?
+  auditLogs           AuditLog[]
+  products            Product[]
+  leadStatusHistory   LeadStatusHistory[]
+  quoteItems          QuoteItem[]
+  emailLogs           EmailLog[]
+  userSessions        UserSession[]
+  accountTokens       AccountToken[]
+  userInvitations     UserInvitation[]
 }
 
 //Modelo Usuario (Entidades que interactuan con el sistema)
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  role         Role     @default(SALES_REP)
-  isActive     Boolean  @default(true)
+  id                  String       @id @default(cuid())
+  email               String       @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                Role         @default(SALES_REP)
+  isActive            Boolean      @default(true)
   // F2-T03: bloqueo progresivo por intentos de login fallidos seguidos.
-  failedLoginAttempts Int       @default(0)
+  failedLoginAttempts Int          @default(0)
   loginLockedUntil    DateTime?
   // D-12 (F2-T04): sin correo verificado no se puede iniciar sesión.
   emailVerifiedAt     DateTime?
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deleted      DeletedState @default(INUSE)
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  deleted             DeletedState @default(INUSE)
 
-  assignedLeads       Lead[]               @relation("AssignedTo")
-  createdFormulas     Formula[]
-  createdQuotes       Quote[]
-  leadStatusChanges   LeadStatusHistory[]
-  auditLogs           AuditLog[]
-  ownedContacts        Contact[]        @relation("ContactOwner")
-  ownedCompanyContacts CompanyContact[] @relation("CompanyContactOwner")
+  assignedLeads        Lead[]              @relation("AssignedTo")
+  createdFormulas      Formula[]
+  createdQuotes        Quote[]
+  leadStatusChanges    LeadStatusHistory[]
+  auditLogs            AuditLog[]
+  ownedContacts        Contact[]           @relation("ContactOwner")
+  ownedCompanyContacts CompanyContact[]    @relation("CompanyContactOwner")
   emailLogs            EmailLog[]
   sessions             UserSession[]
   accountTokens        AccountToken[]
@@ -109,24 +111,24 @@ model User {
 
 //Oportunidad, entidad principal de las funcionalidades CRM
 model Lead {
-  id               String    @id @default(cuid())
-  tenantId         String
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  companyName      String?
-  contactName      String?
-  email            String?
-  phone            String?
-  statusId         String?
-  status           LeadStatusConfig? @relation(fields: [statusId], references: [id])
-  source           String?
-  assignedToId     String?
-  assignedTo       User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
-  estimatedValue   Decimal?
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName       String?
+  contactName       String?
+  email             String?
+  phone             String?
+  statusId          String?
+  status            LeadStatusConfig? @relation(fields: [statusId], references: [id])
+  source            String?
+  assignedToId      String?
+  assignedTo        User?             @relation("AssignedTo", fields: [assignedToId], references: [id])
+  estimatedValue    Decimal?
   expectedCloseDate DateTime?
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deleted          DeletedState @default(INUSE)
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deleted           DeletedState      @default(INUSE)
 
   statusHistory LeadStatusHistory[]
   quotes        Quote[]
@@ -135,30 +137,28 @@ model Lead {
   @@index([assignedToId])
 }
 
-
 //Modelo para la gestión de estados de leads (Permite personalizar los estados de leads)
 model LeadStatusConfig {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
-  color     String?   // Hex color para UI
+  color     String? // Hex color para UI
   order     Int
-  isDefault Boolean  @default(false) // Estado inicial para nuevos leads
+  isDefault Boolean        @default(false) // Estado inicial para nuevos leads
   // D-51 (F1-T14): las analíticas distinguen leads abiertos, ganados y perdidos por el tipo del estado.
   type      LeadStatusType @default(OPEN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deleted   DeletedState @default(INUSE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deleted   DeletedState   @default(INUSE)
 
-  leads          Lead[]               // Leads con este estado
-  oldStatusHist  LeadStatusHistory[]  @relation("OldStatus")
-  newStatusHist  LeadStatusHistory[]  @relation("NewStatus")
+  leads         Lead[] // Leads con este estado
+  oldStatusHist LeadStatusHistory[] @relation("OldStatus")
+  newStatusHist LeadStatusHistory[] @relation("NewStatus")
 
   @@unique([tenantId, order])
   @@index([tenantId])
 }
-
 
 // Tipos de documento de identidad de un cliente persona (y NIT para empresas).
 enum DocumentType {
@@ -178,21 +178,21 @@ enum LeadStatusType {
 
 //Modelo para el historial de cambios de estado de leads (Auditorias)
 model LeadStatusHistory {
-  id          String    @id @default(cuid())
+  id          String            @id @default(cuid())
   // H15 (F1-T10): toda tabla de negocio lleva su tenant, aunque se pueda deducir del lead.
   tenantId    String
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   leadId      String
-  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead        Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
   oldStatusId String?
   oldStatus   LeadStatusConfig? @relation("OldStatus", fields: [oldStatusId], references: [id])
   newStatusId String
   newStatus   LeadStatusConfig  @relation("NewStatus", fields: [newStatusId], references: [id])
   changedById String
-  changedBy   User      @relation(fields: [changedById], references: [id])
+  changedBy   User              @relation(fields: [changedById], references: [id])
   note        String?
-  changedAt   DateTime  @default(now())
-  deleted     DeletedState @default(INUSE)
+  changedAt   DateTime          @default(now())
+  deleted     DeletedState      @default(INUSE)
 
   @@index([leadId])
   @@index([tenantId])
@@ -200,119 +200,149 @@ model LeadStatusHistory {
 
 //Contactos del tipo persona (Personas de ventas de otras empresas o etc)
 model Contact {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  firstName String
-  lastName  String
-  email     String?
-  phone     String?
-  companyId String?
-  company   CompanyContact? @relation(fields: [companyId], references: [id])
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  companyId      String?
+  company        CompanyContact? @relation(fields: [companyId], references: [id])
   // F1-T17: comercial responsable (D-18). Null en los clientes previos hasta que gestión los asigne (Q-005).
-  ownerId   String?
-  owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId        String?
+  owner          User?           @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   documentType   DocumentType?
   // Normalizado: solo dígitos (letras y dígitos en pasaportes). Único entre clientes activos (D-19).
   documentNumber String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deleted   DeletedState @default(INUSE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deleted        DeletedState    @default(INUSE)
 
   quotes Quote[]
 
-  @@index([tenantId])
-  @@index([ownerId])
   // D-19 (F2-T09): la base garantiza que un documento no se repite entre clientes activos del tenant, también
   // con dos altas simultáneas. Los borrados quedan fuera para poder reutilizar su documento.
   @@unique([tenantId, documentNumber], map: "Contact_tenantId_documentNumber_active_key", where: raw("(deleted = 'INUSE'::\"DeletedState\") AND (\"documentNumber\" IS NOT NULL)"))
+  @@index([tenantId])
+  @@index([ownerId])
 }
 
 //Contacto del tipo empresa (Mas extenso y complejo pero necesario para facturación)
 model CompanyContact {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  industry  String?
-  contacts  Contact[]
-  taxNumber String?
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  industry       String?
+  contacts       Contact[]
+  taxNumber      String?
   // F1-T17: NIT normalizado (solo dígitos, sin dígito de verificación) para unicidad (D-19) y Siigo (F6).
   documentNumber String?
-  ownerId   String?
-  owner     User?    @relation("CompanyContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  phone     String?
-  email     String?
-  address   String?
-  city      String?
-  state     String?
-  zip       String?
-  country   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deleted   DeletedState @default(INUSE)
+  ownerId        String?
+  owner          User?        @relation("CompanyContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  country        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deleted        DeletedState @default(INUSE)
+  quotes         Quote[]
 
-  @@index([tenantId])
-  @@index([ownerId])
   // D-19 (F2-T09): mismo índice parcial que en `Contact`.
   @@unique([tenantId, documentNumber], map: "CompanyContact_tenantId_documentNumber_active_key", where: raw("(deleted = 'INUSE'::\"DeletedState\") AND (\"documentNumber\" IS NOT NULL)"))
+  @@index([tenantId])
+  @@index([ownerId])
 }
 
 //Modelo para la gestión de fórmulas matemáticas 
 model Formula {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   expression  String
-  variables   Json     // [{"name":"basePrice","type":"number","label":"Precio base"}, ...]
+  variables   Json // [{"name":"basePrice","type":"number","label":"Precio base"}, ...]
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   deleted     DeletedState @default(INUSE)
 
   products Product[]
+
   @@index([tenantId])
 }
 
 //Cotización de productos
 model Quote {
-  id          String      @id @default(cuid())
-  tenantId    String
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  leadId      String?
-  lead        Lead?       @relation(fields: [leadId], references: [id])
-  contactId   String?
-  contact     Contact?    @relation(fields: [contactId], references: [id])
-  status      QuoteStatus @default(DRAFT)
-  total       Decimal     @default(0)
-  discount    Decimal?
-  notes       String?
-  createdById String
-  createdBy   User        @relation(fields: [createdById], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deleted     DeletedState @default(INUSE)
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // F3-T05: consecutivo por empresa, sin huecos (QuoteNumberSequence). Las versiones comparten número (Q-018).
+  number            Int
+  version           Int             @default(1)
+  leadId            String?
+  lead              Lead?           @relation(fields: [leadId], references: [id])
+  contactId         String?
+  contact           Contact?        @relation(fields: [contactId], references: [id])
+  companyContactId  String?
+  companyContact    CompanyContact? @relation(fields: [companyContactId], references: [id])
+  status            QuoteStatus     @default(DRAFT)
+  // Último día de vigencia, en la zona horaria de la empresa (D-23).
+  validUntil        DateTime        @db.Date
+  // Descuento global en porcentaje (Q-019); los importes son instantáneas calculadas al guardar.
+  discountRate      Decimal         @default(0) @db.Decimal(5, 2)
+  subtotal          Decimal         @default(0)
+  discountTotal     Decimal         @default(0)
+  taxTotal          Decimal         @default(0)
+  total             Decimal         @default(0)
+  notes             String?
+  // Versión anterior a la que reemplaza (D-22).
+  previousVersionId String?         @unique
+  previousVersion   Quote?          @relation("QuoteVersions", fields: [previousVersionId], references: [id])
+  nextVersion       Quote?          @relation("QuoteVersions")
+  sentAt            DateTime?
+  decidedAt         DateTime?
+  createdById       String
+  createdBy         User            @relation(fields: [createdById], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deleted           DeletedState    @default(INUSE)
 
   items QuoteItem[]
 
+  @@unique([tenantId, number, version])
   @@index([tenantId])
+  @@index([tenantId, createdById])
+}
+
+// F3-T05: último número de cotización de cada empresa. Se incrementa dentro de la transacción que crea la
+// cotización: la fila queda bloqueada hasta confirmar, así que dos altas simultáneas no repiten número y un
+// alta revertida no deja hueco.
+model QuoteNumberSequence {
+  tenantId   String @id
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lastNumber Int    @default(0)
 }
 
 //Modelo de producto/servicio (lo que vende cada empresa)
 model Product {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   description String?
   basePrice   Decimal? // Precio base si no se usa fórmula
-  formulaId   String?  // Fórmula opcional para calcular precio
-  formula     Formula? @relation(fields: [formulaId], references: [id])
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  formulaId   String? // Fórmula opcional para calcular precio
+  formula     Formula?     @relation(fields: [formulaId], references: [id])
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   deleted     DeletedState @default(INUSE)
 
   quoteItems QuoteItem[]
@@ -322,37 +352,52 @@ model Product {
 
 //Items de las cotizaciones
 model QuoteItem {
-  id          String   @id @default(cuid())
+  id                  String       @id @default(cuid())
   // H15 (F1-T10): toda tabla de negocio lleva su tenant, aunque se pueda deducir de la cotización.
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  quoteId     String
-  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id])
-  description String   // Descripción visible (tomada del producto o personalizada)
-  quantity    Int
-  variables   Json?    // Variables ingresadas si el producto usa fórmula: {"ancho": 200, "alto": 150}
-  unitPrice   Decimal? // Precio unitario calculado o manual
-  total       Decimal  // Precio total (calculado o manual)
-  deleted     DeletedState @default(INUSE)
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quoteId             String
+  quote               Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product?     @relation(fields: [productId], references: [id])
+  description         String // Descripción visible (tomada del producto o personalizada)
+  // Orden del ítem dentro de la cotización, desde 1.
+  position            Int
+  quantity            Int
+  variables           Json? // Variables ingresadas si el producto usa fórmula: {"ancho": "1.20", "alto": "1.50"}
+  // F3-T05 (D-24): precio que dio el producto o su fórmula al cotizar; si el comercial lo cambia, unitPrice
+  // guarda el suyo y priceOverrideReason el motivo.
+  calculatedUnitPrice Decimal?
+  unitPrice           Decimal
+  priceOverrideReason String?
+  discountRate        Decimal      @default(0) @db.Decimal(5, 2)
+  // IVA del ítem (D-20, Q-020).
+  taxRate             Decimal      @db.Decimal(5, 2)
+  netAmount           Decimal      @default(0)
+  taxAmount           Decimal      @default(0)
+  total               Decimal // Importe del ítem con descuentos e IVA
+  deleted             DeletedState @default(INUSE)
 
   @@index([tenantId])
 }
 
-
 //Configuración del tenant
 model TenantSettings {
-  id                    String                @id @default(cuid())
-  tenantId              String                @unique
-  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  leadAssignmentStrategy LeadAssignmentStrategy @default(MANUAL)
+  id                             String                 @id @default(cuid())
+  tenantId                       String                 @unique
+  tenant                         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadAssignmentStrategy         LeadAssignmentStrategy @default(MANUAL)
   // F2-T06: zona horaria IANA de la empresa; por defecto Colombia.
-  timezone               String                 @default("America/Bogota")
+  timezone                       String                 @default("America/Bogota")
   // D-57 (F3-T10): la empresa decide si además de las notificaciones del sistema usa el correo. Desactivado por
   // defecto; no afecta a los correos de la cuenta (verificación, recuperación, invitación).
-  emailDeliveryEnabled   Boolean                @default(false)
-  deleted                DeletedState           @default(INUSE)
+  emailDeliveryEnabled           Boolean                @default(false)
+  // F3-T05 (Q-020): IVA por defecto de las cotizaciones; sin él, se pide en cada ítem.
+  defaultTaxRate                 Decimal?               @db.Decimal(5, 2)
+  // F3-T05 (D-25, Q-019): descuento máximo por rol; dueño y socio no tienen tope.
+  maximumDiscountRateSalesRep    Decimal                @default(10) @db.Decimal(5, 2)
+  maximumDiscountRateSalesLeader Decimal                @default(20) @db.Decimal(5, 2)
+  deleted                        DeletedState           @default(INUSE)
 }
 
 //Modelo de auditoría

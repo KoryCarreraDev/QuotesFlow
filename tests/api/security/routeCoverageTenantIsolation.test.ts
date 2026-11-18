@@ -16,11 +16,12 @@ import {
 import { ROLE_COVERAGE_GROUPS } from '@tests/support/http/rolePermissionCoverage.js';
 import {
   type RouteSecurityScenario,
-  creationBody,
+  creationBodyFor,
   declaredScenarioRoutes,
   listedIds,
   persistScenarioResource,
   readScenarioResource,
+  requestOnRecord,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -84,7 +85,10 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
     const response = await request(app)
       .post(route.pattern)
       .set('Cookie', intruderCookie)
-      .send({ ...creationBody(scenario.resource), tenantId: victimCompany.tenant.id });
+      .send({
+        ...(await creationBodyFor(scenario.resource, intruderCompany, intruderCompany.owner.id)),
+        tenantId: victimCompany.tenant.id,
+      });
 
     expect(response.status).toBe(HTTP_CREATED);
     const createdRecord = (await readScenarioResource(scenario.resource, response.body.id)) as { tenantId: string };
@@ -96,13 +100,7 @@ describe('Aislamiento por tenant en cada ruta protegida', () => {
     const recordBefore = await readScenarioResource(scenario.resource, victimResourceId);
     const path = buildConcretePath(route, victimResourceId);
 
-    const response =
-      route.method === 'PATCH'
-        ? await request(app)
-            .patch(path)
-            .set('Cookie', intruderCookie)
-            .send(scenarioUpdateBody(scenario, intruderCompany))
-        : await request(app).delete(path).set('Cookie', intruderCookie);
+    const response = await requestOnRecord(route, path, intruderCookie, scenario, intruderCompany);
 
     expect(response.status).toBe(HTTP_NOT_FOUND);
     await expect(readScenarioResource(scenario.resource, victimResourceId)).resolves.toEqual(recordBefore);

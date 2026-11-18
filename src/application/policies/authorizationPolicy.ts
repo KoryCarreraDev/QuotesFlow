@@ -49,6 +49,12 @@ export enum Action {
   FORMULA_CREATE = 'formula:create',
   FORMULA_UPDATE = 'formula:update',
   FORMULA_DELETE = 'formula:delete',
+  QUOTE_LIST = 'quote:list',
+  QUOTE_CREATE = 'quote:create',
+  QUOTE_UPDATE = 'quote:update',
+  QUOTE_DELETE = 'quote:delete',
+  QUOTE_SEND = 'quote:send',
+  QUOTE_DECIDE = 'quote:decide',
 }
 
 /**
@@ -148,6 +154,15 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.FORMULA_CREATE]: managementOnly,
   [Action.FORMULA_UPDATE]: managementOnly,
   [Action.FORMULA_DELETE]: managementOnly,
+  // F3-T05: un comercial ve y trabaja solo las cotizaciones que creó; gestión, todas las de la empresa. Todos
+  // pueden cotizar (a lo que sea suyo, lo comprueba el caso de uso). `update` incluye crear una versión nueva.
+  [Action.QUOTE_LIST]: managementOrOwnForSalesRep,
+  [Action.QUOTE_CREATE]: everyone,
+  [Action.QUOTE_UPDATE]: managementOrOwnForSalesRep,
+  [Action.QUOTE_DELETE]: managementOrOwnForSalesRep,
+  [Action.QUOTE_SEND]: managementOrOwnForSalesRep,
+  // Registrar la respuesta del cliente: aceptar o rechazar.
+  [Action.QUOTE_DECIDE]: managementOrOwnForSalesRep,
 };
 
 /**

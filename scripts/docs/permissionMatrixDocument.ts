@@ -35,7 +35,8 @@ const actionDescriptions: Record<Action, string> = {
   [Action.USER_INVITE]: 'Invitar usuarios y revocar invitaciones (solo de los roles que gestiona)',
   [Action.USER_MANAGE]: 'Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona)',
   [Action.TENANT_VIEW]: 'Ver el perfil de la empresa (nombre, logo, zona horaria)',
-  [Action.TENANT_UPDATE]: 'Cambiar el nombre o la zona horaria de la empresa',
+  [Action.TENANT_UPDATE]:
+    'Cambiar el nombre, la zona horaria, el IVA por defecto y los topes de descuento de la empresa',
   [Action.PRODUCT_LIST]: 'Buscar y consultar el catálogo de productos (`GET /products/search`)',
   [Action.PRODUCT_CREATE]: 'Crear un producto',
   [Action.PRODUCT_UPDATE]: 'Modificar un producto (nombre, precio, fórmula, activo)',
@@ -44,6 +45,13 @@ const actionDescriptions: Record<Action, string> = {
   [Action.FORMULA_CREATE]: 'Crear una fórmula de precio',
   [Action.FORMULA_UPDATE]: 'Modificar una fórmula de precio',
   [Action.FORMULA_DELETE]: 'Borrar (suave) una fórmula que ningún producto usa',
+  [Action.QUOTE_LIST]: 'Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`)',
+  [Action.QUOTE_CREATE]: 'Crear una cotización (borrador)',
+  [Action.QUOTE_UPDATE]:
+    'Modificar un borrador o crear la versión siguiente de una cotización (`POST /quotes/:id/revise`)',
+  [Action.QUOTE_DELETE]: 'Borrar (suave) un borrador',
+  [Action.QUOTE_SEND]: 'Enviar una cotización (`POST /quotes/:id/send`)',
+  [Action.QUOTE_DECIDE]: 'Registrar que el cliente aceptó o rechazó (`POST /quotes/:id/accept`, `/reject`)',
 };
 
 const grantLabels = new Map<Grant, string>([

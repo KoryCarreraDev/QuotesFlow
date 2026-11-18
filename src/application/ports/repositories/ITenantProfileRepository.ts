@@ -11,6 +11,12 @@ export interface TenantProfile {
    * alertas). Desactivado por defecto. Los correos de la cuenta no dependen de él.
    */
   emailDeliveryEnabled: boolean;
+  /** Q-020 (F3-T05): IVA por defecto de las cotizaciones (`"19.00"`); sin él, se pide en cada ítem. */
+  defaultTaxRate?: string;
+  /** D-25 (F3-T05): descuento máximo que aplica un comercial (`"10.00"`). */
+  maximumDiscountRateSalesRep: string;
+  /** D-25 (F3-T05): descuento máximo que aplica un líder comercial (`"20.00"`). Dueño y socio no tienen tope. */
+  maximumDiscountRateSalesLeader: string;
 }
 
 /** Cambios que admite el perfil. */
@@ -18,6 +24,10 @@ export interface TenantProfileChanges {
   name?: string;
   timezone?: string;
   emailDeliveryEnabled?: boolean;
+  /** `null` quita el IVA por defecto. */
+  defaultTaxRate?: string | null;
+  maximumDiscountRateSalesRep?: string;
+  maximumDiscountRateSalesLeader?: string;
 }
 
 /** Perfil y configuración de la empresa de la sesión (`Tenant` + `TenantSettings`). Siempre la del contexto (R5). */

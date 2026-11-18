@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isSupportedTimezone } from '../../domain/value-objects/timezone.js';
+import { percentageSchema } from './moneySchema.js';
 
 const MAXIMUM_COMPANY_NAME_LENGTH = 200;
 
@@ -12,7 +13,12 @@ export const updateTenantProfileSchema = z
       .optional(),
     // D-57 (F3-T10): usar también el correo para cotizaciones y alertas. Por defecto, solo el sistema.
     emailDeliveryEnabled: z.boolean().optional(),
+    // F3-T05: configuración de cotizaciones. Q-020: IVA por defecto (`null` lo quita y se pide en cada ítem).
+    defaultTaxRate: percentageSchema.nullable().optional(),
+    // D-25, Q-019: descuento máximo por rol; dueño y socio no tienen tope.
+    maximumDiscountRateSalesRep: percentageSchema.optional(),
+    maximumDiscountRateSalesLeader: percentageSchema.optional(),
   })
   .refine((changes) => Object.values(changes).some((value) => value !== undefined), {
-    error: 'At least one of name, timezone or emailDeliveryEnabled is required',
+    error: 'Send at least one field',
   });

@@ -21,8 +21,9 @@ import {
 import {
   type RouteSecurityScenario,
   type ScenarioResource,
-  creationBody,
+  creationBodyFor,
   persistScenarioResource,
+  requestOnRecord,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -40,6 +41,7 @@ export const ROLE_COVERAGE_GROUPS: Record<string, readonly ScenarioResource[]> =
   users: ['user', 'invitation'],
   tenant: ['tenant'],
   catalog: ['product', 'formula'],
+  quotes: ['quote', 'sentQuote'],
 };
 
 type TeamMember = 'owner' | 'partner' | 'salesLeader' | 'salesRep';
@@ -69,7 +71,12 @@ function successStatusFor(scenario: RouteSecurityScenario): number {
 }
 
 function targetsOneRecord(scenario: RouteSecurityScenario): boolean {
-  return scenario.operation === 'update' || scenario.operation === 'delete';
+  return (
+    scenario.operation === 'update' ||
+    scenario.operation === 'delete' ||
+    scenario.operation === 'read' ||
+    scenario.operation === 'transition'
+  );
 }
 
 /** Lo que exige la matriz de permisos para cada situación. */
@@ -78,8 +85,8 @@ function expectedStatuses(scenario: RouteSecurityScenario, grant: Grant) {
     return { onCollection: grant === 'none' ? HTTP_FORBIDDEN : successStatusFor(scenario) };
   }
   return {
-    onSomeoneElsesRecord: grant === 'all' ? HTTP_OK : HTTP_FORBIDDEN,
-    onOwnRecord: grant === 'none' ? HTTP_FORBIDDEN : HTTP_OK,
+    onSomeoneElsesRecord: grant === 'all' ? successStatusFor(scenario) : HTTP_FORBIDDEN,
+    onOwnRecord: grant === 'none' ? HTTP_FORBIDDEN : successStatusFor(scenario),
   };
 }
 
@@ -101,14 +108,15 @@ export function describeRolePermissionCoverage(groupName: keyof typeof ROLE_COVE
       id?: string,
     ) {
       const cookie = sessionCookieFor(actingUser);
-      const path = id ? buildConcretePath(route, id) : route.pattern;
-      if (route.method === 'GET') return request(app).get(path).set('Cookie', cookie);
+      if (id) return requestOnRecord(route, buildConcretePath(route, id), cookie, scenario, company);
+      if (route.method === 'GET') return request(app).get(route.pattern).set('Cookie', cookie);
       if (route.method === 'PATCH') {
-        return request(app).patch(path).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
+        return request(app).patch(route.pattern).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
       }
-      if (route.method === 'DELETE') return request(app).delete(path).set('Cookie', cookie);
-      const body = scenario.operation === 'create' ? creationBody(scenario.resource) : undefined;
-      return request(app).post(path).set('Cookie', cookie).send(body);
+      if (route.method === 'DELETE') return request(app).delete(route.pattern).set('Cookie', cookie);
+      const body =
+        scenario.operation === 'create' ? await creationBodyFor(scenario.resource, company, actingUser.id) : undefined;
+      return request(app).post(route.pattern).set('Cookie', cookie).send(body);
     }
 
     /** Códigos HTTP que la API devuelve al actor, por cada situación que aplica a la ruta. */

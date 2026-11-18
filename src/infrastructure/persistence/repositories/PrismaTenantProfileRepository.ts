@@ -5,8 +5,20 @@ import {
   TenantProfile,
   TenantProfileChanges,
 } from '../../../application/ports/repositories/ITenantProfileRepository.js';
+import { Percentage } from '../../../domain/value-objects/money.js';
 import { DEFAULT_TENANT_TIMEZONE } from '../../../domain/value-objects/timezone.js';
 import { BasePrismaRepository } from './BasePrismaRepository.js';
+
+// Topes por defecto de la columna (D-25, Q-019), para una empresa sin configuración guardada.
+const DEFAULT_MAXIMUM_DISCOUNT_RATE_SALES_REP = '10';
+const DEFAULT_MAXIMUM_DISCOUNT_RATE_SALES_LEADER = '20';
+
+/** Porcentaje guardado (`Decimal(5,2)`) como texto de la API: `"19.00"`. */
+function percentageText(storedRate: { toFixed(): string } | string): string {
+  return Percentage.fromDecimalString(
+    typeof storedRate === 'string' ? storedRate : storedRate.toFixed(),
+  ).toDecimalString();
+}
 
 /** Adaptador de `ITenantProfileRepository` sobre `Tenant` y `TenantSettings`, siempre con el tenant del contexto. */
 export class PrismaTenantProfileRepository extends BasePrismaRepository implements ITenantProfileRepository {
@@ -22,6 +34,15 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
       logoUrl: record.logoUrl ?? undefined,
       timezone: record.tenantSettings?.timezone ?? DEFAULT_TENANT_TIMEZONE,
       emailDeliveryEnabled: record.tenantSettings?.emailDeliveryEnabled ?? false,
+      defaultTaxRate: record.tenantSettings?.defaultTaxRate
+        ? percentageText(record.tenantSettings.defaultTaxRate)
+        : undefined,
+      maximumDiscountRateSalesRep: percentageText(
+        record.tenantSettings?.maximumDiscountRateSalesRep ?? DEFAULT_MAXIMUM_DISCOUNT_RATE_SALES_REP,
+      ),
+      maximumDiscountRateSalesLeader: percentageText(
+        record.tenantSettings?.maximumDiscountRateSalesLeader ?? DEFAULT_MAXIMUM_DISCOUNT_RATE_SALES_LEADER,
+      ),
     };
   }
 
@@ -33,7 +54,13 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
         data: { name: changes.name },
       });
     }
-    const settingsChanges = { timezone: changes.timezone, emailDeliveryEnabled: changes.emailDeliveryEnabled };
+    const settingsChanges = {
+      timezone: changes.timezone,
+      emailDeliveryEnabled: changes.emailDeliveryEnabled,
+      defaultTaxRate: changes.defaultTaxRate,
+      maximumDiscountRateSalesRep: changes.maximumDiscountRateSalesRep,
+      maximumDiscountRateSalesLeader: changes.maximumDiscountRateSalesLeader,
+    };
     if (Object.values(settingsChanges).some((value) => value !== undefined)) {
       await this.prisma.tenantSettings.upsert({
         where: { tenantId },

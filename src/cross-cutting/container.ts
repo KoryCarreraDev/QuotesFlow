@@ -8,6 +8,7 @@ import { UserModule } from './modules/UserModule.js';
 import { TenantModule } from './modules/TenantModule.js';
 import { ProductModule } from './modules/ProductModule.js';
 import { FormulaModule } from './modules/FormulaModule.js';
+import { QuoteModule } from './modules/QuoteModule.js';
 import { LeadModule } from './modules/LeadModule.js';
 import { LeadStatusModule } from './modules/LeadStatusModule.js';
 import { ModuleDependencies } from './modules/ModuleDependencies.js';
@@ -37,6 +38,7 @@ export class ScopedContainer {
   readonly tenant: TenantModule;
   readonly products: ProductModule;
   readonly formulas: FormulaModule;
+  readonly quotes: QuoteModule;
 
   /** @param tenantId Tenant de la sesión; sin él, solo sirven los casos de uso públicos (registro, login). */
   constructor(tenantId?: string) {
@@ -55,5 +57,6 @@ export class ScopedContainer {
     this.tenant = new TenantModule(dependencies);
     this.products = new ProductModule(dependencies);
     this.formulas = new FormulaModule(dependencies);
+    this.quotes = new QuoteModule(dependencies);
   }
 }

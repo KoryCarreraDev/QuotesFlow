@@ -32,6 +32,8 @@ describe('Perfil de la empresa (F2-T06)', () => {
       name: company.tenant.name,
       timezone: 'America/Bogota',
       emailDeliveryEnabled: false,
+      maximumDiscountRateSalesRep: '10.00',
+      maximumDiscountRateSalesLeader: '20.00',
     });
   });
 
@@ -95,6 +97,44 @@ describe('Perfil de la empresa (F2-T06)', () => {
       .send({ emailDeliveryEnabled: true });
 
     expect(response.body).toMatchObject({ timezone: 'America/Lima', emailDeliveryEnabled: true });
+  });
+
+  it('dueño y socio configuran el IVA por defecto y los topes de descuento; null quita el IVA (F3-T05)', async () => {
+    const ownerCookie = sessionCookieFor(company.owner);
+
+    const configured = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', ownerCookie)
+      .send({ defaultTaxRate: '19', maximumDiscountRateSalesRep: '12.5', maximumDiscountRateSalesLeader: '30' });
+    const removed = await request(app)
+      .patch(apiPaths.tenant.profile)
+      .set('Cookie', sessionCookieFor(company.partner))
+      .send({ defaultTaxRate: null });
+
+    expect(configured.body).toMatchObject({
+      defaultTaxRate: '19.00',
+      maximumDiscountRateSalesRep: '12.50',
+      maximumDiscountRateSalesLeader: '30.00',
+    });
+    expect(removed.status).toBe(HTTP_OK);
+    expect(removed.body).not.toHaveProperty('defaultTaxRate');
+    expect(removed.body.maximumDiscountRateSalesRep).toBe('12.50');
+  });
+
+  it('porcentajes inválidos de la configuración de cotizaciones responden 400', async () => {
+    const ownerCookie = sessionCookieFor(company.owner);
+
+    const responses = await Promise.all(
+      [{ defaultTaxRate: '101' }, { defaultTaxRate: 19 }, { maximumDiscountRateSalesRep: '-1' }].map((body) =>
+        request(app).patch(apiPaths.tenant.profile).set('Cookie', ownerCookie).send(body),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([
+      HTTP_BAD_REQUEST,
+      HTTP_BAD_REQUEST,
+      HTTP_BAD_REQUEST,
+    ]);
   });
 
   it('emailDeliveryEnabled tiene que ser booleano', async () => {

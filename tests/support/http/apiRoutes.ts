@@ -27,6 +27,7 @@ const COMPANY_CONTACT_BASE_PATH = `${API_BASE_PATH}/company-contacts`;
 const USER_BASE_PATH = `${API_BASE_PATH}/users`;
 const PRODUCT_BASE_PATH = `${API_BASE_PATH}/products`;
 const FORMULA_BASE_PATH = `${API_BASE_PATH}/formulas`;
+const QUOTE_BASE_PATH = `${API_BASE_PATH}/quotes`;
 
 export const apiPaths = {
   health: '/health',
@@ -86,6 +87,17 @@ export const apiPaths = {
     filtered: `${FORMULA_BASE_PATH}/search`,
     update: (formulaId: string) => `${FORMULA_BASE_PATH}/${formulaId}`,
     delete: (formulaId: string) => `${FORMULA_BASE_PATH}/${formulaId}`,
+  },
+  quotes: {
+    create: QUOTE_BASE_PATH,
+    filtered: `${QUOTE_BASE_PATH}/search`,
+    get: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}`,
+    update: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}`,
+    delete: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}`,
+    send: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/send`,
+    accept: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/accept`,
+    reject: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/reject`,
+    revise: (quoteId: string) => `${QUOTE_BASE_PATH}/${quoteId}/revise`,
   },
   companyContacts: {
     getAll: COMPANY_CONTACT_BASE_PATH,
@@ -155,6 +167,16 @@ export const routeInventory: readonly RouteInventoryEntry[] = [
   { method: 'POST', pattern: apiPaths.formulas.create, access: 'authenticated' },
   { method: 'PATCH', pattern: apiPaths.formulas.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
   { method: 'DELETE', pattern: apiPaths.formulas.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+
+  { method: 'GET', pattern: apiPaths.quotes.filtered, access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.quotes.create, access: 'authenticated' },
+  { method: 'GET', pattern: apiPaths.quotes.get(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'PATCH', pattern: apiPaths.quotes.update(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'DELETE', pattern: apiPaths.quotes.delete(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.quotes.send(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.quotes.accept(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.quotes.reject(ROUTE_ID_PARAMETER), access: 'authenticated' },
+  { method: 'POST', pattern: apiPaths.quotes.revise(ROUTE_ID_PARAMETER), access: 'authenticated' },
 ];
 
 export const authenticatedRoutes = routeInventory.filter((route) => route.access === 'authenticated');

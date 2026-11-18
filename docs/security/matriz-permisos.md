@@ -37,7 +37,7 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `user:invite` | Invitar usuarios y revocar invitaciones (solo de los roles que gestiona) | Sí | Sí | Sí | No |
 | `user:manage` | Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona) | Sí | Sí | Sí | No |
 | `tenant:view` | Ver el perfil de la empresa (nombre, logo, zona horaria) | Sí | Sí | Sí | Sí |
-| `tenant:update` | Cambiar el nombre o la zona horaria de la empresa | Sí | Sí | No | No |
+| `tenant:update` | Cambiar el nombre, la zona horaria, el IVA por defecto y los topes de descuento de la empresa | Sí | Sí | No | No |
 | `product:list` | Buscar y consultar el catálogo de productos (`GET /products/search`) | Sí | Sí | Sí | Sí |
 | `product:create` | Crear un producto | Sí | Sí | Sí | No |
 | `product:update` | Modificar un producto (nombre, precio, fórmula, activo) | Sí | Sí | Sí | No |
@@ -46,6 +46,12 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `formula:create` | Crear una fórmula de precio | Sí | Sí | Sí | No |
 | `formula:update` | Modificar una fórmula de precio | Sí | Sí | Sí | No |
 | `formula:delete` | Borrar (suave) una fórmula que ningún producto usa | Sí | Sí | Sí | No |
+| `quote:list` | Buscar y consultar cotizaciones (`GET /quotes/search`, `GET /quotes/:id`) | Sí | Sí | Sí | Solo los suyos |
+| `quote:create` | Crear una cotización (borrador) | Sí | Sí | Sí | Sí |
+| `quote:update` | Modificar un borrador o crear la versión siguiente de una cotización (`POST /quotes/:id/revise`) | Sí | Sí | Sí | Solo los suyos |
+| `quote:delete` | Borrar (suave) un borrador | Sí | Sí | Sí | Solo los suyos |
+| `quote:send` | Enviar una cotización (`POST /quotes/:id/send`) | Sí | Sí | Sí | Solo los suyos |
+| `quote:decide` | Registrar que el cliente aceptó o rechazó (`POST /quotes/:id/accept`, `/reject`) | Sí | Sí | Sí | Solo los suyos |
 
 Comportamientos que la tabla no muestra:
 
