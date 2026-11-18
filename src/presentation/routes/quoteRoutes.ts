@@ -4,7 +4,7 @@ import { QuoteController } from '../../infrastructure/web/controllers/quoteContr
 import { createAuthValidateCookie } from '../../infrastructure/web/middleware/createAuthValidateCookie.js';
 import { createTenantMiddleware } from '../../infrastructure/web/middleware/createTenantMiddleware.js';
 import { validateBody } from '../../infrastructure/web/middleware/validateBody.js';
-import { createQuoteSchema, updateQuoteSchema } from '../schemas/quoteSchema.js';
+import { createQuoteSchema, sendQuoteSchema, updateQuoteSchema } from '../schemas/quoteSchema.js';
 
 function getQuoteController(req: Request): QuoteController {
   const quotes = req.container!.quotes;
@@ -53,7 +53,7 @@ export function quoteRouter(authenticateSession: AuthenticateSessionUseCase): Ro
   });
 
   // Cambios de estado: POST sobre la cotización, sin cuerpo.
-  router.post('/:id/send', authMiddleware, tenantMiddleware, (req, res, next) => {
+  router.post('/:id/send', authMiddleware, tenantMiddleware, validateBody(sendQuoteSchema), (req, res, next) => {
     getQuoteController(req).send(req, res, next);
   });
 

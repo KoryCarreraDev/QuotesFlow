@@ -10,6 +10,7 @@ import { moneyAmountSchema, percentageSchema } from './moneySchema.js';
 const MAXIMUM_DESCRIPTION_LENGTH = 500;
 const MAXIMUM_REASON_LENGTH = 500;
 const MAXIMUM_NOTES_LENGTH = 2000;
+const MAXIMUM_EMAIL_LENGTH = 254;
 const MAXIMUM_VARIABLE_NAME_LENGTH = 40;
 const MAXIMUM_VARIABLE_VALUE_LENGTH = 30;
 const MAXIMUM_VARIABLES_PER_ITEM = 20;
@@ -73,3 +74,18 @@ export const updateQuoteSchema = z
     items: quoteItems.optional(),
   })
   .refine((changes) => Object.values(changes).some((value) => value !== undefined), 'Send at least one field');
+
+/**
+ * Datos opcionales al enviar una cotización (F3-T08). El cuerpo puede faltar del todo: sin cuerpo, Express no deja
+ * `req.body`, y se trata como vacío.
+ */
+export const sendQuoteSchema = z
+  .object({
+    recipientEmail: z
+      .email()
+      .max(MAXIMUM_EMAIL_LENGTH)
+      .optional()
+      .describe('Con el correo activado, a quién se envía; por defecto el correo del cliente'),
+  })
+  .optional()
+  .transform((body) => body ?? {});

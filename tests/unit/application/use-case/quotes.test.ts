@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateQuoteInput, QuoteItemInput } from '@/application/dtos/QuoteDTOs.js';
+import {
+  EmailDeliveryError,
+  EmailFailureReason,
+  EmailMessage,
+  IEmailService,
+} from '@/application/ports/services/IEmailService.js';
 import { AuditAction } from '@/application/ports/services/IAuditLogger.js';
 import { QuoteContentResolver } from '@/application/use-case/quotes/QuoteContentResolver.js';
 import {
@@ -20,11 +26,26 @@ import { Quote, QuoteItem, QuoteStatus } from '@/domain/entities/Quote.js';
 import { Role } from '@/domain/enums/Role.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { Money, Percentage } from '@/domain/value-objects/money.js';
+import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
+import { GenerateQuotePdfUseCase } from '@/application/use-case/quotes/QuotePdfUseCase.js';
+import { CompiledEmailTemplateRenderer } from '@/infrastructure/email/CompiledEmailTemplateRenderer.js';
+import { MemoryEmailOutbox, MemoryEmailService } from '@/infrastructure/email/LocalEmailServices.js';
 import { MathjsFormulaEvaluator } from '@/infrastructure/services/MathjsFormulaEvaluator.js';
 import { quoteFilterConfig } from '@/infrastructure/persistence/filters/quoteFilterConfig.js';
-import { DEFAULT_TEST_TENANT_ID, buildContact } from '@tests/support/builders/entityBuilders.js';
+import {
+  DEFAULT_TEST_TENANT_ID,
+  buildCompanyContact,
+  buildContact,
+  buildLead,
+  buildUser,
+} from '@tests/support/builders/entityBuilders.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 import { InMemoryCompanyContactRepository } from '@tests/support/doubles/InMemoryCompanyContactRepository.js';
+import { InMemoryEmailLogRepository } from '@tests/support/doubles/InMemoryEmailLogRepository.js';
+import { InMemoryFileStorage } from '@tests/support/doubles/InMemoryFileStorage.js';
+import { InMemoryUserRepository } from '@tests/support/doubles/InMemoryUserRepository.js';
+import { StubPdfGenerator } from '@tests/support/doubles/StubPdfGenerator.js';
+import { RecordingLogger } from '@tests/support/doubles/RecordingLogger.js';
 import { InMemoryContactRepository } from '@tests/support/doubles/InMemoryContactRepository.js';
 import { InMemoryFormulaRepository } from '@tests/support/doubles/InMemoryFormulaRepository.js';
 import { InMemoryLeadRepository } from '@tests/support/doubles/InMemoryLeadRepository.js';
@@ -49,12 +70,29 @@ const salesLeader = { role: Role.SALES_LEADER, userId: 'leader-id' };
 const salesRep = { role: Role.SALES_REP, userId: 'rep-id' };
 const otherSalesRep = { role: Role.SALES_REP, userId: 'other-rep-id' };
 
+/** Correo en memoria que puede simular la caída del proveedor. */
+class SwitchableEmailService implements IEmailService {
+  failing = false;
+  private readonly delegate: MemoryEmailService;
+
+  constructor(outbox: MemoryEmailOutbox) {
+    this.delegate = new MemoryEmailService(outbox);
+  }
+
+  async send(message: EmailMessage) {
+    if (this.failing) throw new EmailDeliveryError(EmailFailureReason.PROVIDER_UNREACHABLE, 'provider down');
+    return this.delegate.send(message);
+  }
+}
+
 function setup() {
   const tenantContext = new FixedTenantContext(DEFAULT_TEST_TENANT_ID);
   const quotes = new InMemoryQuoteRepository(tenantContext);
   const products = new InMemoryProductRepository(tenantContext);
   const formulas = new InMemoryFormulaRepository(tenantContext);
   const contacts = new InMemoryContactRepository(tenantContext);
+  const companyContacts = new InMemoryCompanyContactRepository(tenantContext);
+  const leads = new InMemoryLeadRepository(tenantContext);
   const profiles = new InMemoryTenantProfileRepository();
   profiles.profile = { ...profiles.profile!, defaultTaxRate: '19.00' };
   const auditLogger = new RecordingAuditLogger();
@@ -63,16 +101,34 @@ function setup() {
     products,
     formulas,
     new MathjsFormulaEvaluator(),
-    new InMemoryLeadRepository(tenantContext),
+    leads,
     contacts,
-    new InMemoryCompanyContactRepository(tenantContext),
+    companyContacts,
   );
+  const outbox = new MemoryEmailOutbox();
+  const emailService = new SwitchableEmailService(outbox);
+  const emailLogs = new InMemoryEmailLogRepository();
+  const emailSender = new TransactionalEmailSender(
+    emailService,
+    new CompiledEmailTemplateRenderer(),
+    emailLogs,
+    new RecordingLogger(),
+  );
+  const pdfGenerator = new StubPdfGenerator();
+  const users = new InMemoryUserRepository(tenantContext);
+  users.seed(buildUser({ id: salesRep.userId, firstName: 'Carlos', lastName: 'Pérez', role: Role.SALES_REP }));
   return {
     quotes,
     products,
     formulas,
     contacts,
+    companyContacts,
+    leads,
     profiles,
+    outbox,
+    emailService,
+    emailLogs,
+    pdfGenerator,
     auditLogger,
     transactionManager,
     list: new ListQuotesUseCase(quotes, profiles, quoteFilterConfig),
@@ -80,7 +136,27 @@ function setup() {
     create: new CreateQuoteUseCase(quotes, resolver, profiles, tenantContext, transactionManager, auditLogger),
     update: new UpdateQuoteUseCase(quotes, resolver, profiles, transactionManager, auditLogger),
     remove: new DeleteQuoteUseCase(quotes, transactionManager, auditLogger),
-    send: new SendQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
+    send: new SendQuoteUseCase(
+      quotes,
+      profiles,
+      transactionManager,
+      auditLogger,
+      emailSender,
+      new GenerateQuotePdfUseCase(
+        quotes,
+        profiles,
+        leads,
+        contacts,
+        companyContacts,
+        new InMemoryFileStorage(),
+        pdfGenerator,
+        new RecordingLogger(),
+      ),
+      users,
+      leads,
+      contacts,
+      companyContacts,
+    ),
     accept: new AcceptQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
     reject: new RejectQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
     revise: new ReviseQuoteUseCase(quotes, profiles, transactionManager, auditLogger),
@@ -144,7 +220,14 @@ function quoteInput(contactId: string, overrides: Partial<CreateQuoteInput> = {}
 function seedQuote(
   context: Setup,
   status: QuoteStatus,
-  overrides: { createdById?: string; validUntil?: string; tenantId?: string; number?: number; version?: number } = {},
+  overrides: {
+    createdById?: string;
+    validUntil?: string;
+    tenantId?: string;
+    number?: number;
+    version?: number;
+    customer?: Quote['customer'];
+  } = {},
 ): Quote {
   const quote = Quote.restore({
     id: randomUUID(),
@@ -152,7 +235,7 @@ function seedQuote(
     number: overrides.number ?? 1,
     version: overrides.version ?? 1,
     status,
-    customer: { contactId: 'contact-id' },
+    customer: overrides.customer ?? { contactId: 'contact-id' },
     validUntil: overrides.validUntil ?? NEXT_WEEK,
     discountRate: Percentage.fromDecimalString('0'),
     items: [
@@ -791,5 +874,151 @@ describe('Borrar', () => {
     await expect(context.remove.execute(salesRep, others.id)).rejects.toMatchObject({
       code: ErrorCode.INSUFFICIENT_PERMISSIONS,
     });
+  });
+});
+
+describe('Enviar con el canal de correo (D-57, F3-T08)', () => {
+  async function enabledSetup() {
+    const context = setup();
+    await context.profiles.updateCurrent({ emailDeliveryEnabled: true });
+    return context;
+  }
+
+  function seedDraftFor(context: Setup, customer: Quote['customer'], overrides: { createdById?: string } = {}) {
+    return seedQuote(context, QuoteStatus.DRAFT, { customer, ...overrides });
+  }
+
+  it('con el canal desactivado solo cambia el estado: no sale correo ni se genera el PDF', async () => {
+    const context = setup();
+    const contact = buildContact({ email: 'cliente@example.com' });
+    context.contacts.seed(contact);
+    const draft = seedDraftFor(context, { contactId: contact.id });
+
+    const result = await context.send.execute(salesRep, draft.id, { recipientEmail: 'otro@example.com' });
+
+    expect(result).toMatchObject({ status: 'SENT', emailed: false });
+    expect(context.outbox.sentTo('cliente@example.com')).toEqual([]);
+    expect(context.outbox.sentTo('otro@example.com')).toEqual([]);
+    expect(context.pdfGenerator.received).toBeUndefined();
+    expect(context.auditLogger.entries[0].metadata).toEqual({ emailed: false });
+  });
+
+  it('con el canal activo envía al contacto el PDF adjunto de la cotización ya enviada, y lo registra', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ firstName: 'Laura', lastName: 'Gómez', email: 'laura@example.com' });
+    context.contacts.seed(contact);
+    const draft = seedDraftFor(context, { contactId: contact.id });
+
+    const result = await context.send.execute(salesRep, draft.id);
+
+    expect(result).toMatchObject({ status: 'SENT', emailed: true });
+    const [email] = context.outbox.sentTo('laura@example.com');
+    expect(email.subject).toBe('Cotización COT-000001 de Aluminios Andinos SAS');
+    expect(email.text).toContain('Hola, Laura Gómez:');
+    expect(email.text).toContain('Carlos Pérez de Aluminios Andinos SAS');
+    expect(email.text).toContain('Total: $ 238.000,00');
+    expect(email.attachments).toHaveLength(1);
+    expect(email.attachments?.[0]).toMatchObject({ fileName: 'COT-000001.pdf', contentType: 'application/pdf' });
+    // El PDF adjunto ya dice ENVIADA, no BORRADOR.
+    expect(Buffer.from(email.attachments?.[0].content ?? []).toString()).toContain('ENVIADA');
+    expect(context.auditLogger.entries.map((entry) => [entry.action, entry.metadata])).toEqual([
+      [AuditAction.QUOTE_SENT, { emailed: true }],
+    ]);
+    expect(JSON.stringify(context.auditLogger.entries)).not.toContain('laura@example.com');
+    expect(context.emailLogs.entries).toEqual([
+      expect.objectContaining({ template: 'QUOTE_SENT', recipient: 'laura@example.com', status: 'SENT' }),
+    ]);
+  });
+
+  it('el correo indicado por quien envía manda sobre el del cliente', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: 'laura@example.com' });
+    context.contacts.seed(contact);
+    const draft = seedDraftFor(context, { contactId: contact.id });
+
+    await context.send.execute(salesRep, draft.id, { recipientEmail: 'compras@example.com' });
+
+    expect(context.outbox.sentTo('compras@example.com')).toHaveLength(1);
+    expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
+  });
+
+  it('sin correo en el contacto usa el de la empresa cliente y, después, el del lead', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: undefined });
+    const company = buildCompanyContact({ name: 'Constructora El Roble', email: 'roble@example.com' });
+    const lead = buildLead({ contactName: 'Pedro', email: 'pedro@example.com' });
+    context.contacts.seed(contact);
+    context.companyContacts.seed(company);
+    context.leads.seed(lead);
+    const withCompany = seedDraftFor(context, { contactId: contact.id, companyContactId: company.id });
+    const onlyLead = seedQuote(context, QuoteStatus.DRAFT, { customer: { leadId: lead.id }, number: 2 });
+
+    await context.send.execute(salesRep, withCompany.id);
+    await context.send.execute(salesRep, onlyLead.id);
+
+    expect(context.outbox.sentTo('roble@example.com')).toHaveLength(1);
+    expect(context.outbox.sentTo('pedro@example.com')[0].text).toContain('Hola, Pedro:');
+  });
+
+  it('sin ningún correo al que escribir responde QUOTE_RECIPIENT_REQUIRED y la cotización sigue en borrador', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: undefined });
+    context.contacts.seed(contact);
+    const draft = seedDraftFor(context, { contactId: contact.id });
+
+    await expect(context.send.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_RECIPIENT_REQUIRED,
+    });
+
+    expect(context.quotes.findStoredById(draft.id)?.status).toBe(QuoteStatus.DRAFT);
+    expect(context.auditLogger.entries).toEqual([]);
+  });
+
+  it('si el proveedor no acepta el correo, la cotización sigue en borrador y se puede reintentar', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: 'laura@example.com' });
+    context.contacts.seed(contact);
+    const draft = seedDraftFor(context, { contactId: contact.id });
+    context.emailService.failing = true;
+
+    await expect(context.send.execute(salesRep, draft.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_EMAIL_FAILED,
+    });
+    expect(context.quotes.findStoredById(draft.id)?.status).toBe(QuoteStatus.DRAFT);
+    expect(context.auditLogger.entries).toEqual([]);
+    expect(context.emailLogs.entries).toEqual([expect.objectContaining({ status: 'FAILED' })]);
+
+    context.emailService.failing = false;
+    await expect(context.send.execute(salesRep, draft.id)).resolves.toMatchObject({ status: 'SENT', emailed: true });
+  });
+
+  it('una cotización que no se puede enviar no manda ningún correo', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: 'laura@example.com' });
+    context.contacts.seed(contact);
+    const alreadySent = seedQuote(context, QuoteStatus.SENT, { customer: { contactId: contact.id } });
+    const expired = seedQuote(context, QuoteStatus.DRAFT, {
+      customer: { contactId: contact.id },
+      validUntil: YESTERDAY,
+      number: 2,
+    });
+
+    await expect(context.send.execute(salesRep, alreadySent.id)).rejects.toMatchObject({
+      code: ErrorCode.QUOTE_INVALID_TRANSITION,
+    });
+    await expect(context.send.execute(salesRep, expired.id)).rejects.toMatchObject({ code: ErrorCode.QUOTE_EXPIRED });
+    expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
+  });
+
+  it('el comercial solo envía las suyas, también por correo', async () => {
+    const context = await enabledSetup();
+    const contact = buildContact({ email: 'laura@example.com' });
+    context.contacts.seed(contact);
+    const others = seedDraftFor(context, { contactId: contact.id }, { createdById: otherSalesRep.userId });
+
+    await expect(context.send.execute(salesRep, others.id)).rejects.toMatchObject({
+      code: ErrorCode.INSUFFICIENT_PERMISSIONS,
+    });
+    expect(context.outbox.sentTo('laura@example.com')).toEqual([]);
   });
 });

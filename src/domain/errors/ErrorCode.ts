@@ -51,6 +51,8 @@ export enum ErrorCode {
   QUOTE_NOT_EDITABLE = 'QUOTE_NOT_EDITABLE',
   QUOTE_INVALID_TRANSITION = 'QUOTE_INVALID_TRANSITION',
   QUOTE_EXPIRED = 'QUOTE_EXPIRED',
+  // El proveedor de correo no aceptó el envío: la cotización sigue en borrador y se puede reintentar.
+  QUOTE_EMAIL_FAILED = 'QUOTE_EMAIL_FAILED',
   DEFAULT_LEAD_STATUS_CANNOT_BE_DELETED = 'DEFAULT_LEAD_STATUS_CANNOT_BE_DELETED',
 
   // Entrada inválida
@@ -87,6 +89,8 @@ export enum ErrorCode {
   ITEM_PRICE_REQUIRED = 'ITEM_PRICE_REQUIRED',
   PRICE_OVERRIDE_REASON_REQUIRED = 'PRICE_OVERRIDE_REASON_REQUIRED',
   TAX_RATE_REQUIRED = 'TAX_RATE_REQUIRED',
+  // Enviar la cotización por correo (F3-T08): sin destinatario al que escribir.
+  QUOTE_RECIPIENT_REQUIRED = 'QUOTE_RECIPIENT_REQUIRED',
   // Política de contraseñas (D-11, F2-T03).
   PASSWORD_TOO_WEAK = 'PASSWORD_TOO_WEAK',
   PASSWORD_BREACHED = 'PASSWORD_BREACHED',

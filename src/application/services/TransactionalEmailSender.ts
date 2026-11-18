@@ -1,5 +1,10 @@
 import { EmailDeliveryStatus, IEmailLogRepository } from '../ports/repositories/IEmailLogRepository.js';
-import { EmailDeliveryError, EmailFailureReason, IEmailService } from '../ports/services/IEmailService.js';
+import {
+  EmailAttachment,
+  EmailDeliveryError,
+  EmailFailureReason,
+  IEmailService,
+} from '../ports/services/IEmailService.js';
 import {
   EmailTemplate,
   EmailTemplateVariables,
@@ -33,12 +38,13 @@ export class TransactionalEmailSender {
     recipient: EmailRecipient,
     template: T,
     variables: EmailTemplateVariables[T],
+    attachments?: EmailAttachment[],
   ): Promise<boolean> {
     const renderedEmail = this.templateRenderer.render(template, variables);
     const logEntry = { tenantId: recipient.tenantId, userId: recipient.userId, template, recipient: recipient.email };
 
     try {
-      const receipt = await this.emailService.send({ to: recipient.email, ...renderedEmail });
+      const receipt = await this.emailService.send({ to: recipient.email, ...renderedEmail, attachments });
       await this.emailLogRepository.record({
         ...logEntry,
         status: EmailDeliveryStatus.SENT,

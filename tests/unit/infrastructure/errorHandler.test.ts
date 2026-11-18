@@ -5,6 +5,7 @@ import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ServiceUnavailableError } from '@/domain/errors/ServiceUnavailableError.js';
 import { UnauthorizedError } from '@/domain/errors/UnauthorizedError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { createErrorHandler, createRouteNotFoundHandler } from '@/infrastructure/web/middleware/errorHandler.js';
@@ -21,6 +22,7 @@ const HTTP_CONFLICT = 409;
 const HTTP_PAYLOAD_TOO_LARGE = 413;
 const HTTP_UNSUPPORTED_MEDIA_TYPE = 415;
 const HTTP_INTERNAL_SERVER_ERROR = 500;
+const HTTP_SERVICE_UNAVAILABLE = 503;
 
 interface ErrorResponseBody {
   error: { code: string; message: string; details?: unknown };
@@ -57,6 +59,10 @@ describe('createErrorHandler', () => {
     [new ConflictError(ErrorCode.EMAIL_ALREADY_IN_USE, 'Email already in use'), HTTP_CONFLICT],
     [new UnauthorizedError(ErrorCode.INVALID_CREDENTIALS, 'Invalid Credentials'), HTTP_UNAUTHORIZED],
     [new ValidationError(ErrorCode.MISSING_REQUIRED_DATA, 'All information is required'), HTTP_BAD_REQUEST],
+    [
+      new ServiceUnavailableError(ErrorCode.QUOTE_EMAIL_FAILED, 'Email could not be delivered'),
+      HTTP_SERVICE_UNAVAILABLE,
+    ],
   ])('responde %s con su código HTTP y el formato único', (error, expectedStatus) => {
     const { response, body } = handle(error);
 

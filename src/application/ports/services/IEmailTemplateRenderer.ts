@@ -5,6 +5,8 @@ export enum EmailTemplate {
   PASSWORD_CHANGED = 'PASSWORD_CHANGED',
   USER_INVITATION = 'USER_INVITATION',
   ACCOUNT_ALREADY_REGISTERED = 'ACCOUNT_ALREADY_REGISTERED',
+  /** Cotización que una empresa envía a su cliente, con el PDF adjunto (F3-T08). */
+  QUOTE_SENT = 'QUOTE_SENT',
 }
 
 /** Datos que necesita cada plantilla. Todos son texto: el renderizador los escapa en el HTML. */
@@ -20,6 +22,16 @@ export interface EmailTemplateVariables {
     expiresInDays: string;
   };
   [EmailTemplate.ACCOUNT_ALREADY_REGISTERED]: { firstName: string; loginUrl: string; resetUrl: string };
+  [EmailTemplate.QUOTE_SENT]: {
+    customerName: string;
+    companyName: string;
+    senderName: string;
+    quoteReference: string;
+    /** Total ya formateado en pesos colombianos. */
+    total: string;
+    /** Fecha de vigencia ya formateada (`dd/mm/aaaa`). */
+    validUntil: string;
+  };
 }
 
 /** Correo listo para enviar, en español (R11: lo lee el cliente final). */

@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios';
 import { z } from 'zod';
 import {
   EmailDeliveryError,
+  EmailAttachment,
   EmailDeliveryReceipt,
   EmailFailureReason,
   EmailMessage,
@@ -48,6 +49,7 @@ export class ResendEmailService implements IEmailService {
         subject: message.subject,
         html: message.html,
         text: message.text,
+        ...(message.attachments && { attachments: message.attachments.map(toResendAttachment) }),
       });
       responseBody = response.data;
     } catch (error) {
@@ -60,6 +62,11 @@ export class ResendEmailService implements IEmailService {
     }
     return { providerMessageId: parsedBody.data.id };
   }
+}
+
+/** Resend recibe el contenido del adjunto en base64. */
+function toResendAttachment(attachment: EmailAttachment) {
+  return { filename: attachment.fileName, content: Buffer.from(attachment.content).toString('base64') };
 }
 
 // El error de axios lleva la configuración de la petición, con la cabecera Authorization: no se adjunta como

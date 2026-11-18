@@ -80,7 +80,7 @@ export class QuoteController {
 
   send = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.status(HttpStatus.OK).json(await this.sendQuote.execute(actorOf(req), String(req.params.id)));
+      res.status(HttpStatus.OK).json(await this.sendQuote.execute(actorOf(req), String(req.params.id), req.body));
     } catch (error) {
       next(error);
     }

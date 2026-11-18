@@ -1,0 +1,30 @@
+<mjml lang="es">
+  <mj-include path="./partials/head.mjml" />
+  <mj-body background-color="#f3f4f6">
+    <mj-section padding="24px 0 8px">
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold" color="#1d4ed8" align="center">{{ companyName }}</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-radius="8px" padding="24px">
+      <mj-column>
+        <mj-text>Hola, {{ customerName }}:</mj-text>
+        <mj-text
+          >{{ senderName }} de {{ companyName }} te envía la cotización {{ quoteReference }}. La encuentras adjunta en
+          PDF.</mj-text
+        >
+        <mj-text
+          >Total: <b>{{ total }}</b><br />Válida hasta el {{ validUntil }}.</mj-text
+        >
+        <mj-text>Si tienes preguntas, responde a quien te la envió o contacta a {{ companyName }}.</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="8px 0 24px">
+      <mj-column>
+        <mj-text font-size="12px" line-height="18px" color="#6b7280" align="center">
+          Este correo se envió con QuotesFlow en nombre de {{ companyName }}.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

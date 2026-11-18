@@ -7,8 +7,8 @@ import {
   formatPercentage,
   formatPesos,
   formatQuantity,
-  toDrawableLines,
-} from '@/infrastructure/services/pdf/pdfFormatting.js';
+} from '@/application/formatting/colombianFormat.js';
+import { toDrawableLines } from '@/infrastructure/services/pdf/pdfFormatting.js';
 import { buildJpeg } from '@tests/support/builders/imageFixtures.js';
 import { TEST_LOGO_PNG } from '@tests/support/database/persistenceFactories.js';
 

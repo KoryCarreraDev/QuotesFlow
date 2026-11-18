@@ -5,6 +5,7 @@ import { ErrorCode } from '../../../domain/errors/ErrorCode.js';
 import { ForbiddenError } from '../../../domain/errors/ForbiddenError.js';
 import { NotFoundError } from '../../../domain/errors/NotFoundError.js';
 import { UnauthorizedError } from '../../../domain/errors/UnauthorizedError.js';
+import { ServiceUnavailableError } from '../../../domain/errors/ServiceUnavailableError.js';
 import { ValidationError, type ValidationIssue } from '../../../domain/errors/ValidationError.js';
 
 export enum HttpStatus {
@@ -38,6 +39,7 @@ const statusByErrorType: ReadonlyArray<[new (...parameters: never[]) => Applicat
   [ForbiddenError, HttpStatus.FORBIDDEN],
   [NotFoundError, HttpStatus.NOT_FOUND],
   [ConflictError, HttpStatus.CONFLICT],
+  [ServiceUnavailableError, HttpStatus.SERVICE_UNAVAILABLE],
 ];
 
 /** Código HTTP de un error de la aplicación. Un tipo sin correspondencia es un fallo de programación: 500. */

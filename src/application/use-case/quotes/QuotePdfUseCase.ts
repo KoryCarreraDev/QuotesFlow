@@ -76,6 +76,14 @@ export class GenerateQuotePdfUseCase {
       throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
     }
 
+    return this.renderQuote(actor, quote);
+  }
+
+  /**
+   * El PDF de una cotización ya cargada, con el estado que tenga esa instancia (el envío por correo lo genera de la
+   * cotización ya marcada como enviada, antes de guardarla). El permiso lo comprueba quien llama.
+   */
+  async renderQuote(actor: Actor, quote: Quote): Promise<QuotePdfFile> {
     const profile = await this.profiles.findCurrent();
     if (!profile) throw new Error('Tenant of the session not found');
     const [logo, customerLines] = await Promise.all([

@@ -24,6 +24,8 @@ import { PrismaTenantProfileRepository } from '../../infrastructure/persistence/
 import { appLogger } from '../../infrastructure/logging/appLogger.js';
 import { MathjsFormulaEvaluator } from '../../infrastructure/services/MathjsFormulaEvaluator.js';
 import { fileStorage, pdfGenerator } from '../sharedServices.js';
+import { PrismaUserRepository } from '../../infrastructure/persistence/repositories/PrismaUserRepository.js';
+import { EmailModule } from './EmailModule.js';
 import { ModuleDependencies } from './ModuleDependencies.js';
 
 const formulaEvaluator = new MathjsFormulaEvaluator();
@@ -89,7 +91,18 @@ export class QuoteModule {
   }
 
   getSendQuoteUseCase(): SendQuoteUseCase {
-    return new SendQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+    const { prisma, tenantContext } = this.dependencies;
+    return new SendQuoteUseCase(
+      this.createRepository(),
+      this.createProfileRepository(),
+      ...this.writeDependencies(),
+      new EmailModule(this.dependencies).getTransactionalEmailSender(),
+      this.getGenerateQuotePdfUseCase(),
+      new PrismaUserRepository(prisma, tenantContext),
+      new PrismaLeadRepository(prisma, tenantContext),
+      new PrismaContactRepository(prisma, tenantContext),
+      new PrismaCompanyContactRepository(prisma, tenantContext),
+    );
   }
 
   getAcceptQuoteUseCase(): AcceptQuoteUseCase {

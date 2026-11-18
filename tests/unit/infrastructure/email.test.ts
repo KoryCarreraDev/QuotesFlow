@@ -43,6 +43,14 @@ const sampleVariables: { [T in EmailTemplate]: EmailTemplateVariables[T] } = {
     loginUrl: 'https://app.example/login',
     resetUrl: 'https://app.example/forgot-password',
   },
+  [EmailTemplate.QUOTE_SENT]: {
+    customerName: 'Constructora El Roble',
+    companyName: 'Aluminios Andinos SAS',
+    senderName: 'Carlos Pérez',
+    quoteReference: 'COT-000123 v2',
+    total: '$ 1.071.000,00',
+    validUntil: '18/12/2026',
+  },
 };
 
 const message = { to: 'ana@example.com', subject: 'Asunto', html: '<p>Hola</p>', text: 'Hola' };
@@ -97,6 +105,21 @@ describe('CompiledEmailTemplateRenderer', () => {
   });
 });
 
+describe('plantilla QUOTE_SENT (F3-T08)', () => {
+  it('lleva la referencia en el asunto, los importes en el cuerpo y escapa los datos en el HTML', () => {
+    const renderedEmail = new CompiledEmailTemplateRenderer().render(EmailTemplate.QUOTE_SENT, {
+      ...sampleVariables[EmailTemplate.QUOTE_SENT],
+      customerName: '<script>alert(1)</script>',
+    });
+
+    expect(renderedEmail.subject).toBe('Cotización COT-000123 v2 de Aluminios Andinos SAS');
+    expect(renderedEmail.text).toContain('Total: $ 1.071.000,00');
+    expect(renderedEmail.text).toContain('Válida hasta el 18/12/2026.');
+    expect(renderedEmail.html).not.toContain('<script>');
+    expect(renderedEmail.html).toContain('&lt;script&gt;');
+  });
+});
+
 describe('ResendEmailService', () => {
   interface ReceivedRequest {
     authorization?: string;
@@ -143,6 +166,25 @@ describe('ResendEmailService', () => {
         body: { from: SENDER, to: ['ana@example.com'], subject: 'Asunto', html: '<p>Hola</p>', text: 'Hola' },
       },
     ]);
+  });
+
+  it('envía los adjuntos en base64, con su nombre (F3-T08)', async () => {
+    const content = Buffer.from('%PDF-1.7 contenido');
+
+    await serviceAgainstFakeResend().send({
+      ...message,
+      attachments: [{ fileName: 'COT-000123.pdf', content, contentType: 'application/pdf' }],
+    });
+
+    expect(receivedRequests[0].body.attachments).toEqual([
+      { filename: 'COT-000123.pdf', content: content.toString('base64') },
+    ]);
+  });
+
+  it('sin adjuntos no envía el campo attachments', async () => {
+    await serviceAgainstFakeResend().send(message);
+
+    expect(receivedRequests[0].body).not.toHaveProperty('attachments');
   });
 
   it('un rechazo de Resend es PROVIDER_REJECTED y el error no lleva la clave', async () => {
