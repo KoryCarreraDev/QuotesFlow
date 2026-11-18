@@ -34,7 +34,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | Perfil de la empresa y `TenantSettings` (F2-T06) | ✅ | `GET/PATCH /tenant`: nombre y zona horaria IANA (por defecto `America/Bogota`); el logo llega con F3-T07. `leadAssignmentStrategy` sigue sin lógica (`ROUND_ROBIN`/`LOAD_BALANCED`, C-08 = No) |
 | Correo transaccional (F2-T01) | ✅ | `TransactionalEmailSender`: plantillas MJML compiladas, Resend (por axios) y `EmailLog`. Sección 8 |
-| Mensajería, multer, pdf-lib | ⏳ | Instalados, sin uso (mathjs se usa desde F3-T03); se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07; axios, desde F2-T01 (adaptador de Resend). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
+| Mensajería | ⏳ | multer (logo, F3-T07) y pdf-lib (PDF, F3-T06) ya se usan; mathjs, desde F3-T03. La mensajería llega en F4 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07; axios, desde F2-T01 (adaptador de Resend). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
 | Tests | ✅ | Vitest: 2033 tests (unit, integración con PostgreSQL efímero, API, build), sin defectos conocidos pendientes. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
@@ -45,6 +45,8 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 - Todos los repositorios de negocio filtran `deleted: 'INUSE'` en lecturas y modificaciones; contactos y empresas cliente desde F1-T16 (H10). En los dobles en memoria de contactos la marca de borrado se guarda aparte, porque las entidades `Contact` y `CompanyContact` no la llevan.
 - Desde F1-T13 y F1-T16 toda referencia a otro registro se valida dentro del tenant: el responsable de un lead (usuario activo) y la empresa cliente de un contacto (no borrada; si no, 400 `INVALID_COMPANY_CONTACT`).
 - `pnpm audit` (2026-11-16, tras F0-T09): `pnpm audit --prod` sin avisos. Quedan 2 moderados solo de desarrollo, `glob` 10.5.0 y `minimatch` 5.1.9/9.0.9, que arrastra `@testcontainers/postgresql` 12.2.1 vía `archiver` 7. No tienen versión corregida en su rama mayor y testcontainers aún no admite `archiver` 8, por eso no se fuerzan. Antes eran 94 avisos (1 crítico).
+
+- **`pdf-lib` 1.17.1 sin mantenimiento (F3-A16).** No publica versiones desde 2021 y `pnpm audit --prod` no avisa de nada (2026-11-18). Revisar en F8-T02 junto al SBOM; alternativa mantenida: el fork `@pdfme/pdf-lib`. El puerto `IPdfGenerator` aísla el cambio al adaptador `PdfLibQuoteGenerator`.
 
 ---
 
