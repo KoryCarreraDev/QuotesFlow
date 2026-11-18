@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuditAction } from '@/application/ports/services/IAuditLogger.js';
 import {
   GetTenantLogoUseCase,
@@ -27,6 +27,7 @@ const LOGO_WIDTH = 400;
 const LOGO_HEIGHT = 120;
 const OVERSIZED_SIDE = LOGO_MAXIMUM_SIDE_PIXELS + 1;
 const TRUNCATED_LENGTH = 20;
+const ORIGINAL_AND_NEW_FILES = 2;
 const MAXIMUM_PIXEL_SIDE = 0xffffffff;
 const owner = { role: Role.OWNER, userId: 'owner-id' };
 const partner = { role: Role.PARTNER, userId: 'partner-id' };
@@ -242,6 +243,27 @@ describe('Subir el logo', () => {
 
     expect(context.storage.keys()).toHaveLength(1);
     expect(context.storage.keys()).not.toContain(previousKey);
+  });
+
+  it('el archivo que se borra es el que devuelve el cambio, no el que se leyó antes: dos subidas encadenadas no dejan huérfanos (F3-A19)', async () => {
+    const context = setup();
+    await context.upload.execute(owner, png());
+    const [originalKey] = context.storage.keys();
+    // Otra subida confirma entre la lectura del perfil y este cambio: el cambio ve su clave, no la original.
+    const interleavedKey = 'logos/tenant/otra-subida.png';
+    await context.storage.save(interleavedKey, png(), 'image/png');
+    const update = context.profiles.updateLogoKey.bind(context.profiles);
+    vi.spyOn(context.profiles, 'updateLogoKey').mockImplementationOnce(async (key) => {
+      await update(interleavedKey);
+      return update(key);
+    });
+
+    await context.upload.execute(owner, buildJpeg(LOGO_WIDTH, LOGO_HEIGHT));
+
+    const remaining = context.storage.keys();
+    expect(remaining).toHaveLength(ORIGINAL_AND_NEW_FILES);
+    expect(remaining).toContain(originalKey);
+    expect(remaining).not.toContain(interleavedKey);
   });
 
   it('si guardar la clave falla, el archivo nuevo se borra y el logo anterior sigue', async () => {

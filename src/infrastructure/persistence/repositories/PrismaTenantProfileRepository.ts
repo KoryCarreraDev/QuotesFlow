@@ -46,11 +46,17 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
     };
   }
 
-  async updateLogoKey(logoKey: string | null): Promise<void> {
-    await this.prisma.tenant.updateMany({
-      where: { id: this.tenantId, deleted: StoredDeletedState.INUSE },
-      data: { logoUrl: logoKey },
-    });
+  async updateLogoKey(logoKey: string | null): Promise<string | undefined> {
+    // `FOR UPDATE` bloquea la fila: un segundo cambio espera, lee la clave que dejó el primero y la devuelve.
+    const rows = await this.prisma.$queryRaw<Array<{ previousKey: string | null }>>`
+      WITH previous AS (
+        SELECT "logoUrl" FROM "Tenant" WHERE "id" = ${this.tenantId} AND "deleted" = 'INUSE'::"DeletedState" FOR UPDATE
+      )
+      UPDATE "Tenant" SET "logoUrl" = ${logoKey}
+      FROM previous
+      WHERE "Tenant"."id" = ${this.tenantId}
+      RETURNING previous."logoUrl" AS "previousKey"`;
+    return rows[0]?.previousKey ?? undefined;
   }
 
   async updateCurrent(changes: TenantProfileChanges): Promise<void> {

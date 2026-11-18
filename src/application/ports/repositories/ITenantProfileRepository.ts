@@ -38,6 +38,10 @@ export interface ITenantProfileRepository {
   /** Aplica los cambios a la empresa del contexto; crea su configuración si aún no la tenía. */
   updateCurrent(changes: TenantProfileChanges): Promise<void>;
 
-  /** Guarda (o quita, con `null`) la clave del logo de la empresa del contexto. */
-  updateLogoKey(logoKey: string | null): Promise<void>;
+  /**
+   * Guarda (o quita, con `null`) la clave del logo de la empresa del contexto y devuelve la que había justo antes,
+   * leída y cambiada en la misma sentencia con la fila bloqueada: dos cambios simultáneos se encadenan y cada archivo
+   * viejo lo borra exactamente uno (F3-A19).
+   */
+  updateLogoKey(logoKey: string | null): Promise<string | undefined>;
 }

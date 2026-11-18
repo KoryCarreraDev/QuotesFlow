@@ -31,7 +31,9 @@ export class InMemoryTenantProfileRepository implements ITenantProfileRepository
     };
   }
 
-  async updateLogoKey(logoKey: string | null): Promise<void> {
+  async updateLogoKey(logoKey: string | null): Promise<string | undefined> {
+    const previousKey = this.profile?.logoKey;
     if (this.profile) this.profile = { ...this.profile, logoKey: logoKey ?? undefined };
+    return previousKey;
   }
 }
