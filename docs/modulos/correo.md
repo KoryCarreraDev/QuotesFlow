@@ -15,6 +15,7 @@ Enviar los correos que la plataforma necesita para funcionar (verificar el corre
 | `PASSWORD_CHANGED` | Tras cambiar la contraseña (F2-T04) | `firstName`, `resetUrl` |
 | `USER_INVITATION` | Al invitar a un usuario (F2-T05) | `inviterName`, `companyName`, `roleName`, `actionUrl`, `expiresInDays` |
 | `ACCOUNT_ALREADY_REGISTERED` | Registro con un correo que ya tiene cuenta (F2-T04, H8) | `firstName`, `loginUrl`, `resetUrl` |
+| `QUOTE_SENT` | Cotización que una empresa envía a su cliente, con el PDF adjunto (F3-T08); solo con `emailDeliveryEnabled` | `customerName`, `companyName`, `senderName`, `quoteReference`, `total`, `validUntil` |
 
 ## Cómo se usa
 ```ts

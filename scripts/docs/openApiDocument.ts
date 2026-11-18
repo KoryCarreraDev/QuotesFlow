@@ -29,7 +29,7 @@ import {
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
 import { updateTenantProfileSchema } from '../../src/presentation/schemas/tenantSchema.js';
 import { createProductSchema, updateProductSchema } from '../../src/presentation/schemas/productSchema.js';
-import { createQuoteSchema, updateQuoteSchema } from '../../src/presentation/schemas/quoteSchema.js';
+import { createQuoteSchema, sendQuoteSchema, updateQuoteSchema } from '../../src/presentation/schemas/quoteSchema.js';
 import { createFormulaSchema, updateFormulaSchema } from '../../src/presentation/schemas/formulaSchema.js';
 import {
   acceptInvitationSchema,
@@ -368,9 +368,11 @@ export const openApiOperations: OperationEntry[] = [
     method: 'post',
     path: `${API_BASE_PATH}/quotes/{id}/send`,
     tag: 'Cotizaciones',
-    summary: 'Envía el borrador: pasa a SENT y ya no se edita. 409 QUOTE_EXPIRED si la vigencia pasó',
+    summary:
+      'Envía el borrador: pasa a SENT y ya no se edita. Con el canal de correo de la empresa activo, antes manda el PDF al cliente (recipientEmail opcional); si el correo falla, sigue en borrador (503 QUOTE_EMAIL_FAILED). 409 QUOTE_EXPIRED si la vigencia pasó',
+    body: sendQuoteSchema,
     successStatus: 200,
-    successDescription: 'Cotización enviada',
+    successDescription: 'Cotización enviada, con emailed: true si salió un correo al cliente',
   },
   {
     method: 'post',

@@ -17,6 +17,8 @@ export class LogEmailService implements IEmailService {
       recipient: message.to,
       subject: message.subject,
       body: message.text,
+      // Solo el nombre y el tamaño: el contenido de un adjunto no se escribe en un log.
+      attachments: message.attachments?.map(({ fileName, content }) => ({ fileName, bytes: content.length })),
     });
     return { providerMessageId: `log-${randomUUID()}` };
   }

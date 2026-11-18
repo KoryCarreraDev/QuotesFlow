@@ -118,6 +118,25 @@ const COPY_BY_TEMPLATE: ReadonlyMap<EmailTemplate, TemplateCopy> = new Map([
       ].join('\n'),
     },
   ],
+  [
+    EmailTemplate.QUOTE_SENT,
+    {
+      subject: 'Cotización {{quoteReference}} de {{companyName}}',
+      preview: 'Adjuntamos tu cotización en PDF.',
+      text: [
+        'Hola, {{customerName}}:',
+        '',
+        '{{senderName}} de {{companyName}} te envía la cotización {{quoteReference}}. La encuentras adjunta en PDF.',
+        '',
+        'Total: {{total}}',
+        'Válida hasta el {{validUntil}}.',
+        '',
+        'Si tienes preguntas, responde a quien te la envió o contacta a {{companyName}}.',
+        '',
+        'Este correo se envió con QuotesFlow en nombre de {{companyName}}.',
+      ].join('\n'),
+    },
+  ],
 ]);
 
 function fillPlaceholders(

@@ -13911,7 +13911,7 @@
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Envía el borrador: pasa a SENT y ya no se edita. 409 QUOTE_EXPIRED si la vigencia pasó",
+        "summary": "Envía el borrador: pasa a SENT y ya no se edita. Con el canal de correo de la empresa activo, antes manda el PDF al cliente (recipientEmail opcional); si el correo falla, sigue en borrador (503 QUOTE_EMAIL_FAILED). 409 QUOTE_EXPIRED si la vigencia pasó",
         "security": [
           {
             "sessionCookie": []
@@ -13930,9 +13930,26 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientEmail": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "description": "Con el correo activado, a quién se envía; por defecto el correo del cliente"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Cotización enviada"
+            "description": "Cotización enviada, con emailed: true si salió un correo al cliente"
           },
           "400": {
             "description": "Entrada inválida",

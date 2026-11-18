@@ -1,9 +1,17 @@
+/** Archivo adjunto de un correo (por ejemplo, el PDF de una cotización, F3-T08). */
+export interface EmailAttachment {
+  fileName: string;
+  content: Uint8Array;
+  contentType: string;
+}
+
 /** Un correo a un único destinatario. */
 export interface EmailMessage {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 }
 
 /** Lo que devuelve el proveedor al aceptar el correo. */

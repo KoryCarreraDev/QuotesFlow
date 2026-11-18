@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { PaginatedResult } from '@/application/dtos/PaginatedResultDTO.js';
-import { CreateQuoteInput, QuoteDTO, UpdateQuoteInput } from '@/application/dtos/QuoteDTOs.js';
-import { toQuoteDTO } from '@/application/mappers/QuoteMapper.js';
+import {
+  CreateQuoteInput,
+  QuoteDTO,
+  SendQuoteInput,
+  SendQuoteResult,
+  UpdateQuoteInput,
+} from '@/application/dtos/QuoteDTOs.js';
+import { formatCalendarDate, formatPesos } from '@/application/formatting/colombianFormat.js';
+import { quoteReference, toQuoteDTO } from '@/application/mappers/QuoteMapper.js';
 import { IMapper } from '@/application/ports/mappers/IMapper.js';
+import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
+import { IContactRepository } from '@/application/ports/repositories/IContactRepository.js';
+import { ILeadRepository } from '@/application/ports/repositories/ILeadRepository.js';
 import { IQuoteRepository } from '@/application/ports/repositories/IQuoteRepository.js';
 import { ITenantProfileRepository, TenantProfile } from '@/application/ports/repositories/ITenantProfileRepository.js';
 import {
@@ -12,17 +22,22 @@ import {
   IAuditLogger,
   changedFieldNames,
 } from '@/application/ports/services/IAuditLogger.js';
+import { EmailTemplate } from '@/application/ports/services/IEmailTemplateRenderer.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
+import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
 import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { Action, Actor, can } from '@/application/policies/authorizationPolicy.js';
+import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
 import { GenericListFilteredUseCase } from '@/application/use-case/filter/GenericListFilteredUseCase.js';
 import { QuoteContentResolver } from '@/application/use-case/quotes/QuoteContentResolver.js';
-import { Quote, QuoteContent, QuoteStatus } from '@/domain/entities/Quote.js';
+import { GenerateQuotePdfUseCase } from '@/application/use-case/quotes/QuotePdfUseCase.js';
+import { Quote, QuoteContent, QuoteCustomer, QuoteStatus } from '@/domain/entities/Quote.js';
 import { ConflictError } from '@/domain/errors/ConflictError.js';
 import { ErrorCode } from '@/domain/errors/ErrorCode.js';
 import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
+import { ServiceUnavailableError } from '@/domain/errors/ServiceUnavailableError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
 import { addDaysToCalendarDate, calendarDateIn } from '@/domain/value-objects/calendarDate.js';
 import { Percentage } from '@/domain/value-objects/money.js';
@@ -32,6 +47,7 @@ import { Percentage } from '@/domain/value-objects/money.js';
 /** Vigencia por defecto de una cotización nueva (D-23). */
 const DEFAULT_VALIDITY_DAYS = 30;
 const NO_DISCOUNT = '0';
+const PDF_CONTENT_TYPE = 'application/pdf';
 
 type ActorWithId = Actor & { userId: string };
 
@@ -308,14 +324,27 @@ async function saveTransition(repository: IQuoteRepository, next: Quote, expecte
   }
 }
 
+/** A quién se le escribe y cómo se le saluda. */
+interface QuoteRecipient {
+  email: string;
+  name: string;
+}
+
+const FALLBACK_CUSTOMER_NAME = 'cliente';
+
 /**
- * Marca el borrador como enviada (D-22: desde aquí ya no se edita). Aquí solo cambia el estado; el envío del PDF
- * por correo lo añade F3-T08 sobre este mismo caso de uso.
+ * Envía el borrador al cliente (D-22: desde aquí ya no se edita) y lo deja `SENT`.
+ *
+ * Con el canal de correo de la empresa activado (D-57), antes de cambiar el estado manda al cliente un correo con el
+ * PDF adjunto: a `recipientEmail` si viene, y si no al correo del contacto, de la empresa cliente o del lead, en ese
+ * orden. Si el proveedor no acepta el correo, la cotización sigue en borrador y se puede reintentar. Con el canal
+ * desactivado solo cambia el estado y el comercial comparte el PDF por su cuenta (`emailed: false`).
  *
  * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
  * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
  * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`, `QUOTE_EXPIRED` (vigencia pasada).
- * @throws {ValidationError} `QUOTE_ITEMS_REQUIRED`.
+ * @throws {ValidationError} `QUOTE_ITEMS_REQUIRED`, `QUOTE_RECIPIENT_REQUIRED` (correo activo y sin a quién escribir).
+ * @throws {ServiceUnavailableError} `QUOTE_EMAIL_FAILED`.
  */
 export class SendQuoteUseCase {
   constructor(
@@ -323,12 +352,22 @@ export class SendQuoteUseCase {
     private readonly tenantProfileRepository: ITenantProfileRepository,
     private readonly transactionManager: ITransactionManager,
     private readonly auditLogger: IAuditLogger,
+    private readonly emailSender: TransactionalEmailSender,
+    private readonly pdfUseCase: GenerateQuotePdfUseCase,
+    private readonly userRepository: IUserRepository,
+    private readonly leadRepository: ILeadRepository,
+    private readonly contactRepository: IContactRepository,
+    private readonly companyContactRepository: ICompanyContactRepository,
   ) {}
 
-  async execute(actor: Actor, quoteId: string): Promise<QuoteDTO> {
+  async execute(actor: ActorWithId, quoteId: string, input: SendQuoteInput = {}): Promise<SendQuoteResult> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_SEND, quoteId);
-    const { now, today } = await loadClock(this.tenantProfileRepository);
+    const { profile, now, today } = await loadClock(this.tenantProfileRepository);
     const sent = quote.markSent(now, today);
+
+    const emailed = profile.emailDeliveryEnabled
+      ? await this.emailToCustomer(actor, sent, profile, input.recipientEmail)
+      : false;
 
     await this.transactionManager.runInTransaction(async () => {
       await saveTransition(this.repository, sent, quote.status);
@@ -336,9 +375,67 @@ export class SendQuoteUseCase {
         action: AuditAction.QUOTE_SENT,
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
+        metadata: { emailed },
       });
     });
-    return toQuoteDTO(sent, today);
+    return { ...toQuoteDTO(sent, today), emailed };
+  }
+
+  /** Manda el correo con el PDF de la cotización ya marcada como enviada. Siempre devuelve `true` o lanza. */
+  private async emailToCustomer(
+    actor: ActorWithId,
+    sent: Quote,
+    profile: TenantProfile,
+    recipientEmail: string | undefined,
+  ): Promise<true> {
+    const recipient = await this.resolveRecipient(sent.customer, recipientEmail);
+    if (!recipient) {
+      throw new ValidationError(
+        ErrorCode.QUOTE_RECIPIENT_REQUIRED,
+        'The customer has no email: send recipientEmail or fill in the customer email',
+      );
+    }
+    const pdf = await this.pdfUseCase.renderQuote(actor, sent);
+    const sender = await this.userRepository.findById(actor.userId);
+    const totals = sent.totals();
+    const delivered = await this.emailSender.send(
+      { email: recipient.email, tenantId: sent.tenantId, userId: actor.userId },
+      EmailTemplate.QUOTE_SENT,
+      {
+        customerName: recipient.name,
+        companyName: profile.name,
+        senderName: sender ? `${sender.firstName} ${sender.lastName}` : profile.name,
+        quoteReference: quoteReference(sent.number, sent.version),
+        total: formatPesos(totals.total.toDecimalString()),
+        validUntil: formatCalendarDate(sent.validUntil),
+      },
+      [{ fileName: pdf.fileName, content: pdf.content, contentType: PDF_CONTENT_TYPE }],
+    );
+    if (!delivered) {
+      throw new ServiceUnavailableError(ErrorCode.QUOTE_EMAIL_FAILED, 'The email could not be delivered; try again');
+    }
+    return true;
+  }
+
+  /** Destinatario: el correo indicado o, si no, el del contacto, la empresa cliente o el lead. */
+  private async resolveRecipient(
+    customer: QuoteCustomer,
+    recipientEmail: string | undefined,
+  ): Promise<QuoteRecipient | undefined> {
+    const [contact, company, lead] = await Promise.all([
+      customer.contactId ? this.contactRepository.findById(customer.contactId) : null,
+      customer.companyContactId ? this.companyContactRepository.findById(customer.companyContactId) : null,
+      customer.leadId ? this.leadRepository.findById(customer.leadId) : null,
+    ]);
+    const candidates: Array<{ email?: string; name?: string }> = [
+      { email: contact?.email, name: contact ? `${contact.firstName} ${contact.lastName}` : undefined },
+      { email: company?.email, name: company?.name },
+      { email: lead?.email, name: lead?.contactName ?? lead?.companyName },
+    ];
+    const knownName = candidates.find((candidate) => candidate.name)?.name ?? FALLBACK_CUSTOMER_NAME;
+    if (recipientEmail) return { email: recipientEmail, name: knownName };
+    const withEmail = candidates.find((candidate) => candidate.email);
+    return withEmail?.email ? { email: withEmail.email, name: withEmail.name ?? knownName } : undefined;
   }
 }
 

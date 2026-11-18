@@ -90,3 +90,14 @@ export interface QuoteDTO {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+/** Datos opcionales al enviar una cotización (F3-T08). */
+export interface SendQuoteInput {
+  /** Correo al que se manda con el canal de correo activado; por defecto, el del cliente de la cotización. */
+  recipientEmail?: string;
+}
+
+/** La cotización enviada y si además salió un correo al cliente (solo con el canal de correo de la empresa activo). */
+export interface SendQuoteResult extends QuoteDTO {
+  emailed: boolean;
+}

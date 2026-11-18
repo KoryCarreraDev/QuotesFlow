@@ -21,6 +21,7 @@ export const templateSourceFiles: Record<EmailTemplate, string> = {
   [EmailTemplate.PASSWORD_CHANGED]: 'passwordChanged.mjml',
   [EmailTemplate.USER_INVITATION]: 'userInvitation.mjml',
   [EmailTemplate.ACCOUNT_ALREADY_REGISTERED]: 'accountAlreadyRegistered.mjml',
+  [EmailTemplate.QUOTE_SENT]: 'quoteSent.mjml',
 };
 
 async function compileTemplate(fileName: string): Promise<string> {

@@ -5,7 +5,13 @@ import {
   QuotePdfData,
   QuotePdfItem,
 } from '../../../application/ports/services/IPdfGenerator.js';
-import { formatCalendarDate, formatPercentage, formatPesos, formatQuantity, toDrawableLines } from './pdfFormatting.js';
+import {
+  formatCalendarDate,
+  formatPercentage,
+  formatPesos,
+  formatQuantity,
+} from '../../../application/formatting/colombianFormat.js';
+import { toDrawableLines } from './pdfFormatting.js';
 
 // F3-T06: PDF de una cotización con `pdf-lib`. Tamaño A4, fuente estándar Helvetica (sin archivos de fuentes), tabla
 // de ítems que continúa en páginas nuevas y totales al final. Todo lo que se dibuja ya viene resuelto en `QuotePdfData`.
