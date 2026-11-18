@@ -76,6 +76,12 @@ const authRateLimiter = createRateLimiter({
   windowMs: RATE_LIMIT_WINDOW_MS,
 });
 
+// Cupo propio de los documentos (PDF y envío de cotizaciones): generarlos es caro (F3-A15).
+const documentRateLimiter = createRateLimiter({
+  maxRequests: env.RATE_LIMIT_DOCUMENT_MAX_REQUESTS,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+});
+
 // API REST versionada (D-06, F1-T11). Las sondas /health y /ready quedan fuera: son del orquestador.
 const API_BASE_PATH = '/api/v1';
 app.use(`${API_BASE_PATH}/auth`, authRouter(publicContainer, authenticateSession, authRateLimiter));
@@ -87,7 +93,7 @@ app.use(`${API_BASE_PATH}/users`, userRouter(authenticateSession));
 app.use(`${API_BASE_PATH}/tenant`, tenantRouter(authenticateSession));
 app.use(`${API_BASE_PATH}/products`, productRouter(authenticateSession));
 app.use(`${API_BASE_PATH}/formulas`, formulaRouter(authenticateSession));
-app.use(`${API_BASE_PATH}/quotes`, quoteRouter(authenticateSession));
+app.use(`${API_BASE_PATH}/quotes`, quoteRouter(authenticateSession, documentRateLimiter));
 
 // Errores: siempre al final, después de todas las rutas (H5).
 app.use(createRouteNotFoundHandler());

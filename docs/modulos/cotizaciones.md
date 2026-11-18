@@ -52,6 +52,7 @@ servidor calcula y que no cambian después de enviada.
   y la otra recibe `409`.
 - **Cambios de estado atómicos.** Se guardan comparando y cambiando el estado esperado: aceptar y rechazar a la vez
   no pueden ganar las dos (`409 QUOTE_INVALID_TRANSITION` para quien llega tarde).
+- **Límite de documentos (F3-A15).** Generar un PDF (y enviar la cotización, que lo genera) es caro, así que `GET /quotes/:id/pdf` y `POST /quotes/:id/send` comparten un cupo propio por IP, `RATE_LIMIT_DOCUMENT_MAX_REQUESTS` (20 cada 15 minutos por defecto, supuesto en `QUESTION.md`); al superarlo, 429 `TOO_MANY_REQUESTS`. El resto de la API solo cuenta contra el cupo global.
 - **Permisos** (`docs/security/matriz-permisos.md`): todos crean; un comercial lista, lee, modifica, borra, envía,
   decide y revisa solo las que creó; dueño, socio y líder, todas las de la empresa. Una cotización ajena responde
   `403`; una de otra empresa o inexistente, `404 QUOTE_NOT_FOUND`.

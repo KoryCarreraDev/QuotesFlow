@@ -426,6 +426,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `TRUST_PROXY` | Número entero de proxies de confianza | `0` |
 | `RATE_LIMIT_GLOBAL_MAX_REQUESTS` | Entero positivo | `100` |
 | `RATE_LIMIT_AUTH_MAX_REQUESTS` | Entero positivo | `10` |
+| `RATE_LIMIT_DOCUMENT_MAX_REQUESTS` | Entero positivo; cupo por IP cada 15 min de `GET /quotes/:id/pdf` y `POST /quotes/:id/send` (comparten cupo) | `20` |
 | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` o `silent` (solo tests) | `info` |
 | `EMAIL_PROVIDER` | `resend`, `log` (escribe el correo en el log) o `memory` (tests). En producción solo `resend` | `log` |
 | `RESEND_API_KEY` | Clave de Resend (`re_…`). Obligatoria con `resend`; secreto, sin valor por defecto | Ninguno |

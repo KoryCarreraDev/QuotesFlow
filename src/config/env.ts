@@ -68,6 +68,8 @@ const DEFAULT_GLOBAL_RATE_LIMIT = 100;
 // Cupo de login y registro por IP y ventana: frena la prueba masiva de contraseñas (H6). El bloqueo por
 // cuenta llega en F2-T03.
 const DEFAULT_AUTH_RATE_LIMIT = 10;
+// F3-A15: cupo propio de PDF y envío de cotizaciones por IP y ventana. Es un supuesto (ver QUESTION.md).
+const DEFAULT_DOCUMENT_RATE_LIMIT = 20;
 
 // F2-T01: `resend` envía de verdad; `log` (desarrollo) escribe el correo en el log; `memory` (tests) lo guarda
 // en memoria. En producción solo vale `resend`: con otro, los correos de verificación no saldrían.
@@ -199,6 +201,7 @@ const baseEnvironmentSchema = z.object({
   TRUST_PROXY: nonNegativeInteger(DEFAULT_TRUSTED_PROXY_HOPS),
   RATE_LIMIT_GLOBAL_MAX_REQUESTS: positiveInteger(DEFAULT_GLOBAL_RATE_LIMIT),
   RATE_LIMIT_AUTH_MAX_REQUESTS: positiveInteger(DEFAULT_AUTH_RATE_LIMIT),
+  RATE_LIMIT_DOCUMENT_MAX_REQUESTS: positiveInteger(DEFAULT_DOCUMENT_RATE_LIMIT),
   // `silent` solo tiene sentido en los tests: en producción un error sin registrar no se puede investigar.
   LOG_LEVEL: z.preprocess(
     treatEmptyAsMissing,
