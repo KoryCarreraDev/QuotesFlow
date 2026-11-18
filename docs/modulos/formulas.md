@@ -1,6 +1,6 @@
 # Fórmulas de precio
 
-> F3-T03 (evaluador). El CRUD de fórmulas llega con F3-T04.
+> F3-T03 (evaluador) y F3-T04 (CRUD).
 
 ## Propósito
 Cada empresa define cómo se calcula el precio de sus productos con una fórmula y unas variables que el comercial
@@ -43,3 +43,40 @@ Una fórmula la escribe el dueño de cada empresa y la API la ejecuta: se trata 
 | `ancho / alto` | alto `0` | `400 FORMULA_EVALUATION_FAILED` |
 
 Tests de inyección: `tests/unit/infrastructure/MathjsFormulaEvaluator.test.ts`.
+
+## Gestión de fórmulas (F3-T04)
+- Una fórmula tiene nombre, expresión y variables (`{ name, label }`, como mucho 20, sin repetir). `name` es lo que
+  aparece en la expresión; `label`, lo que ve el comercial al cotizar.
+- Al crear y al modificar, la expresión se valida con el evaluador contra las variables que quedan: quitar una
+  variable que la expresión usa responde `400 INVALID_FORMULA`.
+- Modificar una fórmula no cambia las cotizaciones ya hechas: guardan el precio calculado (F3-T05).
+- No se borra una fórmula que usa algún producto no borrado: `409 FORMULA_IN_USE`.
+- Permisos: todo el equipo las consulta (el comercial necesita ver las variables); dueño, socio y líder las crean,
+  modifican y borran. **Supuesto pendiente de confirmar por el dueño de producto**, igual que en productos.
+- Toda modificación se audita en la misma transacción (`FORMULA_CREATED`, `FORMULA_UPDATED` con los campos
+  cambiados, `FORMULA_DELETED`).
+
+| Método | Ruta | Roles | Descripción |
+|---|---|---|---|
+| GET | `/api/v1/formulas/search` | Todos | Busca, filtra, ordena y pagina (`id`, `name`✔, `createdAt`) |
+| POST | `/api/v1/formulas` | Gestión | `{ name, expression, variables: [{ name, label }] }` → 201 |
+| PATCH | `/api/v1/formulas/:id` | Gestión | Modificación parcial; vuelve a validar la expresión |
+| DELETE | `/api/v1/formulas/:id` | Gestión | Borrado suave; `409 FORMULA_IN_USE` si un producto la usa |
+
+### Ejemplo
+```http
+POST /api/v1/formulas
+Content-Type: application/json
+
+{
+  "name": "Ventana por metro cuadrado",
+  "expression": "ceil(ancho * alto * precioM2)",
+  "variables": [
+    { "name": "ancho", "label": "Ancho (m)" },
+    { "name": "alto", "label": "Alto (m)" },
+    { "name": "precioM2", "label": "Precio por m²" }
+  ]
+}
+```
+Errores: `400 VALIDATION_FAILED`, `400 INVALID_FORMULA`, `400 INVALID_FORMULA_VARIABLE`,
+`403 INSUFFICIENT_PERMISSIONS`, `404 FORMULA_NOT_FOUND`, `409 FORMULA_IN_USE`.

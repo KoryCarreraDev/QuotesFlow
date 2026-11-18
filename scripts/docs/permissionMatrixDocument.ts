@@ -40,6 +40,10 @@ const actionDescriptions: Record<Action, string> = {
   [Action.PRODUCT_CREATE]: 'Crear un producto',
   [Action.PRODUCT_UPDATE]: 'Modificar un producto (nombre, precio, fórmula, activo)',
   [Action.PRODUCT_DELETE]: 'Borrar (suave) un producto',
+  [Action.FORMULA_LIST]: 'Buscar y consultar las fórmulas de precio y sus variables (`GET /formulas/search`)',
+  [Action.FORMULA_CREATE]: 'Crear una fórmula de precio',
+  [Action.FORMULA_UPDATE]: 'Modificar una fórmula de precio',
+  [Action.FORMULA_DELETE]: 'Borrar (suave) una fórmula que ningún producto usa',
 };
 
 const grantLabels = new Map<Grant, string>([

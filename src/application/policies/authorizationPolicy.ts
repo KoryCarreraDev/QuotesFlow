@@ -45,6 +45,10 @@ export enum Action {
   PRODUCT_CREATE = 'product:create',
   PRODUCT_UPDATE = 'product:update',
   PRODUCT_DELETE = 'product:delete',
+  FORMULA_LIST = 'formula:list',
+  FORMULA_CREATE = 'formula:create',
+  FORMULA_UPDATE = 'formula:update',
+  FORMULA_DELETE = 'formula:delete',
 }
 
 /**
@@ -138,6 +142,12 @@ export const permissionMatrix: PermissionMatrix = {
   [Action.PRODUCT_CREATE]: managementOnly,
   [Action.PRODUCT_UPDATE]: managementOnly,
   [Action.PRODUCT_DELETE]: managementOnly,
+  // F3-T04: el comercial consulta las fórmulas para saber qué variables llenar; las gestiona gestión, igual que
+  // los productos (supuesto pendiente de confirmar).
+  [Action.FORMULA_LIST]: everyone,
+  [Action.FORMULA_CREATE]: managementOnly,
+  [Action.FORMULA_UPDATE]: managementOnly,
+  [Action.FORMULA_DELETE]: managementOnly,
 };
 
 /**
