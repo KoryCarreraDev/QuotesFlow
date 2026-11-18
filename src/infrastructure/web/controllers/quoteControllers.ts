@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import type { Actor } from '../../../application/policies/authorizationPolicy.js';
 import {
   AcceptQuoteUseCase,
+  CreateQuoteFromLeadUseCase,
   CreateQuoteUseCase,
   DeleteQuoteUseCase,
   GetQuoteUseCase,
@@ -34,6 +35,7 @@ export class QuoteController {
     private readonly rejectQuote: RejectQuoteUseCase,
     private readonly reviseQuote: ReviseQuoteUseCase,
     private readonly generateQuotePdf: GenerateQuotePdfUseCase,
+    private readonly createQuoteFromLead: CreateQuoteFromLeadUseCase,
   ) {}
 
   search = async (req: Request, res: Response, next: NextFunction) => {
@@ -88,7 +90,7 @@ export class QuoteController {
 
   accept = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.status(HttpStatus.OK).json(await this.acceptQuote.execute(actorOf(req), String(req.params.id)));
+      res.status(HttpStatus.OK).json(await this.acceptQuote.execute(actorOf(req), String(req.params.id), req.body));
     } catch (error) {
       next(error);
     }
@@ -105,6 +107,15 @@ export class QuoteController {
   revise = async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.status(HttpStatus.CREATED).json(await this.reviseQuote.execute(actorOf(req), String(req.params.id)));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createFromLead = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const leadId = String(req.params.id);
+      res.status(HttpStatus.CREATED).json(await this.createQuoteFromLead.execute(actorOf(req), leadId, req.body));
     } catch (error) {
       next(error);
     }

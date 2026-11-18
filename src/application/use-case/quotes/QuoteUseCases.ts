@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { FilterCriteriaDTO } from '@/application/dtos/FilterCriteriaDTO.js';
 import { PaginatedResult } from '@/application/dtos/PaginatedResultDTO.js';
 import {
+  AcceptQuoteInput,
+  AcceptQuoteResult,
   CreateQuoteInput,
   QuoteDTO,
   SendQuoteInput,
@@ -10,6 +12,7 @@ import {
 } from '@/application/dtos/QuoteDTOs.js';
 import { formatCalendarDate, formatPesos } from '@/application/formatting/colombianFormat.js';
 import { quoteReference, toQuoteDTO } from '@/application/mappers/QuoteMapper.js';
+import { ILeadStatusConfigRepository } from '@/application/ports/repositories/ILeadStatusConfigRepository.js';
 import { IMapper } from '@/application/ports/mappers/IMapper.js';
 import { ICompanyContactRepository } from '@/application/ports/repositories/ICompanyContactRepository.js';
 import { IContactRepository } from '@/application/ports/repositories/IContactRepository.js';
@@ -29,6 +32,7 @@ import { IUserRepository } from '@/application/ports/repositories/IUserRepositor
 import { ITransactionManager } from '@/application/ports/services/ITransactionManager.js';
 import { Action, Actor, can } from '@/application/policies/authorizationPolicy.js';
 import { TransactionalEmailSender } from '@/application/services/TransactionalEmailSender.js';
+import { ChangeLeadStatusUseCase } from '@/application/use-case/leads/changeLeadStatusUseCase.js';
 import { GenericListFilteredUseCase } from '@/application/use-case/filter/GenericListFilteredUseCase.js';
 import { QuoteContentResolver } from '@/application/use-case/quotes/QuoteContentResolver.js';
 import { GenerateQuotePdfUseCase } from '@/application/use-case/quotes/QuotePdfUseCase.js';
@@ -39,6 +43,7 @@ import { ForbiddenError } from '@/domain/errors/ForbiddenError.js';
 import { NotFoundError } from '@/domain/errors/NotFoundError.js';
 import { ServiceUnavailableError } from '@/domain/errors/ServiceUnavailableError.js';
 import { ValidationError } from '@/domain/errors/ValidationError.js';
+import { LeadStatusType } from '@/domain/enums/LeadStatusType.js';
 import { addDaysToCalendarDate, calendarDateIn } from '@/domain/value-objects/calendarDate.js';
 import { Percentage } from '@/domain/value-objects/money.js';
 
@@ -213,6 +218,31 @@ export class CreateQuoteUseCase {
       return draft;
     });
     return toQuoteDTO(quote, today);
+  }
+}
+
+/**
+ * Crea una cotización para un lead (F3-T09): igual que crearla, con el lead como cliente. Un comercial solo la hace
+ * para sus leads; gestión, para cualquiera de la empresa. Además del lead se pueden indicar un contacto o una empresa
+ * cliente.
+ *
+ * @throws {NotFoundError} `LEAD_NOT_FOUND` (también si es de otra empresa o está borrado).
+ * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`, `DISCOUNT_ABOVE_ROLE_LIMIT`.
+ * @throws {ValidationError} los mismos que al crear.
+ */
+export class CreateQuoteFromLeadUseCase {
+  constructor(
+    private readonly leadRepository: ILeadRepository,
+    private readonly createQuote: CreateQuoteUseCase,
+  ) {}
+
+  async execute(actor: ActorWithId, leadId: string, input: Omit<CreateQuoteInput, 'leadId'>): Promise<QuoteDTO> {
+    const lead = await this.leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError(ErrorCode.LEAD_NOT_FOUND, 'Lead not found');
+    if (!can(actor, Action.QUOTE_CREATE_FROM_LEAD, { ownerUserId: lead.assignedToId })) {
+      throw new ForbiddenError(ErrorCode.INSUFFICIENT_PERMISSIONS, 'Insufficient permissions');
+    }
+    return this.createQuote.execute(actor, { ...input, leadId });
   }
 }
 
@@ -439,18 +469,9 @@ export class SendQuoteUseCase {
   }
 }
 
-/** Aceptar o rechazar: lo que respondió el cliente. */
-type Decision = 'accept' | 'reject';
-
-const DECISION_AUDIT_ACTION: Record<Decision, AuditAction> = {
-  accept: AuditAction.QUOTE_ACCEPTED,
-  reject: AuditAction.QUOTE_REJECTED,
-};
-
-/** Registra la respuesta del cliente a una cotización enviada. */
+/** Registra el rechazo del cliente a una cotización enviada. */
 export class DecideQuoteUseCase {
   constructor(
-    private readonly decision: Decision,
     private readonly repository: IQuoteRepository,
     private readonly tenantProfileRepository: ITenantProfileRepository,
     private readonly transactionManager: ITransactionManager,
@@ -460,35 +481,81 @@ export class DecideQuoteUseCase {
   async execute(actor: Actor, quoteId: string): Promise<QuoteDTO> {
     const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_DECIDE, quoteId);
     const { now, today } = await loadClock(this.tenantProfileRepository);
-    const decided = this.decision === 'accept' ? quote.accept(now, today) : quote.reject(now);
+    const rejected = quote.reject(now);
 
     await this.transactionManager.runInTransaction(async () => {
-      await saveTransition(this.repository, decided, quote.status);
+      await saveTransition(this.repository, rejected, quote.status);
       await this.auditLogger.record({
-        action: DECISION_AUDIT_ACTION[this.decision],
+        action: AuditAction.QUOTE_REJECTED,
         entity: AuditEntity.QUOTE,
         entityId: quoteId,
       });
     });
-    return toQuoteDTO(decided, today);
+    return toQuoteDTO(rejected, today);
   }
 }
 
 /**
  * El cliente aceptó. Solo una cotización enviada y vigente; es definitiva.
  *
+ * Con `markLeadAsWon` y una cotización de un lead, el lead pasa al estado ganado de la empresa (el de tipo `WON` con
+ * menor orden) en la misma transacción, con una nota en su historial. Solo se mueve un lead abierto: uno ya ganado o
+ * perdido no cambia, y sin estado ganado configurado tampoco (`leadMarkedAsWon: false`). Si el comercial no puede
+ * modificar ese lead, no se acepta nada. Por defecto no se toca el lead.
+ *
  * @throws {NotFoundError} `QUOTE_NOT_FOUND`.
- * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS`.
+ * @throws {ForbiddenError} `INSUFFICIENT_PERMISSIONS` (también si pide mover un lead que no puede modificar).
  * @throws {ConflictError} `QUOTE_INVALID_TRANSITION`, `QUOTE_EXPIRED`.
  */
-export class AcceptQuoteUseCase extends DecideQuoteUseCase {
+export class AcceptQuoteUseCase {
   constructor(
-    repository: IQuoteRepository,
-    tenantProfileRepository: ITenantProfileRepository,
-    transactionManager: ITransactionManager,
-    auditLogger: IAuditLogger,
-  ) {
-    super('accept', repository, tenantProfileRepository, transactionManager, auditLogger);
+    private readonly repository: IQuoteRepository,
+    private readonly tenantProfileRepository: ITenantProfileRepository,
+    private readonly transactionManager: ITransactionManager,
+    private readonly auditLogger: IAuditLogger,
+    private readonly leadRepository: ILeadRepository,
+    private readonly leadStatusRepository: ILeadStatusConfigRepository,
+    private readonly changeLeadStatus: ChangeLeadStatusUseCase,
+    private readonly tenantContext: ITenantContext,
+  ) {}
+
+  async execute(actor: Actor, quoteId: string, input: AcceptQuoteInput = {}): Promise<AcceptQuoteResult> {
+    const quote = await findAllowedQuote(this.repository, actor, Action.QUOTE_DECIDE, quoteId);
+    const { now, today } = await loadClock(this.tenantProfileRepository);
+    const accepted = quote.accept(now, today);
+
+    const leadMarkedAsWon = await this.transactionManager.runInTransaction(async () => {
+      await saveTransition(this.repository, accepted, quote.status);
+      await this.auditLogger.record({
+        action: AuditAction.QUOTE_ACCEPTED,
+        entity: AuditEntity.QUOTE,
+        entityId: quoteId,
+      });
+      return input.markLeadAsWon ? this.markLeadAsWon(actor, accepted) : false;
+    });
+    return { ...toQuoteDTO(accepted, today), leadMarkedAsWon };
+  }
+
+  /** Mueve el lead de la cotización al estado ganado. Devuelve si lo movió. */
+  private async markLeadAsWon(actor: Actor, quote: Quote): Promise<boolean> {
+    const { leadId } = quote.customer;
+    const lead = leadId ? await this.leadRepository.findById(leadId) : null;
+    if (!lead) return false;
+
+    const statuses = await this.leadStatusRepository.findAllByTenant(this.tenantContext.getTenantId());
+    const currentStatus = statuses.find((status) => status.id === lead.statusId);
+    if (currentStatus && currentStatus.type !== LeadStatusType.OPEN) return false;
+    const wonStatus = statuses
+      .filter((status) => status.type === LeadStatusType.WON)
+      .sort((first, second) => (first.order ?? 0) - (second.order ?? 0))[0];
+    if (!wonStatus) return false;
+
+    await this.changeLeadStatus.execute(
+      lead.id,
+      { statusId: wonStatus.id, note: `Cotización ${quoteReference(quote.number, quote.version)} aceptada` },
+      actor,
+    );
+    return true;
   }
 }
 
@@ -506,7 +573,7 @@ export class RejectQuoteUseCase extends DecideQuoteUseCase {
     transactionManager: ITransactionManager,
     auditLogger: IAuditLogger,
   ) {
-    super('reject', repository, tenantProfileRepository, transactionManager, auditLogger);
+    super(repository, tenantProfileRepository, transactionManager, auditLogger);
   }
 }
 

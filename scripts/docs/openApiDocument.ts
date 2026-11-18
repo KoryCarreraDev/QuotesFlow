@@ -29,7 +29,13 @@ import {
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
 import { updateTenantProfileSchema } from '../../src/presentation/schemas/tenantSchema.js';
 import { createProductSchema, updateProductSchema } from '../../src/presentation/schemas/productSchema.js';
-import { createQuoteSchema, sendQuoteSchema, updateQuoteSchema } from '../../src/presentation/schemas/quoteSchema.js';
+import {
+  acceptQuoteSchema,
+  createQuoteFromLeadSchema,
+  createQuoteSchema,
+  sendQuoteSchema,
+  updateQuoteSchema,
+} from '../../src/presentation/schemas/quoteSchema.js';
 import { createFormulaSchema, updateFormulaSchema } from '../../src/presentation/schemas/formulaSchema.js';
 import {
   acceptInvitationSchema,
@@ -335,6 +341,16 @@ export const openApiOperations: OperationEntry[] = [
   { ...formulas.create, body: createFormulaSchema },
   { ...formulas.update, body: updateFormulaSchema },
   formulas.remove,
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/leads/{id}/quotes`,
+    tag: 'Cotizaciones',
+    summary:
+      'Crea una cotización (borrador) para el lead de la ruta; un comercial solo de sus leads. Mismas reglas que crear una cotización',
+    body: createQuoteFromLeadSchema,
+    successStatus: 201,
+    successDescription: 'Cotización creada con el lead como cliente; 404 LEAD_NOT_FOUND',
+  },
   quotes.search,
   {
     method: 'get',
@@ -378,9 +394,12 @@ export const openApiOperations: OperationEntry[] = [
     method: 'post',
     path: `${API_BASE_PATH}/quotes/{id}/accept`,
     tag: 'Cotizaciones',
-    summary: 'Registra que el cliente aceptó una cotización enviada y vigente (definitiva)',
+    summary:
+      'Registra que el cliente aceptó una cotización enviada y vigente (definitiva). Con markLeadAsWon, el lead abierto de la cotización pasa al estado ganado en la misma transacción',
+    body: acceptQuoteSchema,
     successStatus: 200,
-    successDescription: 'Cotización aceptada; 409 QUOTE_INVALID_TRANSITION o QUOTE_EXPIRED',
+    successDescription:
+      'Cotización aceptada, con leadMarkedAsWon; 409 QUOTE_INVALID_TRANSITION o QUOTE_EXPIRED; 403 si no puede modificar el lead',
   },
   {
     method: 'post',

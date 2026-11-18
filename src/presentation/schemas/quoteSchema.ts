@@ -89,3 +89,17 @@ export const sendQuoteSchema = z
   })
   .optional()
   .transform((body) => body ?? {});
+
+/** Cotización de un lead (F3-T09): el lead sale de la ruta; se pueden añadir un contacto o una empresa cliente. */
+export const createQuoteFromLeadSchema = createQuoteSchema.omit({ leadId: true });
+
+/** Datos opcionales al aceptar (F3-T09). Sin cuerpo se trata como vacío. */
+export const acceptQuoteSchema = z
+  .object({
+    markLeadAsWon: z
+      .boolean()
+      .optional()
+      .describe('Si la cotización es de un lead abierto, lo pasa al estado ganado. Por defecto false'),
+  })
+  .optional()
+  .transform((body) => body ?? {});

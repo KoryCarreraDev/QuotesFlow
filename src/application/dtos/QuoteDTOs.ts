@@ -101,3 +101,14 @@ export interface SendQuoteInput {
 export interface SendQuoteResult extends QuoteDTO {
   emailed: boolean;
 }
+
+/** Datos opcionales al aceptar una cotización (F3-T09). */
+export interface AcceptQuoteInput {
+  /** Con una cotización de un lead abierto, pasa el lead al estado ganado de la empresa. Por defecto no. */
+  markLeadAsWon?: boolean;
+}
+
+/** La cotización aceptada y si el lead pasó a ganado. */
+export interface AcceptQuoteResult extends QuoteDTO {
+  leadMarkedAsWon: boolean;
+}
