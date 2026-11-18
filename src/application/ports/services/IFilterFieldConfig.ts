@@ -1,5 +1,5 @@
 /** Tipo del valor de un campo filtrable: decide qué valores acepta un filtro sobre él (F1-T12, H11). */
-export type FilterFieldType = 'text' | 'number' | 'date' | 'id';
+export type FilterFieldType = 'text' | 'number' | 'date' | 'id' | 'boolean';
 
 /** Lista blanca de campos filtrables de una entidad: lo que no está aquí no se puede filtrar ni ordenar. */
 export interface IFilterFieldConfig {

@@ -39,6 +39,7 @@ export const ROLE_COVERAGE_GROUPS: Record<string, readonly ScenarioResource[]> =
   sessions: ['session'],
   users: ['user', 'invitation'],
   tenant: ['tenant'],
+  catalog: ['product'],
 };
 
 type TeamMember = 'owner' | 'partner' | 'salesLeader' | 'salesRep';

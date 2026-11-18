@@ -12,6 +12,7 @@ import {
   persistContact,
   persistLead,
   persistLeadStatus,
+  persistProduct,
   persistUser,
   persistUserInvitation,
   testSessionIdFor,
@@ -21,7 +22,7 @@ import { type RouteInventoryEntry, apiPaths, describeRoute } from '@tests/suppor
 
 /** Recurso de negocio sobre el que actúa la ruta. */
 export type ScenarioResource =
-  'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation' | 'tenant';
+  'lead' | 'leadStatus' | 'contact' | 'companyContact' | 'session' | 'user' | 'invitation' | 'tenant' | 'product';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
@@ -135,6 +136,17 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
     `PATCH ${apiPaths.companyContacts.update(':id')}`,
     { action: Action.COMPANY_CONTACT_UPDATE, resource: 'companyContact', operation: 'update' },
   ],
+
+  [`GET ${apiPaths.products.filtered}`, { action: Action.PRODUCT_LIST, resource: 'product', operation: 'list' }],
+  [`POST ${apiPaths.products.create}`, { action: Action.PRODUCT_CREATE, resource: 'product', operation: 'create' }],
+  [
+    `PATCH ${apiPaths.products.update(':id')}`,
+    { action: Action.PRODUCT_UPDATE, resource: 'product', operation: 'update' },
+  ],
+  [
+    `DELETE ${apiPaths.products.delete(':id')}`,
+    { action: Action.PRODUCT_DELETE, resource: 'product', operation: 'delete' },
+  ],
 ]);
 
 /** Escenario de una ruta, o `undefined` si nadie lo ha declarado (la suite de cobertura lo reporta). */
@@ -175,6 +187,8 @@ export async function persistScenarioResource(
   // Usuarios e invitaciones no tienen responsable: siempre un comercial, que todo rol de gestión gestiona.
   if (resource === 'user') return (await persistUser(tenantId, { role: Role.SALES_REP })).id;
   if (resource === 'invitation') return (await persistUserInvitation(tenantId, company.owner.id)).id;
+  // Los productos no tienen responsable: son del catálogo de la empresa.
+  if (resource === 'product') return (await persistProduct(tenantId)).id;
   return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
@@ -190,6 +204,7 @@ export function creationBody(resource: ScenarioResource): Record<string, unknown
     nextStatusOrder += 1;
     return { email: `invitado.escenario.${nextStatusOrder}@example.com`, role: Role.SALES_REP };
   }
+  if (resource === 'product') return { name: 'Producto Escenario', basePrice: '150000' };
   return { name: 'Empresa Escenario SAS' };
 }
 
@@ -205,6 +220,7 @@ export function updateBody(resource: ScenarioResource): Record<string, unknown> 
   if (resource === 'contact') return { lastName: 'Modificado' };
   if (resource === 'user') return { isActive: false };
   if (resource === 'tenant') return { timezone: 'America/Lima' };
+  if (resource === 'product') return { name: 'Producto modificado' };
   return { city: 'Modificada' };
 }
 
@@ -217,6 +233,7 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'user') return prisma.user.findUnique({ where: { id } });
   if (resource === 'invitation') return prisma.userInvitation.findUnique({ where: { id } });
   if (resource === 'tenant') return prisma.tenant.findUnique({ where: { id }, include: { tenantSettings: true } });
+  if (resource === 'product') return prisma.product.findUnique({ where: { id } });
   return prisma.companyContact.findUnique({ where: { id } });
 }
 

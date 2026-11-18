@@ -37,6 +37,9 @@ export enum AuditAction {
   COMPANY_CONTACT_CREATED = 'COMPANY_CONTACT_CREATED',
   COMPANY_CONTACT_UPDATED = 'COMPANY_CONTACT_UPDATED',
   COMPANY_CONTACT_DELETED = 'COMPANY_CONTACT_DELETED',
+  PRODUCT_CREATED = 'PRODUCT_CREATED',
+  PRODUCT_UPDATED = 'PRODUCT_UPDATED',
+  PRODUCT_DELETED = 'PRODUCT_DELETED',
 }
 
 /** Sobre qué tipo de registro. Se guarda en `AuditLog.entity`. */
@@ -49,6 +52,7 @@ export enum AuditEntity {
   LEAD_STATUS_CONFIG = 'LeadStatusConfig',
   CONTACT = 'Contact',
   COMPANY_CONTACT = 'CompanyContact',
+  PRODUCT = 'Product',
 }
 
 /**

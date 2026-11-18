@@ -6,6 +6,7 @@ import { ContactModule } from './modules/ContactModule.js';
 import { EmailModule } from './modules/EmailModule.js';
 import { UserModule } from './modules/UserModule.js';
 import { TenantModule } from './modules/TenantModule.js';
+import { ProductModule } from './modules/ProductModule.js';
 import { LeadModule } from './modules/LeadModule.js';
 import { LeadStatusModule } from './modules/LeadStatusModule.js';
 import { ModuleDependencies } from './modules/ModuleDependencies.js';
@@ -33,6 +34,7 @@ export class ScopedContainer {
   readonly email: EmailModule;
   readonly users: UserModule;
   readonly tenant: TenantModule;
+  readonly products: ProductModule;
 
   /** @param tenantId Tenant de la sesión; sin él, solo sirven los casos de uso públicos (registro, login). */
   constructor(tenantId?: string) {
@@ -49,5 +51,6 @@ export class ScopedContainer {
     this.email = new EmailModule(dependencies);
     this.users = new UserModule(dependencies);
     this.tenant = new TenantModule(dependencies);
+    this.products = new ProductModule(dependencies);
   }
 }

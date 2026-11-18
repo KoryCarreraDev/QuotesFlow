@@ -10,6 +10,8 @@ import type {
   DeletedState as DeletedStateRecord,
   Lead as LeadRecord,
   LeadStatusConfig as LeadStatusConfigRecord,
+  Product as ProductRecord,
+  Formula as FormulaRecord,
   Tenant as TenantRecord,
   User as UserRecord,
   UserInvitation as UserInvitationRecord,
@@ -221,6 +223,61 @@ export async function persistCompanyContact(
       name: 'Constructora El Roble',
       industry: 'Construcción',
       city: 'Bogotá',
+      ...overrides,
+    },
+  });
+}
+
+export interface FormulaOverrides {
+  id?: string;
+  name?: string;
+  expression?: string;
+  variables?: Array<{ name: string; label: string }>;
+  deleted?: DeletedStateRecord;
+}
+
+/** Fórmula de precio (F3-T04). `createdById` es obligatorio en el modelo: se pasa el autor. */
+export async function persistFormula(
+  tenantId: string,
+  createdById: string,
+  overrides: FormulaOverrides = {},
+): Promise<FormulaRecord> {
+  return prisma.formula.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      createdById,
+      name: 'Ventana por metro cuadrado',
+      expression: 'ancho * alto * precioM2',
+      variables: [
+        { name: 'ancho', label: 'Ancho (m)' },
+        { name: 'alto', label: 'Alto (m)' },
+        { name: 'precioM2', label: 'Precio por m²' },
+      ],
+      ...overrides,
+    },
+  });
+}
+
+export interface ProductOverrides {
+  id?: string;
+  name?: string;
+  description?: string;
+  /** Texto decimal, como lo guarda la API (F3-T01). */
+  basePrice?: string | null;
+  formulaId?: string;
+  isActive?: boolean;
+  deleted?: DeletedStateRecord;
+}
+
+/** Producto del catálogo (F3-T02). Por defecto, con precio fijo. */
+export async function persistProduct(tenantId: string, overrides: ProductOverrides = {}): Promise<ProductRecord> {
+  return prisma.product.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      name: 'Ventana corrediza',
+      basePrice: '450000',
       ...overrides,
     },
   });

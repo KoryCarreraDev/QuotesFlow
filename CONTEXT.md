@@ -26,7 +26,8 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Motor de filtrado genérico | ✅ | Sección 8 |
 | Dinero exacto (F3-T01) | ✅ | `Money` y `Percentage` en `domain/value-objects/money.ts`: centavos en `bigint`, redondeo mitad hacia arriba, texto decimal en la API (H21 resuelto). `docs/modulos/dinero.md` |
 | Evaluador de fórmulas (F3-T03) | ✅ | Puerto `IFormulaEvaluator`, adaptador `MathjsFormulaEvaluator`: lista blanca de nodos, BigNumber, límites de tamaño. `docs/modulos/formulas.md` |
-| Productos, Fórmulas, Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
+| Productos (F3-T02) | ✅ | Buscar, crear, modificar, borrar (suave). Precio fijo o fórmula. `docs/modulos/productos.md` |
+| Fórmulas (CRUD), Cotizaciones, PDF | ⏳ | Solo modelos en `schema.prisma` |
 | AuditLog, LeadStatusHistory | ✅ | `AuditLog` en toda modificación y en registro y login (F1-T07); `LeadStatusHistory` en cada cambio de estado (F1-T13) |
 | Perfil de la empresa y `TenantSettings` (F2-T06) | ✅ | `GET/PATCH /tenant`: nombre y zona horaria IANA (por defecto `America/Bogota`); el logo llega con F3-T07. `leadAssignmentStrategy` sigue sin lógica (`ROUND_ROBIN`/`LOAD_BALANCED`, C-08 = No) |
 | Correo transaccional (F2-T01) | ✅ | `TransactionalEmailSender`: plantillas MJML compiladas, Resend (por axios) y `EmailLog`. Sección 8 |
@@ -155,6 +156,11 @@ cookie accessToken -> createAuthValidateCookie (AuthenticateSessionUseCase: veri
 
 **Roles:** `OWNER`, `PARTNER`, `SALES_LEADER`, `SALES_REP`. Leads, estados, contactos y empresas cliente aplican roles.
 
+**Productos (F3-T02)**
+- Precio fijo, fórmula o ambos; nunca ninguno (`PRODUCT_PRICE_REQUIRED`), también tras una modificación parcial. La fórmula tiene que ser de la empresa y no estar borrada (`INVALID_PRODUCT_FORMULA`). Precio unitario antes de IVA (Q-020).
+- `product:list` todo el equipo; `product:create`, `product:update`, `product:delete` gestión (dueño, socio, líder). Supuesto pendiente de confirmar por el dueño de producto.
+- Los filtros admiten el tipo `boolean` desde F3-T02 (`isActive`).
+
 **Perfil de la empresa (F2-T06)**
 - `tenant:view` todo el equipo; `tenant:update` solo dueño y socio (D-16). `PATCH /tenant` acepta `name` (1-200) y `timezone`, una zona IANA que conozca el entorno (`isSupportedTimezone`, `domain/value-objects/timezone.ts`); al menos uno. El cuerpo no cambia id ni logo (Zod los descarta). Auditado como `TENANT_UPDATED` con `changedFields`.
 - Toda empresa tiene su fila de `TenantSettings`: el registro la crea y la migración la creó para las existentes; si faltara, el perfil devuelve `America/Bogota` y modificar la crea. Las fechas se guardan en UTC; la zona horaria la usarán cotizaciones, alertas y reportes.
@@ -277,6 +283,10 @@ Auth: cookie HTTP-only `accessToken` (excepto `/health`, `/ready` y las rutas p�
 | DELETE | `/api/v1/users/invitations/:id` | — (revoca) |
 | POST | `/api/v1/auth/invitations/accept` | `{ token, password, firstName, lastName }` → 201 y cookies de sesión |
 | DELETE | `/api/v1/company-contacts/:id` | — (borrado suave; solo gestión; 409 `COMPANY_CONTACT_HAS_CONTACTS` si tiene contactos activos) |
+| GET | `/api/v1/products/search` | Query de filtrado (sección 8) → `{ data, total, page, limit }` |
+| POST | `/api/v1/products` | `{ name, description?, basePrice?(texto decimal), formulaId?(uuid), isActive? }` → 201 |
+| PATCH | `/api/v1/products/:id` | Igual que crear, todo opcional; `null` quita `description`, `basePrice` o `formulaId` |
+| DELETE | `/api/v1/products/:id` | — (borrado suave; solo gestión) |
 
 ### Correo transaccional (F2-T01)
 
@@ -476,3 +486,4 @@ Guía completa: `tests/README.md`. Resumen de lo que hay que saber:
 | 2026-11-17 | F2-T06 | pendiente | Perfil de la empresa y `TenantSettings` (migración `add_timezone_to_tenant_settings`, con relleno para las empresas existentes): puerto `ITenantProfileRepository` y adaptador `PrismaTenantProfileRepository`, casos de uso `GetTenantProfileUseCase` y `UpdateTenantProfileUseCase` (auditado), acciones `tenant:view` (todos) y `tenant:update` (dueño y socio, D-16), `domain/value-objects/timezone.ts` (zona IANA, por defecto `America/Bogota`), rutas `GET/PATCH /api/v1/tenant` y `TenantModule`. El registro crea la configuración de la empresa nueva. Operación de escenario `readOwn` y código de éxito por escenario en las suites de seguridad (grupo `tenant`). 27 tests nuevos. El logo queda para F3-T07 (`IFileStorage`). Matriz de permisos regenerada. |
 | 2026-11-17 | F3-T01 | pendiente | Dinero exacto (H21, R8): objetos de valor `Money` (centavos en `bigint`, hasta 15 cifras enteras y 2 decimales, redondeo mitad hacia arriba, suma, resta, por cantidad y porcentaje) y `Percentage` (0 a 100 en puntos básicos) en `domain/value-objects/money.ts`, sin librerías (R4). Códigos `INVALID_MONEY_AMOUNT`, `INVALID_PERCENTAGE`, `INVALID_QUANTITY`. `Lead.estimatedValue` pasa a `Money`: la API lo recibe y lo devuelve como texto decimal (`moneyAmountSchema`) y la base lo lee por `toFixed()`, nunca por `Number`. `decimal.js` no se añade: el dominio no puede importarla y `mathjs` trae la suya para las fórmulas. 51 tests nuevos. Cambian los tests de leads que enviaban o esperaban `estimatedValue` como number (ahora texto o `Money`) y el que rechazaba el texto `"2500000"` (ahora lo acepta y rechaza el number). |
 | 2026-11-17 | F3-T03 | pendiente | Evaluador de fórmulas endurecido: puerto `IFormulaEvaluator` (`validate` al guardar, `evaluate` al cotizar, valores y resultado como texto decimal) y adaptador `MathjsFormulaEvaluator`. Nunca evalúa texto: analiza y recorre el árbol con lista blanca (números acotados, variables declaradas, `+ - * /`, menos unario, paréntesis, `min`, `max`, `round`, `ceil`, `floor`, `abs`); sin potencia, factorial, accesos, asignaciones ni constantes. Límites: 500 caracteres, 100 nodos, 15 cifras enteras y 6 decimales en constantes y valores, resultado menor que 1e15. Instancia de mathjs con BigNumber (64 cifras) y con `import`, `createUnit`, `evaluate`, `parse`, `simplify`, `derivative` y `compile` deshabilitadas. Códigos `INVALID_FORMULA`, `INVALID_FORMULA_VARIABLE`, `FORMULA_EVALUATION_FAILED`. 73 tests de inyección y cálculo y 12 de validación de texto de `money.ts`. |
+| 2026-11-17 | F3-T02 | pendiente | Catálogo de productos: entidad `Product` (precio fijo `Money`, fórmula o ambos; `withChanges` con `null` para quitar), puerto `IProductRepository` (incluye `formulaExists` en el tenant), casos de uso `ListProductsUseCase`, `CreateProductUseCase`, `UpdateProductUseCase`, `DeleteProductUseCase` con auditoría en la transacción (`PRODUCT_CREATED`, `PRODUCT_UPDATED`, `PRODUCT_DELETED`), `PrismaProductRepository`, rutas `GET /products/search`, `POST /products`, `PATCH` y `DELETE /products/:id`. Acciones `product:list` (todos) y `product:create/update/delete` (gestión; supuesto pendiente de confirmar). Códigos `PRODUCT_NOT_FOUND`, `PRODUCT_PRICE_REQUIRED`, `INVALID_PRODUCT_FORMULA`. Tipo de filtro `boolean`. Sin migración: el modelo ya existía. Escenarios de seguridad del recurso `product` y grupo de roles `catalog`. 18 tests unitarios, 6 de integración y 16 de API, más los de las suites de seguridad. Matriz de permisos regenerada (necesita firma nueva). Cambian los tests de soporte de seguridad (`routeSecurityScenarios`, `auditAtomicity`, `rolePermissionCoverage`) para conocer el recurso nuevo. |

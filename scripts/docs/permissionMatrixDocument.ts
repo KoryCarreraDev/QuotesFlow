@@ -36,6 +36,10 @@ const actionDescriptions: Record<Action, string> = {
   [Action.USER_MANAGE]: 'Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona)',
   [Action.TENANT_VIEW]: 'Ver el perfil de la empresa (nombre, logo, zona horaria)',
   [Action.TENANT_UPDATE]: 'Cambiar el nombre o la zona horaria de la empresa',
+  [Action.PRODUCT_LIST]: 'Buscar y consultar el catálogo de productos (`GET /products/search`)',
+  [Action.PRODUCT_CREATE]: 'Crear un producto',
+  [Action.PRODUCT_UPDATE]: 'Modificar un producto (nombre, precio, fórmula, activo)',
+  [Action.PRODUCT_DELETE]: 'Borrar (suave) un producto',
 };
 
 const grantLabels = new Map<Grant, string>([

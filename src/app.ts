@@ -10,6 +10,7 @@ import { companyContactRouter } from './presentation/routes/companyContactRoutes
 import { leadStatusConfigRouter } from './presentation/routes/leadStatusConfigRouter.js';
 import { userRouter } from './presentation/routes/userRoutes.js';
 import { tenantRouter } from './presentation/routes/tenantRoutes.js';
+import { productRouter } from './presentation/routes/productRoutes.js';
 import { createErrorHandler, createRouteNotFoundHandler } from './infrastructure/web/middleware/errorHandler.js';
 import {
   createCorsMiddleware,
@@ -82,6 +83,7 @@ app.use(`${API_BASE_PATH}/company-contacts`, companyContactRouter(authenticateSe
 app.use(`${API_BASE_PATH}/lead-statuses`, leadStatusConfigRouter(authenticateSession));
 app.use(`${API_BASE_PATH}/users`, userRouter(authenticateSession));
 app.use(`${API_BASE_PATH}/tenant`, tenantRouter(authenticateSession));
+app.use(`${API_BASE_PATH}/products`, productRouter(authenticateSession));
 
 // Errores: siempre al final, después de todas las rutas (H5).
 app.use(createRouteNotFoundHandler());

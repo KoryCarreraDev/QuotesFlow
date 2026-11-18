@@ -38,6 +38,10 @@ Todo permiso vale solo dentro de la empresa (tenant) de la sesión: un recurso d
 | `user:manage` | Cambiar el rol, desactivar o reactivar usuarios (solo de los roles que gestiona) | Sí | Sí | Sí | No |
 | `tenant:view` | Ver el perfil de la empresa (nombre, logo, zona horaria) | Sí | Sí | Sí | Sí |
 | `tenant:update` | Cambiar el nombre o la zona horaria de la empresa | Sí | Sí | No | No |
+| `product:list` | Buscar y consultar el catálogo de productos (`GET /products/search`) | Sí | Sí | Sí | Sí |
+| `product:create` | Crear un producto | Sí | Sí | Sí | No |
+| `product:update` | Modificar un producto (nombre, precio, fórmula, activo) | Sí | Sí | Sí | No |
+| `product:delete` | Borrar (suave) un producto | Sí | Sí | Sí | No |
 
 Comportamientos que la tabla no muestra:
 

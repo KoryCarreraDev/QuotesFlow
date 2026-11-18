@@ -41,6 +41,10 @@ export enum Action {
   USER_MANAGE = 'user:manage',
   TENANT_VIEW = 'tenant:view',
   TENANT_UPDATE = 'tenant:update',
+  PRODUCT_LIST = 'product:list',
+  PRODUCT_CREATE = 'product:create',
+  PRODUCT_UPDATE = 'product:update',
+  PRODUCT_DELETE = 'product:delete',
 }
 
 /**
@@ -128,6 +132,12 @@ export const permissionMatrix: PermissionMatrix = {
   // F2-T06: el perfil de la empresa lo ve todo el equipo; lo cambian el dueño y el socio.
   [Action.TENANT_VIEW]: everyone,
   [Action.TENANT_UPDATE]: ownerAndPartner,
+  // F3-T02: el catálogo lo consulta todo el equipo para cotizar; lo gestionan los roles de gestión, como los
+  // estados de lead (supuesto pendiente de confirmar por el dueño de producto).
+  [Action.PRODUCT_LIST]: everyone,
+  [Action.PRODUCT_CREATE]: managementOnly,
+  [Action.PRODUCT_UPDATE]: managementOnly,
+  [Action.PRODUCT_DELETE]: managementOnly,
 };
 
 /**

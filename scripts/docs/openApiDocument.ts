@@ -28,6 +28,7 @@ import {
   updateLeadStatusConfigSchema,
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
 import { updateTenantProfileSchema } from '../../src/presentation/schemas/tenantSchema.js';
+import { createProductSchema, updateProductSchema } from '../../src/presentation/schemas/productSchema.js';
 import {
   acceptInvitationSchema,
   inviteUserSchema,
@@ -126,6 +127,7 @@ function crudOperations(resourcePath: string, tag: string, nouns: { singular: st
 
 const leads = crudOperations('leads', 'Leads', { singular: 'un lead', plural: 'leads' });
 const contacts = crudOperations('contacts', 'Contactos', { singular: 'un contacto', plural: 'contactos' });
+const products = crudOperations('products', 'Productos', { singular: 'un producto', plural: 'productos' });
 const companyContacts = crudOperations('company-contacts', 'Empresas cliente', {
   singular: 'una empresa cliente',
   plural: 'empresas cliente',
@@ -316,6 +318,10 @@ export const openApiOperations: OperationEntry[] = [
   { ...companyContacts.create, body: createCompanyContactSchema },
   { ...companyContacts.update, body: updateCompanyContactSchema },
   companyContacts.remove,
+  products.search,
+  { ...products.create, body: createProductSchema },
+  { ...products.update, body: updateProductSchema },
+  products.remove,
   {
     method: 'get',
     path: `${API_BASE_PATH}/tenant`,
