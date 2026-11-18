@@ -6,12 +6,18 @@ export interface TenantProfile {
   logoUrl?: string;
   /** Zona horaria IANA para fechas de cotizaciones, alertas y reportes. */
   timezone: string;
+  /**
+   * D-57 (F3-T10): si la empresa usa el correo además de las notificaciones del sistema (enviar cotizaciones,
+   * alertas). Desactivado por defecto. Los correos de la cuenta no dependen de él.
+   */
+  emailDeliveryEnabled: boolean;
 }
 
 /** Cambios que admite el perfil. */
 export interface TenantProfileChanges {
   name?: string;
   timezone?: string;
+  emailDeliveryEnabled?: boolean;
 }
 
 /** Perfil y configuración de la empresa de la sesión (`Tenant` + `TenantSettings`). Siempre la del contexto (R5). */

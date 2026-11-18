@@ -21,6 +21,7 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
       name: record.name,
       logoUrl: record.logoUrl ?? undefined,
       timezone: record.tenantSettings?.timezone ?? DEFAULT_TENANT_TIMEZONE,
+      emailDeliveryEnabled: record.tenantSettings?.emailDeliveryEnabled ?? false,
     };
   }
 
@@ -32,11 +33,12 @@ export class PrismaTenantProfileRepository extends BasePrismaRepository implemen
         data: { name: changes.name },
       });
     }
-    if (changes.timezone !== undefined) {
+    const settingsChanges = { timezone: changes.timezone, emailDeliveryEnabled: changes.emailDeliveryEnabled };
+    if (Object.values(settingsChanges).some((value) => value !== undefined)) {
       await this.prisma.tenantSettings.upsert({
         where: { tenantId },
-        create: { id: randomUUID(), tenantId, timezone: changes.timezone },
-        update: { timezone: changes.timezone },
+        create: { id: randomUUID(), tenantId, ...settingsChanges },
+        update: settingsChanges,
       });
     }
   }

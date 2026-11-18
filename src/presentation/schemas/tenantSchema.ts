@@ -10,7 +10,9 @@ export const updateTenantProfileSchema = z
       .string()
       .refine(isSupportedTimezone, { error: 'Must be an IANA time zone, e.g. America/Bogota' })
       .optional(),
+    // D-57 (F3-T10): usar también el correo para cotizaciones y alertas. Por defecto, solo el sistema.
+    emailDeliveryEnabled: z.boolean().optional(),
   })
-  .refine((changes) => changes.name !== undefined || changes.timezone !== undefined, {
-    error: 'At least one of name or timezone is required',
+  .refine((changes) => Object.values(changes).some((value) => value !== undefined), {
+    error: 'At least one of name, timezone or emailDeliveryEnabled is required',
   });
