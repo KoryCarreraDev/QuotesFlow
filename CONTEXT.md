@@ -35,7 +35,7 @@ Planeado: auth JWT, leads con roles, contactos, productos con precio fijo o por 
 | Perfil de la empresa y `TenantSettings` (F2-T06) | ✅ | `GET/PATCH /tenant`: nombre y zona horaria IANA (por defecto `America/Bogota`); el logo llega con F3-T07. `leadAssignmentStrategy` sigue sin lógica (`ROUND_ROBIN`/`LOAD_BALANCED`, C-08 = No) |
 | Correo transaccional (F2-T01) | ✅ | `TransactionalEmailSender`: plantillas MJML compiladas, Resend (por axios) y `EmailLog`. Sección 8 |
 | Mensajería, multer, pdf-lib | ⏳ | Instalados, sin uso (mathjs se usa desde F3-T03); se usarán en F3 a F6 (sección 6 de `PLAN.md`). winston se usa desde F1-T07; axios, desde F2-T01 (adaptador de Resend). `nodemailer`, `node-cron` y `http-status-codes` se quitaron en F0-T09 |
-| Tests | ✅ | Vitest: 1185 tests (unit, integración con PostgreSQL efímero, API, build), sin defectos conocidos pendientes. Guía en `tests/README.md` (sección 12) |
+| Tests | ✅ | Vitest: 2033 tests (unit, integración con PostgreSQL efímero, API, build), sin defectos conocidos pendientes. Guía en `tests/README.md` (sección 12) |
 
 ### Deuda / cosas a saber (no asumas lo contrario)
 - La lista completa de hallazgos de seguridad, con severidad y tarea, está en `docs/audits/00-linea-base.md` (H1 a H26). H2 y H23 se resolvieron en F2-T02. H7 y H22 se resolvieron en F2-T03. H21 se resolvió en F3-T01.
