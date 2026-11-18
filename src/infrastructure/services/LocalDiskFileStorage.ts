@@ -45,6 +45,23 @@ export class LocalDiskFileStorage implements IFileStorage {
     return filePath;
   }
 
+  /**
+   * Crea la carpeta raíz si hace falta y comprueba que se puede escribir en ella. Se llama al arrancar: así una
+   * carpeta mal montada o sin permisos hace fallar el arranque con un mensaje claro y no la primera subida (F3-A18).
+   *
+   * @throws {Error} `File storage directory is not writable`, con la causa original.
+   */
+  async assertWritable(): Promise<void> {
+    const probePath = path.join(this.rootDirectory, `.write-check-${randomUUID()}`);
+    try {
+      await mkdir(this.rootDirectory, { recursive: true });
+      await writeFile(probePath, '');
+      await rm(probePath);
+    } catch (error) {
+      throw new Error('File storage directory is not writable', { cause: error });
+    }
+  }
+
   async save(key: string, content: Uint8Array, _contentType: string): Promise<void> {
     const filePath = this.pathFor(key);
     await mkdir(path.dirname(filePath), { recursive: true });

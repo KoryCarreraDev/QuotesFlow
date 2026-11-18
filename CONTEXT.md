@@ -431,6 +431,7 @@ Convenciones: las restricciones por rol se pasan al use case (`role`, `userId`) 
 | `RESEND_API_KEY` | Clave de Resend (`re_…`). Obligatoria con `resend`; secreto, sin valor por defecto | Ninguno |
 | `EMAIL_FROM` | Remitente verificado, `Nombre <correo>` o `correo`. Obligatorio con `resend` | `QuotesFlow <no-reply@localhost>` |
 | `PASSWORD_BREACH_CHECK` | `hibp` (Have I Been Pwned) u `off` (tests, sin internet) | `hibp` |
+| `FILE_STORAGE_DIRECTORY` | Carpeta donde `LocalDiskFileStorage` guarda los logos. **Obligatoria en producción** (un volumen montado y escribible: se comprueba al arrancar y, si no, la API no arranca) | `storage` (fuera de producción) |
 | `APP_BASE_URL` | URL del frontend para los enlaces de los correos, sin barra final; `https` en producción | `http://localhost:5173` |
 
 Una variable vacía (`JWT_SECRET=`) cuenta como ausente. Docker Compose además requiere `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.

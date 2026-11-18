@@ -161,6 +161,7 @@ jobs:
           -e DATABASE_URL -e JWT_SECRET=ci-only-jwt-secret-never-used-outside-this-job
           -e EMAIL_PROVIDER=resend -e RESEND_API_KEY=re_ci_example_key_not_valid
           -e "EMAIL_FROM=QuotesFlow <no-reply@example.com>" -e APP_BASE_URL=https://app.example.com
+          -e FILE_STORAGE_DIRECTORY=/tmp/quotesflow-files
           quotesflow-api:ci
       - name: Comprobar /health, el usuario sin privilegios y el registro contra la base de datos
         run: |

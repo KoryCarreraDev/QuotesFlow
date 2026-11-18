@@ -150,6 +150,24 @@ describe('LocalDiskFileStorage', () => {
     await expect(readFile(path.join(directory, 'secreto.txt'), 'utf8')).resolves.toBe('no tocar');
   });
 
+  it('assertWritable comprueba que se puede escribir y no deja archivos (F3-A18)', async () => {
+    const { directory, storage } = await createStorage();
+
+    await expect(storage.assertWritable()).resolves.toBeUndefined();
+
+    expect(await readdir(directory)).toEqual([]);
+  });
+
+  it('assertWritable falla con un mensaje claro si la carpeta no es escribible', async () => {
+    const { directory } = await createStorage();
+    const occupiedByAFile = path.join(directory, 'archivo.txt');
+    await writeFile(occupiedByAFile, 'no soy una carpeta');
+
+    await expect(new LocalDiskFileStorage(occupiedByAFile).assertWritable()).rejects.toThrow(
+      'File storage directory is not writable',
+    );
+  });
+
   it('un archivo con otra extensión se sirve como binario genérico', async () => {
     const { storage } = await createStorage();
 

@@ -26,6 +26,8 @@ const validVariables = {
   RESEND_API_KEY: 're_example_key_for_tests',
   EMAIL_FROM: 'QuotesFlow <no-reply@quotesflow.example>',
   APP_BASE_URL: 'https://app.quotesflow.example',
+  // F3-A18: en producción la carpeta de archivos se indica siempre (un volumen montado).
+  FILE_STORAGE_DIRECTORY: '/var/data/uploads',
 };
 
 function parseWith(overrides: Record<string, string | undefined>) {
@@ -63,13 +65,28 @@ describe('parseEnvironment', () => {
       RESEND_API_KEY: validVariables.RESEND_API_KEY,
       EMAIL_FROM: validVariables.EMAIL_FROM,
       APP_BASE_URL: validVariables.APP_BASE_URL,
-      FILE_STORAGE_DIRECTORY: 'storage',
+      FILE_STORAGE_DIRECTORY: validVariables.FILE_STORAGE_DIRECTORY,
     });
   });
 
-  it('FILE_STORAGE_DIRECTORY (F3-T07) puede apuntar a otra carpeta', () => {
-    expect(parseEnvironment({ ...validVariables, FILE_STORAGE_DIRECTORY: '/var/data/uploads' })).toMatchObject({
-      FILE_STORAGE_DIRECTORY: '/var/data/uploads',
+  describe('almacenamiento de archivos (F3-T07, F3-A18)', () => {
+    it('en producción la carpeta es obligatoria: no arranca con un valor por defecto que la imagen no puede escribir', () => {
+      expect(invalidVariablesOf({ FILE_STORAGE_DIRECTORY: undefined })).toEqual(['FILE_STORAGE_DIRECTORY']);
+      expect(invalidVariablesOf({ FILE_STORAGE_DIRECTORY: '' })).toEqual(['FILE_STORAGE_DIRECTORY']);
+    });
+
+    it('fuera de producción usa ./storage si no se indica', () => {
+      const environment = parseEnvironment({
+        ...validVariables,
+        NODE_ENV: 'development',
+        EMAIL_PROVIDER: undefined,
+        RESEND_API_KEY: undefined,
+        EMAIL_FROM: undefined,
+        APP_BASE_URL: undefined,
+        FILE_STORAGE_DIRECTORY: undefined,
+      });
+
+      expect(environment.FILE_STORAGE_DIRECTORY).toBe('storage');
     });
   });
 
