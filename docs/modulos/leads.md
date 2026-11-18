@@ -38,7 +38,7 @@ Content-Type: application/json
   "contactName": "Ana Gómez",
   "companyName": "Vidrios del Norte",
   "email": "ana.gomez@vidriosdelnorte.co",
-  "estimatedValue": 2500000,
+  "estimatedValue": "2500000",
   "expectedCloseDate": "2026-12-15"
 }
 ```
@@ -51,7 +51,7 @@ Respuesta `201`:
   "email": "ana.gomez@vidriosdelnorte.co",
   "statusId": "id-del-estado-predeterminado",
   "assignedToId": "id-del-comercial",
-  "estimatedValue": 2500000,
+  "estimatedValue": "2500000.00",
   "expectedCloseDate": "2026-12-15T00:00:00.000Z"
 }
 ```
@@ -71,4 +71,4 @@ Errores: `400 VALIDATION_FAILED` (nota de más de 500 caracteres), `400 INVALID_
 ## Seguridad
 - Todo queda acotado al tenant de la sesión: un lead de otra empresa responde 404, igual que uno inexistente (`tests/api/security/`).
 - Toda modificación se audita (`LEAD_CREATED`, `LEAD_UPDATED` con los nombres de los campos cambiados, `LEAD_STATUS_CHANGED`, `LEAD_DELETED`).
-- `estimatedValue` aún se maneja como número; el dinero exacto con decimales llega en F3-T01 (H21).
+- `estimatedValue` es dinero exacto (F3-T01, H21): llega y sale como texto decimal con hasta dos decimales (`"2500000.50"`); un number, un negativo o más de dos decimales responden `400 VALIDATION_FAILED`. Ver `docs/modulos/dinero.md`.

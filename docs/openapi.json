@@ -2765,7 +2765,9 @@
                     "format": "uuid"
                   },
                   "estimatedValue": {
-                    "type": "number"
+                    "type": "string",
+                    "description": "Importe en pesos como texto decimal, con hasta 2 decimales",
+                    "example": "2500000.00"
                   },
                   "expectedCloseDate": {
                     "type": [
@@ -3408,7 +3410,9 @@
                     "format": "uuid"
                   },
                   "estimatedValue": {
-                    "type": "number"
+                    "type": "string",
+                    "description": "Importe en pesos como texto decimal, con hasta 2 decimales",
+                    "example": "2500000.00"
                   },
                   "expectedCloseDate": {
                     "type": [

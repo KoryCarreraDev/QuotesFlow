@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import prisma from '@/config/database.js';
 import { Lead } from '@/domain/entities/Lead.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
+import { Money } from '@/domain/value-objects/money.js';
 import { leadFilterConfig } from '@/infrastructure/persistence/filters/leadFilterConfig.js';
 import { PrismaLeadRepository } from '@/infrastructure/persistence/repositories/PrismaLeadRepository.js';
 import { NON_EXISTENT_ID } from '@tests/support/builders/entityBuilders.js';
@@ -12,7 +13,9 @@ import {
 } from '@tests/support/database/persistenceFactories.js';
 import { FixedTenantContext } from '@tests/support/doubles/FixedTenantContext.js';
 
-const UPDATED_ESTIMATED_VALUE = 3_000_000;
+const UPDATED_ESTIMATED_VALUE = Money.fromDecimalString('3000000');
+// Más cifras de las que number guarda sin error: comprueba que el valor no pasa por number (H21).
+const PRECISE_ESTIMATED_VALUE = '12345678901234.57';
 const TWO_MATCHING_RECORDS = 2;
 
 function createRepositoryFor(tenantId: string): PrismaLeadRepository {
@@ -46,7 +49,7 @@ describe('PrismaLeadRepository', () => {
         statusId: company.defaultLeadStatus.id,
         source: 'Referido',
         assignedToId: company.salesRep.id,
-        estimatedValue: 2_500_000,
+        estimatedValue: Money.fromDecimalString(PRECISE_ESTIMATED_VALUE),
         expectedCloseDate,
         notes: 'Llamar el lunes',
       });
@@ -64,11 +67,11 @@ describe('PrismaLeadRepository', () => {
         statusId: company.defaultLeadStatus.id,
         source: 'Referido',
         assignedToId: company.salesRep.id,
-        estimatedValue: 2_500_000,
         expectedCloseDate,
         notes: 'Llamar el lunes',
         deleted: DeletedState.ACTIVE,
       });
+      expect(foundLead?.estimatedValue?.toDecimalString()).toBe(PRECISE_ESTIMATED_VALUE);
     });
 
     it('findById devuelve null si el lead no existe', async () => {
@@ -138,7 +141,7 @@ describe('PrismaLeadRepository', () => {
         phone: '3007654321',
         source: 'Feria',
         assignedToId: company.otherSalesRep.id,
-        estimatedValue: 3_000_000,
+        estimatedValue: UPDATED_ESTIMATED_VALUE,
         expectedCloseDate: new Date('2026-09-15T00:00:00.000Z'),
         notes: 'Reasignado',
       });

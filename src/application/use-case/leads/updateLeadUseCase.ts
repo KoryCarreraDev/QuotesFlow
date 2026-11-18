@@ -18,6 +18,7 @@ import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Role } from '@/domain/enums/Role.js';
 import { Lead } from '@/domain/entities/Lead.js';
 import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
+import { Money } from '@/domain/value-objects/money.js';
 
 /**
  * Modifica los datos de un lead (no su estado: eso es `ChangeLeadStatusUseCase`). Un comercial solo los suyos y sin reasignar; gestión reasigna a usuarios activos de la empresa (H9).
@@ -75,7 +76,9 @@ export class UpdateLeadUseCase {
       storedLead.statusId,
       updateLead.source !== undefined ? updateLead.source : storedLead.source,
       mayReassign && updateLead.assignedToId !== undefined ? updateLead.assignedToId : storedLead.assignedToId,
-      updateLead.estimatedValue !== undefined ? updateLead.estimatedValue : storedLead.estimatedValue,
+      updateLead.estimatedValue !== undefined
+        ? Money.fromDecimalString(updateLead.estimatedValue)
+        : storedLead.estimatedValue,
       updateLead.expectedCloseDate !== undefined ? updateLead.expectedCloseDate : storedLead.expectedCloseDate,
       updateLead.notes !== undefined ? updateLead.notes : storedLead.notes,
       storedLead.createdAt,

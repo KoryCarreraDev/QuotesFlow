@@ -13,6 +13,7 @@ import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
 import { Lead } from '../../../domain/entities/Lead.js';
 import { Role } from '@/domain/enums/Role.js';
 import { IUserRepository } from '@/application/ports/repositories/IUserRepository.js';
+import { Money } from '@/domain/value-objects/money.js';
 
 /**
  * Crea un lead. Sin estado, toma el predeterminado de la empresa. Un comercial queda siempre como responsable; gestión puede asignarlo a un usuario activo de la empresa (H9).
@@ -81,7 +82,8 @@ export class CreateLeadUseCase {
       statusId: statusId,
       source: createLead.source,
       assignedToId: assignedToId,
-      estimatedValue: createLead.estimatedValue,
+      estimatedValue:
+        createLead.estimatedValue === undefined ? undefined : Money.fromDecimalString(createLead.estimatedValue),
       expectedCloseDate: createLead.expectedCloseDate,
       notes: createLead.notes,
     });

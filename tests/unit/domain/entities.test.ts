@@ -7,8 +7,9 @@ import { Tenant } from '@/domain/entities/Tenant.js';
 import { User } from '@/domain/entities/User.js';
 import { DeletedState } from '@/domain/enums/DeletedState.js';
 import { Role } from '@/domain/enums/Role.js';
+import { Money } from '@/domain/value-objects/money.js';
 
-const STORED_ESTIMATED_VALUE = 2_500_000;
+const STORED_ESTIMATED_VALUE = '2500000.00';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -46,7 +47,7 @@ describe('Lead', () => {
       statusId: 'status-id',
       source: 'Referido',
       assignedToId: 'user-id',
-      estimatedValue: 2_500_000,
+      estimatedValue: Money.fromDecimalString('2500000'),
       expectedCloseDate,
       notes: 'Llamar el lunes',
     });
@@ -58,10 +59,10 @@ describe('Lead', () => {
       statusId: 'status-id',
       source: 'Referido',
       assignedToId: 'user-id',
-      estimatedValue: 2_500_000,
       expectedCloseDate,
       notes: 'Llamar el lunes',
     });
+    expect(lead.estimatedValue?.toDecimalString()).toBe('2500000.00');
   });
 
   it('fromPrisma convierte los null de la base de datos en undefined', () => {
@@ -93,6 +94,15 @@ describe('Lead', () => {
     expect(lead.notes).toBeUndefined();
   });
 
+  // H21 (F3-T01): el Decimal de la base de datos se lee por su texto, sin pasar por number.
+  it('fromPrisma lee el Decimal de Prisma exacto, sin pasar por number', () => {
+    const storedDecimal = { toFixed: () => '12345678901234.57' };
+
+    const lead = Lead.fromPrisma({ id: RECORD_ID, tenantId: TENANT_ID, estimatedValue: storedDecimal });
+
+    expect(lead.estimatedValue?.toDecimalString()).toBe('12345678901234.57');
+  });
+
   it('fromPrisma conserva los datos presentes, incluido el estado de borrado', () => {
     const lead = Lead.fromPrisma({
       id: RECORD_ID,
@@ -109,7 +119,7 @@ describe('Lead', () => {
     expect(lead.contactName).toBe('Ana Gómez');
     expect(lead.statusId).toBe('status-id');
     expect(lead.assignedToId).toBe('user-id');
-    expect(lead.estimatedValue).toBe(STORED_ESTIMATED_VALUE);
+    expect(lead.estimatedValue?.toDecimalString()).toBe(STORED_ESTIMATED_VALUE);
     expect(lead.createdAt).toEqual(CREATED_AT);
     expect(lead.updatedAt).toEqual(UPDATED_AT);
     expect(lead.deleted).toBe(DeletedState.INACTIVE);

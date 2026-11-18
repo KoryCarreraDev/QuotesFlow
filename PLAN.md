@@ -179,7 +179,7 @@ Bloqueada por: D-09 a D-14. Requiere cuenta de Resend y dominio verificado.
 ### F3 — Productos, fórmulas y cotizaciones
 Bloqueada por: D-20 a D-26.
 
-- F3-T01 `[O]` Objeto de valor `Money` con decimales exactos; corregir H21.
+- F3-T01 `[O]` Objeto de valor `Money` con decimales exactos; corregir H21. **Hecha el 2026-11-17, pendiente de PR y revisión humana.** `Money` y `Percentage` sin librerías (R4); `decimal.js` no hace falta.
 - F3-T02 `[S]` Productos: CRUD, filtrado, borrado suave.
 - F3-T03 `[O]` Puerto `IFormulaEvaluator` + adaptador mathjs endurecido: funciones peligrosas deshabilitadas (`import`, `createUnit`, `evaluate`, `parse`, `simplify`, `derivative`), lista blanca de nodos, longitud máxima, solo variables declaradas y numéricas. Tests de inyección obligatorios.
 - F3-T04 `[S]` Fórmulas: CRUD; la expresión se valida al guardar.
@@ -271,7 +271,7 @@ Lo marcado "No" en las sugerencias de CRM (sección 9.8), pasarela de pago, SSE,
 | F0 | vitest, @vitest/coverage-v8, supertest, @types/supertest, @testcontainers/postgresql, typescript-eslint, eslint-plugin-security, @vitest/eslint-plugin, dependency-cruiser, lefthook, tsc-alias (si H20 se confirma) | jest, ts-jest, @types/jest (si D-01 = Sí) |
 | F1 | @asteasolutions/zod-to-openapi (si D-07 = Sí) | — |
 | F2 | mjml (devDependency, D-28). `resend` no se añadió: el adaptador usa axios (F2-T01) | nodemailer, @types/nodemailer (si D-30 = Sí) |
-| F3 | decimal.js, file-type, cliente S3 (si D-26 = Sí) | — |
+| F3 | file-type, cliente S3 (si D-26 = Sí). `decimal.js` no se añadió: `Money` usa `bigint` (F3-T01) | — |
 | F4 | pg-boss (si D-27 = Sí), svix | node-cron (si D-27 = Sí) |
 | F5 | otplib, qrcode | — |
 | F6 | exceljs | axios (si D-49 = Sí) |

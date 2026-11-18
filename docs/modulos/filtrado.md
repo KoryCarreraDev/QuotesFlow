@@ -34,7 +34,7 @@ GET /api/v1/leads/search?search=vidrio&filters=[{"field":"statusId","operator":"
 ```
 Respuesta `200`:
 ```json
-{ "data": [ { "id": "…", "contactName": "Ana Gómez", "estimatedValue": 2500000 } ], "total": 1, "page": 1, "limit": 20 }
+{ "data": [ { "id": "…", "contactName": "Ana Gómez", "estimatedValue": "2500000.00" } ], "total": 1, "page": 1, "limit": 20 }
 ```
 Errores: `400 INVALID_FILTERS_FORMAT` (no es una lista JSON, parámetro repetido), `400 FILTER_FIELD_NOT_ALLOWED`, `400 FILTER_OPERATOR_NOT_ALLOWED`, `400 INVALID_FILTER_VALUE` (con `details[].path = ["filters", i, "value"]`), `400 SORT_FIELD_NOT_ALLOWED`.
 

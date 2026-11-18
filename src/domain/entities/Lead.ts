@@ -1,4 +1,13 @@
 import { DeletedState } from '../enums/DeletedState.js';
+import { Money } from '../value-objects/money.js';
+
+/** Decimal tal como lo entrega la base de datos: el `Decimal` de Prisma o su texto. */
+type StoredDecimal = string | { toFixed(): string };
+
+// `toFixed()` sin argumentos escribe el valor completo sin notación científica.
+function moneyFromStoredDecimal(value: StoredDecimal): Money {
+  return Money.fromDecimalStringRounded(typeof value === 'string' ? value : value.toFixed());
+}
 import crypto from 'crypto';
 
 /**
@@ -15,7 +24,7 @@ export class Lead {
     public readonly statusId?: string,
     public readonly source?: string,
     public readonly assignedToId?: string,
-    public readonly estimatedValue?: number,
+    public readonly estimatedValue?: Money,
     public readonly expectedCloseDate?: Date,
     public readonly notes?: string,
     public readonly createdAt?: Date,
@@ -33,8 +42,8 @@ export class Lead {
     statusId?: string | null;
     source?: string | null;
     assignedToId?: string | null;
-    // Prisma lo entrega como Decimal; la conversión a número exacto llega con F3-T01 (H21).
-    estimatedValue?: unknown;
+    // Prisma lo entrega como Decimal: se lee por su texto, nunca como number (F3-T01, H21).
+    estimatedValue?: StoredDecimal | null;
     expectedCloseDate?: Date | null;
     notes?: string | null;
     createdAt?: Date;
@@ -51,7 +60,7 @@ export class Lead {
       record.statusId ?? undefined,
       record.source ?? undefined,
       record.assignedToId ?? undefined,
-      record.estimatedValue ? Number(record.estimatedValue) : undefined,
+      record.estimatedValue ? moneyFromStoredDecimal(record.estimatedValue) : undefined,
       record.expectedCloseDate ?? undefined,
       record.notes ?? undefined,
       record.createdAt ?? undefined,
@@ -69,7 +78,7 @@ export class Lead {
     statusId?: string;
     source?: string;
     assignedToId?: string;
-    estimatedValue?: number;
+    estimatedValue?: Money;
     expectedCloseDate?: Date;
     notes?: string;
     deleted?: DeletedState;
