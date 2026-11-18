@@ -156,7 +156,14 @@ describe('Fórmulas de precio', () => {
 
     expect(updated.expression).toBe('ancho * alto * 200000');
     expect(auditLogger.entries).toEqual([
-      expect.objectContaining({ action: AuditAction.FORMULA_UPDATED, metadata: { changedFields: ['expression'] } }),
+      expect.objectContaining({
+        action: AuditAction.FORMULA_UPDATED,
+        metadata: {
+          changedFields: ['expression'],
+          // F3-A21: la expresión cambia lo que se cobra; queda de dónde a dónde.
+          changedValues: { expression: { from: formula.expression, to: 'ancho * alto * 200000' } },
+        },
+      }),
     ]);
   });
 

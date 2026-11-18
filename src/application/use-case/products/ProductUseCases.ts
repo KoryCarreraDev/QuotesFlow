@@ -8,6 +8,7 @@ import {
   AuditEntity,
   IAuditLogger,
   changedFieldNames,
+  changedValues,
 } from '@/application/ports/services/IAuditLogger.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 import { ITenantContext } from '@/application/ports/services/ITenantContext.js';
@@ -39,6 +40,19 @@ async function assertFormulaBelongsToTenant(repository: IProductRepository, form
   if (!(await repository.formulaExists(formulaId))) {
     throw new ValidationError(ErrorCode.INVALID_PRODUCT_FORMULA, 'Formula does not exist in this company');
   }
+}
+
+// F3-A21: el precio y la fórmula cambian lo que se cobra: se audita de qué a qué. Es una lista cerrada.
+const AUDITED_PRODUCT_FIELDS = ['basePrice', 'formulaId'] as const;
+
+function auditedValuesOf(product: Product) {
+  return { basePrice: product.basePrice?.toDecimalString(), formulaId: product.formulaId };
+}
+
+/** `{ changedValues }` si cambió el precio o la fórmula; si no, nada. */
+function valuesChanged(before: Product, after: Product): { changedValues?: object } {
+  const values = changedValues(auditedValuesOf(before), auditedValuesOf(after), AUDITED_PRODUCT_FIELDS);
+  return Object.keys(values).length === 0 ? {} : { changedValues: values };
 }
 
 function moneyOrNullFrom(text: string | null | undefined): Money | null | undefined {
@@ -126,7 +140,10 @@ export class UpdateProductUseCase {
         action: AuditAction.PRODUCT_UPDATED,
         entity: AuditEntity.PRODUCT,
         entityId: productId,
-        metadata: { changedFields: changedFieldNames(input) },
+        metadata: {
+          changedFields: changedFieldNames(input),
+          ...valuesChanged(storedProduct, updatedProduct),
+        },
       });
     });
     return productMapper.toDTO(updatedProduct);

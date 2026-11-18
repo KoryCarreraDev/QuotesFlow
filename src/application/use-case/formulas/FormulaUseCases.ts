@@ -7,6 +7,7 @@ import {
   AuditEntity,
   IAuditLogger,
   changedFieldNames,
+  changedValues,
 } from '@/application/ports/services/IAuditLogger.js';
 import { IFilterFieldConfig } from '@/application/ports/services/IFilterFieldConfig.js';
 import { IFormulaEvaluator } from '@/application/ports/services/IFormulaEvaluator.js';
@@ -102,6 +103,12 @@ export class CreateFormulaUseCase {
   }
 }
 
+/** `{ changedValues }` si cambió la expresión; si no, nada. */
+function expressionChange(before: string, after: string): { changedValues?: object } {
+  const values = changedValues({ expression: before }, { expression: after }, ['expression']);
+  return Object.keys(values).length === 0 ? {} : { changedValues: values };
+}
+
 /**
  * Modifica una fórmula. Las cotizaciones ya hechas no cambian: guardan el precio calculado (F3-T05).
  *
@@ -131,7 +138,11 @@ export class UpdateFormulaUseCase {
         action: AuditAction.FORMULA_UPDATED,
         entity: AuditEntity.FORMULA,
         entityId: formulaId,
-        metadata: { changedFields: changedFieldNames(changes) },
+        metadata: {
+          changedFields: changedFieldNames(changes),
+          // F3-A21: la expresión decide el precio de los productos que la usan.
+          ...expressionChange(storedFormula.expression, updatedFormula.expression),
+        },
       });
     });
     return formulaMapper.toDTO(updatedFormula);
