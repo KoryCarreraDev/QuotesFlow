@@ -12,6 +12,8 @@ import type {
   LeadStatusConfig as LeadStatusConfigRecord,
   Product as ProductRecord,
   Formula as FormulaRecord,
+  Quote as QuoteRecord,
+  QuoteStatus as QuoteStatusRecord,
   Tenant as TenantRecord,
   User as UserRecord,
   UserInvitation as UserInvitationRecord,
@@ -348,4 +350,69 @@ export async function persistTenantWithTeam(tenantOverrides: TenantOverrides = {
   }
 
   return { tenant, owner, partner, salesLeader, salesRep, otherSalesRep, leadStatuses, defaultLeadStatus };
+}
+
+export interface QuoteOverrides {
+  status?: QuoteStatusRecord;
+  /** Último día de vigencia, `AAAA-MM-DD`. Por defecto, dentro de 30 días. */
+  validUntil?: string;
+  contactId?: string;
+  version?: number;
+  previousVersionId?: string;
+}
+
+const DAYS_OF_VALIDITY = 30;
+const ISO_DATE_LENGTH = 10;
+const MILLISECONDS_PER_DAY = 86_400_000;
+// 2 unidades a 100 000 con IVA del 19 %: importes coherentes con lo que calcula el dominio.
+const TEST_QUOTE_ITEM = { quantity: 2, unitPrice: '100000', gross: '200000', tax: '38000', total: '238000' };
+
+/** Cotización (F3-T05) de un ítem, a nombre de `createdById`, con el siguiente número de la secuencia de la empresa. */
+export async function persistQuote(
+  tenantId: string,
+  createdById: string,
+  overrides: QuoteOverrides = {},
+): Promise<QuoteRecord> {
+  const sequence = await prisma.quoteNumberSequence.upsert({
+    where: { tenantId },
+    create: { tenantId, lastNumber: 1 },
+    update: { lastNumber: { increment: 1 } },
+  });
+  const contactId = overrides.contactId ?? (await persistContact(tenantId, { ownerId: createdById })).id;
+  const validUntil =
+    overrides.validUntil ??
+    new Date(Date.now() + DAYS_OF_VALIDITY * MILLISECONDS_PER_DAY).toISOString().slice(0, ISO_DATE_LENGTH);
+  const status = overrides.status ?? 'DRAFT';
+  const quote = await prisma.quote.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      number: sequence.lastNumber,
+      version: overrides.version ?? 1,
+      status,
+      contactId,
+      validUntil: new Date(`${validUntil}T00:00:00.000Z`),
+      subtotal: TEST_QUOTE_ITEM.gross,
+      taxTotal: TEST_QUOTE_ITEM.tax,
+      total: TEST_QUOTE_ITEM.total,
+      sentAt: status === 'DRAFT' ? null : new Date(),
+      previousVersionId: overrides.previousVersionId,
+      createdById,
+    },
+  });
+  await prisma.quoteItem.create({
+    data: {
+      tenantId,
+      quoteId: quote.id,
+      position: 1,
+      description: 'Ventana corrediza',
+      quantity: TEST_QUOTE_ITEM.quantity,
+      unitPrice: TEST_QUOTE_ITEM.unitPrice,
+      taxRate: '19',
+      netAmount: TEST_QUOTE_ITEM.gross,
+      taxAmount: TEST_QUOTE_ITEM.tax,
+      total: TEST_QUOTE_ITEM.total,
+    },
+  });
+  return quote;
 }

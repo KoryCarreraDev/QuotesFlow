@@ -157,3 +157,17 @@ describe('validación del texto que llega de la API', () => {
     expect(isPercentageText(text)).toBe(expected);
   });
 });
+
+describe('descuentos seguidos', () => {
+  it.each([
+    ['10', '10', '19.00'],
+    ['20', '0', '20.00'],
+    ['0', '0', '0.00'],
+    ['100', '50', '100.00'],
+    ['12.5', '7.5', '19.06'],
+  ])('%s %% y luego %s %% descuentan %s %%', (first, second, expected) => {
+    const combined = Percentage.fromDecimalString(first).combinedWith(Percentage.fromDecimalString(second));
+
+    expect(combined.toDecimalString()).toBe(expected);
+  });
+});

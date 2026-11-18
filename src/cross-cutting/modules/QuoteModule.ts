@@ -1,0 +1,103 @@
+import { QuoteContentResolver } from '../../application/use-case/quotes/QuoteContentResolver.js';
+import {
+  AcceptQuoteUseCase,
+  CreateQuoteUseCase,
+  DeleteQuoteUseCase,
+  GetQuoteUseCase,
+  ListQuotesUseCase,
+  RejectQuoteUseCase,
+  ReviseQuoteUseCase,
+  SendQuoteUseCase,
+  UpdateQuoteUseCase,
+} from '../../application/use-case/quotes/QuoteUseCases.js';
+import { quoteFilterConfig } from '../../infrastructure/persistence/filters/quoteFilterConfig.js';
+import { PrismaTransactionManager } from '../../infrastructure/persistence/prisma/PrismaTransactionManager.js';
+import { PrismaAuditLogger } from '../../infrastructure/persistence/repositories/PrismaAuditLogger.js';
+import { PrismaCompanyContactRepository } from '../../infrastructure/persistence/repositories/PrismaCompanyContactRepository.js';
+import { PrismaContactRepository } from '../../infrastructure/persistence/repositories/PrismaContactRepository.js';
+import { PrismaFormulaRepository } from '../../infrastructure/persistence/repositories/PrismaFormulaRepository.js';
+import { PrismaLeadRepository } from '../../infrastructure/persistence/repositories/PrismaLeadRepository.js';
+import { PrismaProductRepository } from '../../infrastructure/persistence/repositories/PrismaProductRepository.js';
+import { PrismaQuoteRepository } from '../../infrastructure/persistence/repositories/PrismaQuoteRepository.js';
+import { PrismaTenantProfileRepository } from '../../infrastructure/persistence/repositories/PrismaTenantProfileRepository.js';
+import { MathjsFormulaEvaluator } from '../../infrastructure/services/MathjsFormulaEvaluator.js';
+import { ModuleDependencies } from './ModuleDependencies.js';
+
+const formulaEvaluator = new MathjsFormulaEvaluator();
+
+/** Cotizaciones (F3-T05). */
+export class QuoteModule {
+  constructor(private readonly dependencies: ModuleDependencies) {}
+
+  private createRepository(): PrismaQuoteRepository {
+    return new PrismaQuoteRepository(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
+  private createProfileRepository(): PrismaTenantProfileRepository {
+    return new PrismaTenantProfileRepository(this.dependencies.prisma, this.dependencies.tenantContext);
+  }
+
+  private createContentResolver(): QuoteContentResolver {
+    const { prisma, tenantContext } = this.dependencies;
+    return new QuoteContentResolver(
+      new PrismaProductRepository(prisma, tenantContext),
+      new PrismaFormulaRepository(prisma, tenantContext),
+      formulaEvaluator,
+      new PrismaLeadRepository(prisma, tenantContext),
+      new PrismaContactRepository(prisma, tenantContext),
+      new PrismaCompanyContactRepository(prisma, tenantContext),
+    );
+  }
+
+  private writeDependencies() {
+    const { prisma, tenantContext } = this.dependencies;
+    return [new PrismaTransactionManager(prisma), new PrismaAuditLogger(prisma, tenantContext)] as const;
+  }
+
+  getListQuotesUseCase(): ListQuotesUseCase {
+    return new ListQuotesUseCase(this.createRepository(), this.createProfileRepository(), quoteFilterConfig);
+  }
+
+  getGetQuoteUseCase(): GetQuoteUseCase {
+    return new GetQuoteUseCase(this.createRepository(), this.createProfileRepository());
+  }
+
+  getCreateQuoteUseCase(): CreateQuoteUseCase {
+    return new CreateQuoteUseCase(
+      this.createRepository(),
+      this.createContentResolver(),
+      this.createProfileRepository(),
+      this.dependencies.tenantContext,
+      ...this.writeDependencies(),
+    );
+  }
+
+  getUpdateQuoteUseCase(): UpdateQuoteUseCase {
+    return new UpdateQuoteUseCase(
+      this.createRepository(),
+      this.createContentResolver(),
+      this.createProfileRepository(),
+      ...this.writeDependencies(),
+    );
+  }
+
+  getDeleteQuoteUseCase(): DeleteQuoteUseCase {
+    return new DeleteQuoteUseCase(this.createRepository(), ...this.writeDependencies());
+  }
+
+  getSendQuoteUseCase(): SendQuoteUseCase {
+    return new SendQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+  }
+
+  getAcceptQuoteUseCase(): AcceptQuoteUseCase {
+    return new AcceptQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+  }
+
+  getRejectQuoteUseCase(): RejectQuoteUseCase {
+    return new RejectQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+  }
+
+  getReviseQuoteUseCase(): ReviseQuoteUseCase {
+    return new ReviseQuoteUseCase(this.createRepository(), this.createProfileRepository(), ...this.writeDependencies());
+  }
+}

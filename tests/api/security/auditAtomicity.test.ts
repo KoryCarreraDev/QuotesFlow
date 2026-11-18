@@ -13,9 +13,10 @@ import { authenticatedRoutes, buildConcretePath, describeRoute } from '@tests/su
 import {
   type RouteSecurityScenario,
   type ScenarioResource,
-  creationBody,
+  creationBodyFor,
   persistScenarioResource,
   readScenarioResource,
+  requestOnRecord,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -24,7 +25,7 @@ const HTTP_INTERNAL_SERVER_ERROR = 500;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn';
+  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn' || scenario?.operation === 'read';
   return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
@@ -38,6 +39,7 @@ async function countStored(resource: ScenarioResource): Promise<number> {
   if (resource === 'tenant') return prisma.tenant.count();
   if (resource === 'product') return prisma.product.count();
   if (resource === 'formula') return prisma.formula.count();
+  if (resource === 'quote' || resource === 'sentQuote') return prisma.quote.count();
   return prisma.companyContact.count();
 }
 
@@ -58,7 +60,8 @@ describe('Auditoría en la misma transacción que la modificación', () => {
   async function expectCreationRolledBack(route: (typeof mutatingRoutes)[number]['route'], resource: ScenarioResource) {
     const countBefore = await countStored(resource);
 
-    const response = await request(app).post(route.pattern).set('Cookie', ownerCookie).send(creationBody(resource));
+    const body = await creationBodyFor(resource, company, company.owner.id);
+    const response = await request(app).post(route.pattern).set('Cookie', ownerCookie).send(body);
 
     expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
     await expect(countStored(resource)).resolves.toBe(countBefore);
@@ -87,10 +90,7 @@ describe('Auditoría en la misma transacción que la modificación', () => {
     const recordBefore = await readScenarioResource(scenario.resource, resourceId);
     const path = buildConcretePath(route, resourceId);
 
-    const response =
-      route.method === 'PATCH'
-        ? await request(app).patch(path).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
-        : await request(app).delete(path).set('Cookie', ownerCookie);
+    const response = await requestOnRecord(route, path, ownerCookie, scenario, company);
 
     expect(response.status).toBe(HTTP_INTERNAL_SERVER_ERROR);
     await expect(readScenarioResource(scenario.resource, resourceId)).resolves.toEqual(recordBefore);

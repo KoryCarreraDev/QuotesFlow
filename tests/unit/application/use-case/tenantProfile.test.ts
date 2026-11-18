@@ -24,6 +24,8 @@ class InMemoryTenantProfileRepository implements ITenantProfileRepository {
     name: 'Aluminios Andinos SAS',
     timezone: DEFAULT_TENANT_TIMEZONE,
     emailDeliveryEnabled: false,
+    maximumDiscountRateSalesRep: '10.00',
+    maximumDiscountRateSalesLeader: '20.00',
   };
 
   async findCurrent(): Promise<TenantProfile | null> {
@@ -31,7 +33,9 @@ class InMemoryTenantProfileRepository implements ITenantProfileRepository {
   }
 
   async updateCurrent(changes: TenantProfileChanges): Promise<void> {
-    if (this.profile) this.profile = { ...this.profile, ...changes };
+    if (!this.profile) return;
+    const { defaultTaxRate, ...otherChanges } = changes;
+    this.profile = { ...this.profile, ...otherChanges, defaultTaxRate: defaultTaxRate ?? undefined };
   }
 }
 

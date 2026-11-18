@@ -29,6 +29,7 @@ import {
 } from '../../src/presentation/schemas/leadStatusConfigSchema.js';
 import { updateTenantProfileSchema } from '../../src/presentation/schemas/tenantSchema.js';
 import { createProductSchema, updateProductSchema } from '../../src/presentation/schemas/productSchema.js';
+import { createQuoteSchema, updateQuoteSchema } from '../../src/presentation/schemas/quoteSchema.js';
 import { createFormulaSchema, updateFormulaSchema } from '../../src/presentation/schemas/formulaSchema.js';
 import {
   acceptInvitationSchema,
@@ -133,6 +134,7 @@ const formulas = crudOperations('formulas', 'Fórmulas', {
   singular: 'una fórmula de precio',
   plural: 'fórmulas de precio',
 });
+const quotes = crudOperations('quotes', 'Cotizaciones', { singular: 'una cotización', plural: 'cotizaciones' });
 const companyContacts = crudOperations('company-contacts', 'Empresas cliente', {
   singular: 'una empresa cliente',
   plural: 'empresas cliente',
@@ -331,6 +333,58 @@ export const openApiOperations: OperationEntry[] = [
   { ...formulas.create, body: createFormulaSchema },
   { ...formulas.update, body: updateFormulaSchema },
   formulas.remove,
+  quotes.search,
+  {
+    method: 'get',
+    path: `${API_BASE_PATH}/quotes/{id}`,
+    tag: 'Cotizaciones',
+    summary: 'Una cotización con sus ítems; un comercial solo las que creó',
+    successStatus: 200,
+    successDescription: 'Cotización con importes como texto decimal; displayStatus es EXPIRED si venció (Q-016)',
+  },
+  {
+    ...quotes.create,
+    body: createQuoteSchema,
+    summary: 'Crea una cotización (borrador) con el siguiente número de la empresa; el servidor calcula los precios',
+  },
+  {
+    ...quotes.update,
+    body: updateQuoteSchema,
+    summary: 'Modifica un borrador; items reemplaza todos los ítems. 409 QUOTE_NOT_EDITABLE si ya se envió (D-22)',
+  },
+  { ...quotes.remove, summary: 'Borra (suave) un borrador; 409 QUOTE_NOT_EDITABLE si ya se envió' },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/quotes/{id}/send`,
+    tag: 'Cotizaciones',
+    summary: 'Envía el borrador: pasa a SENT y ya no se edita. 409 QUOTE_EXPIRED si la vigencia pasó',
+    successStatus: 200,
+    successDescription: 'Cotización enviada',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/quotes/{id}/accept`,
+    tag: 'Cotizaciones',
+    summary: 'Registra que el cliente aceptó una cotización enviada y vigente (definitiva)',
+    successStatus: 200,
+    successDescription: 'Cotización aceptada; 409 QUOTE_INVALID_TRANSITION o QUOTE_EXPIRED',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/quotes/{id}/reject`,
+    tag: 'Cotizaciones',
+    summary: 'Registra que el cliente rechazó una cotización enviada (también si ya venció)',
+    successStatus: 200,
+    successDescription: 'Cotización rechazada; 409 QUOTE_INVALID_TRANSITION',
+  },
+  {
+    method: 'post',
+    path: `${API_BASE_PATH}/quotes/{id}/revise`,
+    tag: 'Cotizaciones',
+    summary: 'Crea la versión siguiente (borrador, mismo número: COT-000123 v2) de una enviada o rechazada (D-22)',
+    successStatus: 201,
+    successDescription: 'Versión nueva en borrador; la anterior queda SUPERSEDED',
+  },
   {
     method: 'get',
     path: `${API_BASE_PATH}/tenant`,
@@ -343,7 +397,8 @@ export const openApiOperations: OperationEntry[] = [
     method: 'patch',
     path: `${API_BASE_PATH}/tenant`,
     tag: 'Empresa',
-    summary: 'Cambia el nombre o la zona horaria (IANA) de la empresa; solo dueño y socio',
+    summary:
+      'Cambia el nombre, la zona horaria (IANA), el canal de correo, el IVA por defecto o los topes de descuento por rol; solo dueño y socio',
     body: updateTenantProfileSchema,
     successStatus: 200,
     successDescription: 'Perfil actualizado',

@@ -15,7 +15,9 @@ import { sessionCookieFor } from '@tests/support/http/apiClient.js';
 import { authenticatedRoutes, buildConcretePath, describeRoute, apiPaths } from '@tests/support/http/apiRoutes.js';
 import {
   creationBody,
+  creationBodyFor,
   persistScenarioResource,
+  requestOnRecord,
   scenarioFor,
   scenarioUpdateBody,
 } from '@tests/support/http/routeSecurityScenarios.js';
@@ -25,7 +27,7 @@ const FIRST_NON_SUCCESS_STATUS = 300;
 
 const mutatingRoutes = authenticatedRoutes.flatMap((route) => {
   const scenario = scenarioFor(route);
-  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn';
+  const isRead = scenario?.operation === 'list' || scenario?.operation === 'readOwn' || scenario?.operation === 'read';
   return scenario && !isRead ? [{ title: describeRoute(route), route, scenario }] : [];
 });
 
@@ -59,14 +61,11 @@ describe('Rastro de auditoría', () => {
         response = await request(app)
           .post(route.pattern)
           .set('Cookie', ownerCookie)
-          .send(creationBody(scenario.resource));
+          .send(await creationBodyFor(scenario.resource, company, company.owner.id));
       } else {
         const resourceId = await persistScenarioResource(scenario.resource, company, company.owner.id);
         const path = buildConcretePath(route, resourceId);
-        response =
-          route.method === 'PATCH'
-            ? await request(app).patch(path).set('Cookie', ownerCookie).send(scenarioUpdateBody(scenario, company))
-            : await request(app).delete(path).set('Cookie', ownerCookie);
+        response = await requestOnRecord(route, path, ownerCookie, scenario, company);
       }
 
       expect(response.status).toBeLessThan(FIRST_NON_SUCCESS_STATUS);

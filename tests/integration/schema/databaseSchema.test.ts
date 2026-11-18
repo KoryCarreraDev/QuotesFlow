@@ -13,7 +13,16 @@ const TABLES_WITHOUT_TENANT_SCOPE = ['Tenant'];
 // EmailLog (F2-T01) es el historial de envíos de correo; UserSession (F2-T02) se revoca y AccountToken (F2-T04)
 // se gasta: ninguno se borra.
 // UserInvitation (F2-T05) se acepta, se revoca o caduca.
-const TABLES_WITHOUT_SOFT_DELETE = ['AccountToken', 'AuditLog', 'EmailLog', 'UserInvitation', 'UserSession'];
+// QuoteNumberSequence (F3-T05) es el contador de números de cotización de cada empresa: una fila por empresa que
+// solo crece, nunca se borra.
+const TABLES_WITHOUT_SOFT_DELETE = [
+  'AccountToken',
+  'AuditLog',
+  'EmailLog',
+  'QuoteNumberSequence',
+  'UserInvitation',
+  'UserSession',
+];
 
 describe('Esquema de la base de datos tras aplicar las migraciones', () => {
   it('toda tabla de negocio tiene la columna tenantId (regla R5)', async () => {

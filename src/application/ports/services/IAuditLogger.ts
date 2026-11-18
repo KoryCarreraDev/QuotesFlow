@@ -43,6 +43,16 @@ export enum AuditAction {
   FORMULA_CREATED = 'FORMULA_CREATED',
   FORMULA_UPDATED = 'FORMULA_UPDATED',
   FORMULA_DELETED = 'FORMULA_DELETED',
+  QUOTE_CREATED = 'QUOTE_CREATED',
+  QUOTE_UPDATED = 'QUOTE_UPDATED',
+  QUOTE_DELETED = 'QUOTE_DELETED',
+  QUOTE_SENT = 'QUOTE_SENT',
+  QUOTE_ACCEPTED = 'QUOTE_ACCEPTED',
+  QUOTE_REJECTED = 'QUOTE_REJECTED',
+  /** Se creó la versión siguiente de una cotización enviada o rechazada (D-22). */
+  QUOTE_REVISED = 'QUOTE_REVISED',
+  /** Un comercial cambió el precio calculado de un ítem (D-24, Q-015): F4-T06 avisará a los líderes. */
+  QUOTE_PRICE_OVERRIDDEN = 'QUOTE_PRICE_OVERRIDDEN',
 }
 
 /** Sobre qué tipo de registro. Se guarda en `AuditLog.entity`. */
@@ -57,6 +67,7 @@ export enum AuditEntity {
   COMPANY_CONTACT = 'CompanyContact',
   PRODUCT = 'Product',
   FORMULA = 'Formula',
+  QUOTE = 'Quote',
 }
 
 /**

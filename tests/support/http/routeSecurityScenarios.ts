@@ -4,6 +4,8 @@
 // usan este escenario para probar el aislamiento entre empresas y la matriz de permisos por rol.
 // Una ruta protegida sin escenario hace fallar la suite: ningún endpoint nuevo entra sin esas pruebas.
 
+import request from 'supertest';
+import app from '@/app.js';
 import prisma from '@/config/database.js';
 import { Action } from '@/application/policies/authorizationPolicy.js';
 import {
@@ -14,6 +16,7 @@ import {
   persistFormula,
   persistLeadStatus,
   persistProduct,
+  persistQuote,
   persistUser,
   persistUserInvitation,
   testSessionIdFor,
@@ -32,13 +35,18 @@ export type ScenarioResource =
   | 'invitation'
   | 'tenant'
   | 'product'
-  | 'formula';
+  | 'formula'
+  | 'quote'
+  | 'sentQuote';
 
 /** Qué hace la ruta con el recurso; decide cómo se prueba. */
+/** `read`: lee un registro por su id (F3-T05). */
+/** `transition`: cambia el estado de un registro con un POST sobre su id, sin cuerpo (F3-T05). */
 /** `bulkUpdate`: modifica varios registros de la empresa a la vez, sin id en la ruta (reordenar). */
 /** `self`: modifica lo propio (sus sesiones, su empresa), sin id en la ruta (F2-T02, F2-T06). */
 /** `readOwn`: lee un registro propio que no es una colección (el perfil de su empresa, F2-T06). */
-export type ScenarioOperation = 'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self' | 'readOwn';
+export type ScenarioOperation =
+  'list' | 'create' | 'update' | 'delete' | 'bulkUpdate' | 'self' | 'readOwn' | 'read' | 'transition';
 
 export interface RouteSecurityScenario {
   /** Acción de `permissionMatrix` que autoriza la ruta. */
@@ -52,6 +60,7 @@ export interface RouteSecurityScenario {
 }
 
 const HTTP_OK_STATUS = 200;
+const HTTP_CREATED_STATUS = 201;
 
 const scenariosByRoute = new Map<string, RouteSecurityScenario>([
   [`POST ${apiPaths.auth.logoutAll}`, { action: Action.SESSION_REVOKE_OWN, resource: 'session', operation: 'self' }],
@@ -158,6 +167,25 @@ const scenariosByRoute = new Map<string, RouteSecurityScenario>([
     { action: Action.PRODUCT_DELETE, resource: 'product', operation: 'delete' },
   ],
 
+  [`GET ${apiPaths.quotes.filtered}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'list' }],
+  [`POST ${apiPaths.quotes.create}`, { action: Action.QUOTE_CREATE, resource: 'quote', operation: 'create' }],
+  [`GET ${apiPaths.quotes.get(':id')}`, { action: Action.QUOTE_LIST, resource: 'quote', operation: 'read' }],
+  [`PATCH ${apiPaths.quotes.update(':id')}`, { action: Action.QUOTE_UPDATE, resource: 'quote', operation: 'update' }],
+  [`DELETE ${apiPaths.quotes.delete(':id')}`, { action: Action.QUOTE_DELETE, resource: 'quote', operation: 'delete' }],
+  [`POST ${apiPaths.quotes.send(':id')}`, { action: Action.QUOTE_SEND, resource: 'quote', operation: 'transition' }],
+  [
+    `POST ${apiPaths.quotes.accept(':id')}`,
+    { action: Action.QUOTE_DECIDE, resource: 'sentQuote', operation: 'transition' },
+  ],
+  [
+    `POST ${apiPaths.quotes.reject(':id')}`,
+    { action: Action.QUOTE_DECIDE, resource: 'sentQuote', operation: 'transition' },
+  ],
+  [
+    `POST ${apiPaths.quotes.revise(':id')}`,
+    { action: Action.QUOTE_UPDATE, resource: 'sentQuote', operation: 'transition', successStatus: HTTP_CREATED_STATUS },
+  ],
+
   [`GET ${apiPaths.formulas.filtered}`, { action: Action.FORMULA_LIST, resource: 'formula', operation: 'list' }],
   [`POST ${apiPaths.formulas.create}`, { action: Action.FORMULA_CREATE, resource: 'formula', operation: 'create' }],
   [
@@ -212,6 +240,11 @@ export async function persistScenarioResource(
   if (resource === 'product') return (await persistProduct(tenantId)).id;
   // Las fórmulas tampoco: son de la empresa; el autor es el dueño.
   if (resource === 'formula') return (await persistFormula(tenantId, company.owner.id)).id;
+  // Las cotizaciones son de quien las creó; `ownerUserId` es su autor (F3-T05).
+  if (resource === 'quote' || resource === 'sentQuote') {
+    const status = resource === 'sentQuote' ? 'SENT' : 'DRAFT';
+    return (await persistQuote(tenantId, ownerUserId ?? company.owner.id, { status })).id;
+  }
   return (await persistCompanyContact(tenantId, { ownerId: ownerUserId })).id;
 }
 
@@ -234,6 +267,39 @@ export function creationBody(resource: ScenarioResource): Record<string, unknown
   return { name: 'Empresa Escenario SAS' };
 }
 
+/**
+ * Cuerpo válido para crear el recurso por parte de `actingUserId`, que puede necesitar datos propios: una cotización
+ * solo se hace a un cliente al alcance de quien la crea (un comercial, a los suyos).
+ */
+export async function creationBodyFor(
+  resource: ScenarioResource,
+  company: TenantWithTeam,
+  actingUserId: string,
+): Promise<Record<string, unknown>> {
+  if (resource !== 'quote') return creationBody(resource);
+  const contact = await persistContact(company.tenant.id, { ownerId: actingUserId });
+  return {
+    contactId: contact.id,
+    items: [{ description: 'Instalación', quantity: 1, unitPrice: '150000', taxRate: '19' }],
+  };
+}
+
+/** Pide la ruta del escenario sobre un registro concreto, con la cookie de quien actúa. */
+export async function requestOnRecord(
+  route: RouteInventoryEntry,
+  path: string,
+  cookie: string,
+  scenario: RouteSecurityScenario,
+  company: TenantWithTeam,
+): Promise<request.Response> {
+  if (route.method === 'GET') return request(app).get(path).set('Cookie', cookie);
+  if (route.method === 'PATCH') {
+    return request(app).patch(path).set('Cookie', cookie).send(scenarioUpdateBody(scenario, company));
+  }
+  if (route.method === 'POST') return request(app).post(path).set('Cookie', cookie);
+  return request(app).delete(path).set('Cookie', cookie);
+}
+
 /** Cuerpo válido para la ruta de modificación del escenario, enviado por un usuario de `company`. */
 export function scenarioUpdateBody(scenario: RouteSecurityScenario, company: TenantWithTeam): Record<string, unknown> {
   return scenario.updateBody ? scenario.updateBody(company) : updateBody(scenario.resource);
@@ -248,6 +314,7 @@ export function updateBody(resource: ScenarioResource): Record<string, unknown> 
   if (resource === 'tenant') return { timezone: 'America/Lima' };
   if (resource === 'product') return { name: 'Producto modificado' };
   if (resource === 'formula') return { name: 'Fórmula modificada' };
+  if (resource === 'quote') return { notes: 'Modificada en el escenario' };
   return { city: 'Modificada' };
 }
 
@@ -262,6 +329,9 @@ export async function readScenarioResource(resource: ScenarioResource, id: strin
   if (resource === 'tenant') return prisma.tenant.findUnique({ where: { id }, include: { tenantSettings: true } });
   if (resource === 'product') return prisma.product.findUnique({ where: { id } });
   if (resource === 'formula') return prisma.formula.findUnique({ where: { id } });
+  if (resource === 'quote' || resource === 'sentQuote') {
+    return prisma.quote.findUnique({ where: { id }, include: { items: true } });
+  }
   return prisma.companyContact.findUnique({ where: { id } });
 }
 
