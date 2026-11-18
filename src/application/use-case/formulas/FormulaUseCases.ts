@@ -154,12 +154,14 @@ export class DeleteFormulaUseCase {
 
   async execute(actor: Actor, formulaId: string): Promise<void> {
     assertAllowed(actor, Action.FORMULA_DELETE);
-    if (!(await this.repository.findById(formulaId))) throw formulaNotFound();
-    if (await this.repository.isUsedByProducts(formulaId)) {
-      throw new ConflictError(ErrorCode.FORMULA_IN_USE, 'Formula is used by products');
-    }
 
     await this.transactionManager.runInTransaction(async () => {
+      // Con la fila bloqueada, un producto que se esté guardando con esta fórmula termina antes de que se compruebe
+      // el uso, y uno que llegue después no la encuentra (F3-A20).
+      if (!(await this.repository.lockForDeletion(formulaId))) throw formulaNotFound();
+      if (await this.repository.isUsedByProducts(formulaId)) {
+        throw new ConflictError(ErrorCode.FORMULA_IN_USE, 'Formula is used by products');
+      }
       await this.repository.delete(formulaId);
       await this.auditLogger.record({
         action: AuditAction.FORMULA_DELETED,

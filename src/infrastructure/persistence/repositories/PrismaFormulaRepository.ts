@@ -66,6 +66,14 @@ export class PrismaFormulaRepository extends BasePrismaRepository implements IFo
     await this.softDeleteRegister(this.prisma.formula, formulaId);
   }
 
+  async lockForDeletion(formulaId: string): Promise<boolean> {
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "Formula"
+      WHERE "id" = ${formulaId} AND "tenantId" = ${this.tenantId} AND "deleted" = 'INUSE'::"DeletedState"
+      FOR UPDATE`;
+    return rows.length === 1;
+  }
+
   async isUsedByProducts(formulaId: string): Promise<boolean> {
     const product = await this.prisma.product.findFirst({
       where: { formulaId, ...this.tenantWhere() },

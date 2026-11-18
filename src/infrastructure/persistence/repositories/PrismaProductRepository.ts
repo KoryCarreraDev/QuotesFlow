@@ -65,11 +65,11 @@ export class PrismaProductRepository extends BasePrismaRepository implements IPr
   }
 
   async formulaExists(formulaId: string): Promise<boolean> {
-    const formula = await this.prisma.formula.findFirst({
-      where: { id: formulaId, ...this.tenantWhere() },
-      select: { id: true },
-    });
-    return formula !== null;
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "Formula"
+      WHERE "id" = ${formulaId} AND "tenantId" = ${this.tenantId} AND "deleted" = 'INUSE'::"DeletedState"
+      FOR SHARE`;
+    return rows.length === 1;
   }
 
   async findFiltered(criteria: FilterCriteriaDTO, config: IFilterFieldConfig): Promise<Product[]> {

@@ -82,9 +82,10 @@ export class CreateProductUseCase {
       formulaId: input.formulaId,
       isActive: input.isActive ?? true,
     });
-    await assertFormulaBelongsToTenant(this.repository, product.formulaId);
 
     await this.transactionManager.runInTransaction(async () => {
+      // Dentro de la transacción y con la fórmula bloqueada: un borrado simultáneo no la deja huérfana (F3-A20).
+      await assertFormulaBelongsToTenant(this.repository, product.formulaId);
       await this.repository.create(product);
       await this.auditLogger.record({
         action: AuditAction.PRODUCT_CREATED,
@@ -117,9 +118,9 @@ export class UpdateProductUseCase {
 
     const changes: ProductChanges = { ...input, basePrice: moneyOrNullFrom(input.basePrice) };
     const updatedProduct = storedProduct.withChanges(changes);
-    await assertFormulaBelongsToTenant(this.repository, input.formulaId);
 
     await this.transactionManager.runInTransaction(async () => {
+      await assertFormulaBelongsToTenant(this.repository, input.formulaId);
       await this.repository.update(updatedProduct);
       await this.auditLogger.record({
         action: AuditAction.PRODUCT_UPDATED,

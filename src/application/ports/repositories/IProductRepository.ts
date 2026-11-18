@@ -10,6 +10,10 @@ export interface IProductRepository extends IFilterableRepository<Product> {
   update(product: Product): Promise<void>;
   /** Borrado suave: las cotizaciones que ya lo usan conservan su copia del ítem. */
   delete(productId: string): Promise<void>;
-  /** Indica si la fórmula existe, no está borrada y es de la empresa de la sesión. */
+  /**
+   * Indica si la fórmula existe, no está borrada y es de la empresa de la sesión. Dentro de una transacción además
+   * bloquea la fila (`FOR SHARE`) hasta confirmar: un borrado de la fórmula espera a que el producto quede guardado y
+   * entonces ve que la usa (F3-A20). Por eso se llama dentro de la transacción que guarda el producto.
+   */
   formulaExists(formulaId: string): Promise<boolean>;
 }

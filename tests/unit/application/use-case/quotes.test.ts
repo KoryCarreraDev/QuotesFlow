@@ -436,6 +436,25 @@ describe('Precio de los ítems', () => {
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_FORMULA_VARIABLE });
   });
 
+  it('una fórmula ausente (borrada) responde 400 PRODUCT_NOT_AVAILABLE, no 500 (F3-A20)', async () => {
+    const context = setup();
+    const product = Product.restore({
+      id: randomUUID(),
+      tenantId: DEFAULT_TEST_TENANT_ID,
+      name: 'Vidrio a medida',
+      formulaId: randomUUID(),
+      isActive: true,
+    });
+    context.products.seed(product);
+
+    await expect(
+      context.create.execute(
+        salesRep,
+        quoteInput(seedContact(context, salesRep.userId), { items: [{ productId: product.id, quantity: 1 }] }),
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.PRODUCT_NOT_AVAILABLE });
+  });
+
   it('un producto inactivo, inexistente o de otra empresa no se cotiza', async () => {
     const context = setup();
     const contactId = seedContact(context, salesRep.userId);
