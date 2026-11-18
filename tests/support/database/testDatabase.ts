@@ -31,6 +31,14 @@ function getTestDatabasePool(): pg.Pool {
   return testDatabasePool;
 }
 
+/**
+ * Ejecuta SQL tal cual en la base del test. Sirve para probar el SQL de una migración contra filas que la aplicación
+ * no deja crear (por ejemplo, datos anteriores a las reglas actuales).
+ */
+export async function executeSql(sql: string): Promise<void> {
+  await getTestDatabasePool().query(sql);
+}
+
 /** Vacía todas las tablas de negocio. Se ejecuta sola antes de cada test de `integration` y `api`. */
 export async function resetDatabase(): Promise<void> {
   const pool = getTestDatabasePool();
